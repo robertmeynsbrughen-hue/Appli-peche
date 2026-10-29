@@ -1,7 +1,7 @@
 /* Coup du Jour : service worker (fonctionnement hors ligne) */
-const VERSION="cdj-v1";
+const VERSION="cdj-v3";
 const SHELL=["./","index.html","styles.css","advice.js","social.js","config.js","manifest.webmanifest",
-  "icons/icon-192.png","icons/icon-512.png"];
+  "icon-192.png","icon-512.png"];
 const CDN=["unpkg.com","cdn.jsdelivr.net","fonts.googleapis.com","fonts.gstatic.com"];
 self.addEventListener("install",e=>{ e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())); });
 self.addEventListener("activate",e=>{

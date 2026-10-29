@@ -2,7 +2,7 @@
    (Project Settings > API : « Project URL » et clé « anon public » / « publishable »).
    Cette clé est faite pour être publique : la sécurité repose sur le code du groupe et les règles de la base. */
 window.CDJ_CONFIG = {
-  SUPABASE_URL: "COLLE_ICI_L_URL_DU_PROJET",
-  SUPABASE_KEY: "COLLE_ICI_LA_CLE_ANON",
+  SUPABASE_URL: "https://gnamfqwbzmwivjagwogy.supabase.co",
+  SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduYW1mcXdiem13aXZqYWd3b2d5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMjkxNDAsImV4cCI6MjEwODgwNTE0MH0.XVcLscEz9Dr87ZJVy7FLDFse4OWy5yOFFssHe-gsm7I",
   EMAIL_DOMAIN: "coupdujour.app" // domaine fictif utilisé en interne pour les comptes, aucun e-mail n'est envoyé
 };

@@ -7,8 +7,8 @@
 <meta name="theme-color" content="#1f6f5c">
 <meta name="description" content="Conseils pêche selon la météo, fil photo et carte des spots du groupe.">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@500&family=Source+Sans+3:wght@400;600&display=swap">
@@ -93,6 +93,9 @@ body{margin:0}
     <div class="setup" data-setup hidden>Le fil n'est pas encore branché : il faut renseigner le fichier config.js (voir le guide LISEZMOI).</div>
     <div class="empty" data-need-login hidden>Connecte-toi dans l'onglet Profil pour voir et partager les prises du groupe.</div>
 
+    <label class="field grp-bar" data-need-member hidden>Groupe
+      <select class="grp-select"></select></label>
+    <p class="note" id="composer-all" hidden>Choisis un groupe précis pour publier.</p>
     <form class="panel" id="composer" hidden>
       <h2>Nouvelle prise</h2>
       <label class="field">Photo
@@ -126,6 +129,8 @@ body{margin:0}
   <section class="view" id="v-carte" hidden>
     <div class="setup" data-setup hidden>La carte des spots n'est pas encore branchée : il faut renseigner le fichier config.js (voir le guide LISEZMOI).</div>
     <div class="empty" data-need-login hidden>Connecte-toi dans l'onglet Profil pour voir les spots du groupe.</div>
+    <label class="field grp-bar" data-need-member hidden>Groupe
+      <select class="grp-select"></select></label>
     <div class="map-bar" id="map-bar" hidden>
       <button type="button" class="btn primary" id="spot-here">Spot à ma position</button>
       <span class="note">ou touche la carte à l'endroit voulu</span>
@@ -184,9 +189,43 @@ body{margin:0}
       <div class="actions"><button class="btn" type="button" id="logout">Se déconnecter</button></div>
     </div>
 
+    <div class="panel" id="my-groups" hidden>
+      <h2>Mes groupes</h2>
+      <div class="list" id="my-groups-list"></div>
+      <form id="join-more" class="actions" style="align-items:flex-end">
+        <label class="field" style="flex:1;min-width:160px">Rejoindre un autre groupe
+          <input id="jm-code" required placeholder="Code du groupe"></label>
+        <button class="btn primary" type="submit">Rejoindre</button>
+      </form>
+      <p class="err" id="jm-err" hidden></p>
+    </div>
+
     <div class="panel">
       <h2>Installer l'appli</h2>
       <p class="note">Android (Chrome) : menu ⋮ puis « Ajouter à l'écran d'accueil » ou « Installer l'application ».<br>iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
+    </div>
+  </section>
+  <!-- ========== ADMIN ========== -->
+  <section class="view" id="v-admin" hidden>
+    <p class="intro">Vue d'ensemble de tous les groupes. Tu peux modérer posts et spots directement depuis le Fil et la Carte en choisissant « Tous les groupes ».</p>
+    <div class="list" id="adm-groups"></div>
+    <form class="panel" id="adm-form">
+      <h2 id="adm-form-title">Nouveau groupe</h2>
+      <input type="hidden" id="g-id">
+      <div class="row2">
+        <label class="field">Nom<input id="g-name" required maxlength="40" placeholder="Ex. : Garonne Aval"></label>
+        <label class="field">Région<input id="g-region" maxlength="40" placeholder="Ex. : Gironde"></label>
+      </div>
+      <label class="field">Code d'invitation<input id="g-code" required minlength="6" placeholder="6 caractères minimum"></label>
+      <p class="err" id="g-err" hidden></p>
+      <div class="actions">
+        <button class="btn primary" type="submit" id="g-submit">Créer le groupe</button>
+        <button class="btn" type="button" id="g-cancel" hidden>Annuler</button>
+      </div>
+    </form>
+    <div class="panel" id="adm-members" hidden>
+      <h2 id="adm-members-title"></h2>
+      <div class="list" id="adm-members-list"></div>
     </div>
   </section>
   </main>
@@ -201,6 +240,8 @@ body{margin:0}
     <svg viewBox="0 0 24 24"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>Carte</a>
   <a href="#profil" data-v="profil">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Profil</a>
+  <a href="#admin" data-v="admin" id="tab-admin" hidden>
+    <svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Admin</a>
 </nav>
 
 <script src="config.js"></script>
