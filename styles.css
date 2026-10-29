@@ -546,3 +546,15 @@ body.chat-open{overflow:hidden}
 .regl-l{min-width:0;display:flex;flex-direction:column;gap:4px}
 .rk-v.wrap{white-space:pre-line;text-align:right;flex-shrink:0}
 .mrow>div:first-child{min-width:0}
+
+/* ---- Alerte du matin ---- */
+#alerts .g-sec-head h2{margin:0}
+.alert-body{display:flex;flex-direction:column;gap:14px}
+.alert-place{font-weight:600;color:var(--fg)}
+.alert-spot{font:inherit;font-size:.86rem;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:6px 10px;min-height:34px;max-width:100%}
+#alerts input[type=range]{width:100%;accent-color:var(--accent)}
+
+/* ---- Hors ligne ---- */
+.queue-pill{position:fixed;left:50%;transform:translateX(-50%);top:calc(64px + env(safe-area-inset-top,0px));z-index:1500;font:inherit;font-size:.82rem;font-weight:700;
+  padding:6px 14px;border-radius:99px;border:1px solid var(--amber);background:var(--amber-soft);color:var(--fg);box-shadow:var(--shadow);cursor:pointer}
+.queue-pill.off{border-color:var(--warn);background:var(--warn-soft)}

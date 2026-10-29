@@ -1,4 +1,5 @@
 // Coup du Jour : bibliothèque d'envoi des notifications (utilisée par la fonction Supabase « notify »)
+import { scoreDay, weatherUrl, openingReminder } from "./score-lib.js";
 // ---- Web Push (RFC 8291 aes128gcm + VAPID RFC 8292), WebCrypto uniquement ----
 const te = new TextEncoder();
 export const b64u = {
@@ -98,6 +99,7 @@ export async function handle(req, cfg) {
   try {
     const ev = await req.json();
     const t = ev.table;
+    if (t === "morning") return Response.json(await morning(ev, VAPID));
     let rec, group_id, author, recipients, msg;
     if (t === "memberships") {
       group_id = Number(ev.group_id); author = String(ev.user_id).replace(/[^0-9a-f-]/gi, "");
@@ -203,4 +205,54 @@ export async function handle(req, cfg) {
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 });
   }
+}
+
+// ---- Alerte du matin : bonnes conditions + rappels d'ouverture ----
+async function pushTo(user_id, msg, vapid) {
+  const subs = await db("push_subs?user_id=eq." + user_id + "&select=endpoint,p256dh,auth");
+  const payload = JSON.stringify(msg);
+  let ok = 0;
+  await Promise.allSettled(subs.map(async (s) => {
+    const r = await sendPush(s, payload, vapid);
+    if (r.status === 404 || r.status === 410) await db("push_subs?endpoint=eq." + encodeURIComponent(s.endpoint), { method: "DELETE" });
+    else if (r.ok) ok++;
+  }));
+  return ok;
+}
+async function morning(ev, vapid) {
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date());
+  const test = ev.test === true && /^[0-9a-f-]{36}$/i.test(String(ev.user_id || ""));
+  let q = "alert_prefs?enabled=eq.true&select=user_id,lat,lon,place,species,threshold,water,opening,last_sent";
+  if (test) q = "alert_prefs?user_id=eq." + ev.user_id + "&select=user_id,lat,lon,place,species,threshold,water,opening,last_sent";
+  const prefs = await db(q);
+  const reminder = openingReminder(today);
+  const cache = new Map();
+  const report = [];
+  for (const p of prefs) {
+    if (!test && p.last_sent === today) continue;
+    const msgs = [];
+    if (p.lat != null && p.lon != null) {
+      const key = Number(p.lat).toFixed(2) + "," + Number(p.lon).toFixed(2);
+      try {
+        if (!cache.has(key)) cache.set(key, fetch(weatherUrl(p.lat, p.lon)).then((r) => r.ok ? r.json() : null));
+        const d = await cache.get(key);
+        if (d) {
+          const all = scoreDay(d, p.species || [], p.water || "etang");
+          const good = (test ? all : all.filter((x) => x.score >= (p.threshold || 70))).slice(0, 3);
+          if (good.length) msgs.push({
+            title: (test ? "🧪 Test · " : "") + "🎣 Bonnes conditions aujourd'hui" + (p.place ? " · " + p.place : ""),
+            body: good.map((x) => x.name + " " + x.score + " % vers " + x.hour + "h").join(" · "),
+            url: "./#conseils", tag: "morning",
+          });
+        }
+      } catch (_) { /* météo indisponible : on passe */ }
+    }
+    if (p.opening !== false && reminder) msgs.push({ ...reminder, url: "./#conseils", tag: "regl-" + today });
+    if (test && !msgs.length) msgs.push({ title: "🧪 Test · Alerte du matin", body: "Les alertes fonctionnent. Ajoute ta position pour recevoir les conditions.", url: "./#profil", tag: "morning" });
+    let sent = 0;
+    for (const m of msgs) sent += await pushTo(p.user_id, m, vapid);
+    if (!test && msgs.length) await db("alert_prefs?user_id=eq." + p.user_id, { method: "PATCH", body: JSON.stringify({ last_sent: today }), headers: { Prefer: "return=minimal" } });
+    report.push({ msgs: msgs.length, sent });
+  }
+  return { day: today, users: prefs.length, report };
 }

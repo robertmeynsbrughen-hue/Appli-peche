@@ -415,6 +415,18 @@ $("#composer").addEventListener("submit",async e=>{
   const cap=$("#p-caption").value.trim();
   if(!pics.length&&!cap&&!$("#p-bait").value.trim()) return showErr($("#p-err"),"Ajoute une photo ou une légende.");
   const btn=$("#p-submit"); btn.disabled=true; btn.textContent="Envoi…"; showErr($("#p-err"));
+  // hors ligne : on garde la prise (photos comprises) et on l'envoie au retour du réseau
+  const queuePost=async()=>{
+    const blobs=[]; for(const p of pics) blobs.push(await compress(p.file));
+    const len=parseFloat($("#p-len").value), wt=parseFloat($("#p-wt").value);
+    const ok=await window.CDJ.offline?.enqueue({kind:"post",blobs,row:{group_id:cur,caption:cap||null,species:$("#p-species").value||null,
+      spot_id:$("#p-spot").value?Number($("#p-spot").value):null,length_cm:len>0?Math.round(len*10)/10:null,weight_kg:wt>0?Math.round(wt*100)/100:null,bait:$("#p-bait").value.trim()||null}});
+    if(!ok) return false;
+    pics.forEach(f=>URL.revokeObjectURL(f.url)); pics=[]; renderThumbs();
+    $("#composer").reset(); $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
+    toast("Pas de réseau : ta prise partira automatiquement dès le retour du réseau"); return true;
+  };
+  if(!navigator.onLine&&window.CDJ.offline){ try{ await queuePost(); }finally{ btn.disabled=false; btn.textContent="Publier"; } return; }
   try{
     const paths=[], stamp=Date.now();
     for(let i=0;i<pics.length;i++){
@@ -439,7 +451,10 @@ $("#composer").addEventListener("submit",async e=>{
     toast(curGroup()?.post_approval&&!canModerate(cur)?"Prise envoyée : elle sera visible après validation":"Prise partagée"); loadFeed(); loadStats();
     // une belle prise avec photo : on propose tout de suite la carte d'identité
     if(cardData.photoUrl&&(cardData.species||cardData.length)) setTimeout(()=>window.CDJ.openCard?.(cardData),500);
-  }catch(err){ showErr($("#p-err"),frError(err)); }
+  }catch(err){
+    if(window.CDJ.offline?.isNetErr(err)&&await queuePost()) return;
+    showErr($("#p-err"),frError(err));
+  }
   finally{ btn.disabled=false; btn.textContent="Publier"; }
 });
 $("#feed-refresh").addEventListener("click",()=>loadFeed());

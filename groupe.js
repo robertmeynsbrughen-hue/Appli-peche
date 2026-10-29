@@ -66,10 +66,14 @@ $("#bilan").addEventListener("submit",async e=>{
   if(!pick.rating) return showErr($("#b-err"),"Choisis l'indice de réussite de ta session.");
   const capot=$("#b-capot").checked, len=parseFloat($("#b-len").value);
   const b=$("#b-submit"); b.disabled=true;
-  const {error}=await A.sb.from("sessions").insert({group_id:A.cur,user_id:A.me.id,species:pick.species,caught:!capot,
-    length_cm:!capot&&len>0?Math.round(len):null,lure:pick.lure,color:pick.color,rating:pick.rating,water_type:waterType()});
+  const row={group_id:A.cur,user_id:A.me.id,species:pick.species,caught:!capot,
+    length_cm:!capot&&len>0?Math.round(len):null,lure:pick.lure,color:pick.color,rating:pick.rating,water_type:waterType()};
+  let {error}=navigator.onLine?await A.sb.from("sessions").insert(row):{error:new Error("Failed to fetch")};
+  let queued=false;
+  if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"sessions",row})){ error=null; queued=true; }
   b.disabled=false;
   if(error) return showErr($("#b-err"),frError(error));
+  if(queued){ Object.keys(pick).forEach(k=>pick[k]=null); $("#bilan").reset(); $("#b-len").disabled=false; renderBilan(); return toast("Pas de réseau : ton bilan partira dès le retour du réseau"); }
   Object.keys(pick).forEach(k=>pick[k]=null); $("#bilan").reset(); $("#b-len").disabled=false; renderBilan();
   toast("Bilan partagé avec le groupe"); A.loadFeed();
 });
@@ -550,7 +554,9 @@ $("#chat-form").addEventListener("submit",async e=>{
   e.preventDefault();
   const inp=$("#chat-input"), body=inp.value.trim(); if(!body||!chatGid) return;
   inp.value=""; sugg.hidden=true;
-  const {data,error}=await A.sb.from("messages").insert({group_id:chatGid,user_id:A.me.id,body}).select("id,user_id,group_id,body,created_at").single();
+  const row={group_id:chatGid,user_id:A.me.id,body};
+  const {data,error}=navigator.onLine?await A.sb.from("messages").insert(row).select("id,user_id,group_id,body,created_at").single():{error:new Error("Failed to fetch")};
+  if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"messages",row})) return toast("Pas de réseau : message envoyé dès le retour du réseau");
   if(error){ inp.value=body; return toast(frError(error)); }
   await addMsg({...data,profiles:{username:A.me.username,is_admin:A.me.is_admin}}); markSeen();
 });

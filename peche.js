@@ -126,8 +126,9 @@ function drawCarp(recent){
       if(x.note) l.append(el("span","post-date",x.note));
       r.append(l);
       const act=el("div","actions");
-      if(x.kind==="prise") act.append(btn("📸 Publier","linkbtn",()=>publish(x)));
-      if(i===0) act.append(confirmBtn("Annuler","Confirmer",async()=>{ const {error}=await A.sb.from("carp_events").delete().eq("id",x.id); if(error) return toast(frError(error)); events=events.filter(z=>z.id!==x.id); drawCarp([]); },"linkbtn danger"));
+      if(x.kind==="prise"&&!x.queued) act.append(btn("📸 Publier","linkbtn",()=>publish(x)));
+      if(x.queued) act.append(el("span","note","⏳ en attente"));
+      else if(i===0) act.append(confirmBtn("Annuler","Confirmer",async()=>{ const {error}=await A.sb.from("carp_events").delete().eq("id",x.id); if(error) return toast(frError(error)); events=events.filter(z=>z.id!==x.id); drawCarp([]); },"linkbtn danger"));
       r.append(act); list.append(r);
     });
     box.append(list);
@@ -142,8 +143,9 @@ function drawCarp(recent){
   box.append(end);
 }
 async function addEvent(kind,weight,note){
-  const ins={session_id:carp.id,kind,rod:carp.rods>1?rod:null,weight_kg:weight||null,note:note||null};
-  const {data,error}=await A.sb.from("carp_events").insert(ins).select("id,kind,at,rod,weight_kg,note").single();
+  const ins={session_id:carp.id,kind,at:new Date().toISOString(),rod:carp.rods>1?rod:null,weight_kg:weight||null,note:note||null};
+  let {data,error}=navigator.onLine?await A.sb.from("carp_events").insert(ins).select("id,kind,at,rod,weight_kg,note").single():{error:new Error("Failed to fetch")};
+  if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"carp_events",row:ins})){ error=null; data={...ins,id:"q"+Date.now(),queued:true}; }
   if(error) return toast(frError(error));
   events=[data,...events];
   if(navigator.vibrate) try{ navigator.vibrate(40); }catch(e){}
@@ -377,6 +379,7 @@ function drawGear(){
 }
 
 /* ---------- Accroches ---------- */
+A.hooks.afterFlush=()=>{ if(carp) loadCarp(); };
 A.hooks.spotSheet=s=>spotSheet(s,false);
 A.hooks.mode=m=>{ if(m==="carp") loadCarp(); else clearInterval(tick); };
 const prevProfil=A.hooks.profil;
