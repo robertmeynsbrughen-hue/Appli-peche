@@ -220,7 +220,9 @@ function mk(tag,cls,text){ const e=document.createElement(tag); if(cls) e.classN
 const cap=t=>t.charAt(0).toUpperCase()+t.slice(1);
 function render(){
   if(!current) return;
-  const {hours,meta}=current;
+  let {hours,meta}=current;
+  const tm=measuredTemp(meta);
+  if(tm!=null) hours=hours.map(h=>({...h,water:tm}));
   const now=hours[0];
   const st=$("#status");
   st.innerHTML="";
@@ -234,8 +236,12 @@ function render(){
   const hero=$("#hero"); hero.innerHTML="";
   const big=mk("div","hero-temp"); big.append(mk("span","hero-num",now.water.toFixed(1).replace(".",",")),mk("span","hero-unit","°C"));
   const side=mk("div","hero-side");
-  side.append(mk("div","hero-k","Eau estimée"), mk("div","hero-v",sky+" · air "+Math.round(now.air)+"\u00a0°C"), mk("div","hero-v2","Eau "+CLARITY_TXT[clar]+(($("#f-clarity")||{}).value==="auto"?" (estimée)":"")));
+  side.append(mk("div","hero-k",tm!=null?"Eau mesurée":"Eau estimée"), mk("div","hero-v",sky+" · air "+Math.round(now.air)+"\u00a0°C"), mk("div","hero-v2","Eau "+CLARITY_TXT[clar]+(($("#f-clarity")||{}).value==="auto"?" (estimée)":"")));
   hero.append(big,side);
+  if(mode==="live"&&meta.hub?.temp){
+    const T=meta.hub.temp;
+    hero.append(mk("div","hero-src",(tm!=null?"🌡️ Sonde ":"🌡️ Rivière proche : sonde ")+"« "+T.station+" »"+(T.river?" ("+T.river+")":"")+", à "+T.dist.toFixed(1).replace(".",",")+" km : "+T.v.toFixed(1).replace(".",",")+" °C le "+hhmmOf(T.t)+(tm==null?". Non utilisée car tu as choisi « étang ».":".")));
+  }
 
   const g=$("#grid"); g.innerHTML="";
   const cells=[
@@ -252,7 +258,19 @@ function render(){
     const f=getFlow(meta);
     cells.push(["Débit rivière",f?(f.q!=null?Math.round(f.q)+" m³/s · ":"")+FLOW_TXT[f.status]+(f.trend==="hausse"?" ↑":f.trend==="baisse"?" ↓":""):"indisponible"]);
   }
-  for(const [k,v] of cells){ const d=mk("div","cell"+(k==="Solunaire"?" wide":"")); d.append(mk("div","k",k),mk("div","v",v)); if(k==="Solunaire") d.title="★ périodes majeures (lune au plus haut ou au plus bas, ±1 h) · ☆ mineures (lever et coucher de lune, ±30 min)"; g.append(d); }
+  const HY=mode==="live"?meta.hub?.hydro:null;
+  if(HY){
+    const sgn=x=>(x>0?"+":"")+Math.round(x*100)+" cm";
+    const parts=[];
+    if(HY.h) parts.push(HY.h.m.toFixed(2).replace(".",",")+" m"+(HY.h.d24!=null?" ("+sgn(HY.h.d24)+" en 24 h)":""));
+    if(HY.q) parts.push((HY.q.m3>=10?Math.round(HY.q.m3):HY.q.m3.toFixed(1).replace(".",","))+" m³/s"+(HY.q.r24?" (×"+HY.q.r24.toFixed(1).replace(".",",")+" en 24 h)":""));
+    cells.push(["Station "+HY.station.replace(/\s*\[.*\]$/,""),parts.join(" · ")+" · relevé "+hhmmOf(Math.max(HY.h?.t||0,HY.q?.t||0))]);
+  }
+  for(const [k,v] of cells){ const d=mk("div","cell"+(k==="Solunaire"||k.startsWith("Station ")?" wide":"")); d.append(mk("div","k",k),mk("div","v",v)); if(k==="Solunaire") d.title="★ périodes majeures (lune au plus haut ou au plus bas, ±1 h) · ☆ mineures (lever et coucher de lune, ±30 min)"; g.append(d); }
+  if(HY){
+    const rising=(HY.h&&HY.h.d6!=null&&HY.h.d6>=0.3)||(HY.q&&HY.q.r24&&HY.q.r24>=1.8);
+    if(rising){ const w=mk("div","cell wide flood-warn"); w.append(mk("div","k","⚠️ Montée des eaux en cours"),mk("div","v","Le niveau monte vite à la station (crue ou lâcher de barrage possible). Reste loin des bords glissants et ne traverse pas à gué.")); g.append(w); }
+  }
   const cmp=mk("button","btn small cmp-btn","📅 Comparer les 7 prochains jours"); cmp.type="button"; cmp.addEventListener("click",compareDays); g.append(cmp);
   const solAt=k=>{ const t=start.getTime()+k*36e5+18e5; return sol.major.some(x=>Math.abs(x-t)<=90*6e4)?"maj":sol.minor.some(x=>Math.abs(x-t)<=60*6e4)?"min":null; };
   loadHist();
@@ -493,6 +511,66 @@ async function fetchWeather(lat,lon){
     const c=readCache(); if(c) return c; throw e;
   }
 }
+
+// ---------- Stations officielles Hub'Eau : niveau, débit et température de l'eau mesurés ----------
+const HUB="https://hubeau.eaufrance.fr/api/";
+function kmBetween(a,b,c,d){ const r=Math.PI/180, x=Math.sin((c-a)*r/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin((d-b)*r/2)**2; return 12742*Math.asin(Math.sqrt(x)); }
+async function hubGet(path,ms=9000){
+  const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),ms);
+  try{ const r=await fetch(HUB+path,{signal:ctl.signal}); if(!r.ok) throw new Error("hubeau "+r.status); return await r.json(); }
+  finally{ clearTimeout(t); }
+}
+const pick=(o,...k)=>{ for(const x of k) if(o&&o[x]!=null) return o[x]; return null; };
+function nearest(list,lat,lon,max){
+  return (list||[]).map(s=>{ const la=Number(pick(s,"latitude_station","latitude","y")), lo=Number(pick(s,"longitude_station","longitude","x")); return {s,d:isFinite(la)&&isFinite(lo)?kmBetween(lat,lon,la,lo):99}; })
+    .filter(x=>x.d<=max).sort((a,b)=>a.d-b.d);
+}
+// hauteur (mm) et débit (l/s) en temps réel de la station la plus proche, sur 26 h
+async function fetchHydro(lat,lon){
+  const q="referentiel/stations?latitude="+lat.toFixed(4)+"&longitude="+lon.toFixed(4)+"&distance=15&en_service=true&format=json&size=60";
+  let st; try{ st=await hubGet("v2/hydrometrie/"+q); }catch(e){ st=await hubGet("v1/hydrometrie/"+q); }
+  const since=new Date(Date.now()-26*36e5).toISOString().slice(0,19);
+  for(const {s,d} of nearest(st.data,lat,lon,15).slice(0,4)){
+    const code=pick(s,"code_station"); if(!code) continue;
+    let obs; try{ obs=await hubGet("v2/hydrometrie/observations_tr?code_entite="+code+"&date_debut_obs="+since+"&size=3000&fields=date_obs,resultat_obs,grandeur_hydro&format=json"); }catch(e){ continue; }
+    const rows=(obs.data||[]).filter(o=>o.resultat_obs!=null).map(o=>({t:Date.parse(o.date_obs),v:Number(o.resultat_obs),g:o.grandeur_hydro})).sort((a,b)=>a.t-b.t);
+    if(!rows.length) continue;
+    const ser=g=>{ const r=rows.filter(x=>x.g===g); if(!r.length) return null; const last=r[r.length-1];
+      const at=h=>{ const target=last.t-h*36e5; let best=null; for(const x of r) if(Math.abs(x.t-target)<=2*36e5&&(!best||Math.abs(x.t-target)<Math.abs(best.t-target))) best=x; return best?best.v:null; };
+      return {now:last.v,t:last.t,h6:at(6),h24:at(24)}; };
+    const h=ser("H"), qq=ser("Q");
+    if(!h&&!qq) continue;
+    if(Date.now()-Math.max(h?.t||0,qq?.t||0)>12*36e5) continue; // station muette
+    return {code,station:pick(s,"libelle_station")||code,river:pick(s,"libelle_cours_eau"),dist:d,
+      h:h&&{m:h.now/1000,d6:h.h6!=null?(h.now-h.h6)/1000:null,d24:h.h24!=null?(h.now-h.h24)/1000:null,t:h.t},
+      q:qq&&{m3:qq.now/1000,r24:qq.h24?qq.now/qq.h24:null,t:qq.t}};
+  }
+  return null;
+}
+// dernière température mesurée par une sonde de rivière proche (moins de 5 jours)
+async function fetchWaterTemp(lat,lon){
+  const st=await hubGet("v1/temperature/station?latitude="+lat.toFixed(4)+"&longitude="+lon.toFixed(4)+"&distance=20&format=json&size=50");
+  const since=new Date(Date.now()-6*864e5).toISOString().slice(0,10);
+  for(const {s,d} of nearest(st.data,lat,lon,20).slice(0,4)){
+    const code=pick(s,"code_station"); if(!code) continue;
+    let c; try{ c=await hubGet("v1/temperature/chronique?code_station="+code+"&date_debut_mesure="+since+"&size=1000&format=json&fields=date_mesure_temp,heure_mesure_temp,resultat"); }catch(e){ continue; }
+    const rows=(c.data||[]).filter(r=>r.resultat!=null).map(r=>({t:Date.parse(r.date_mesure_temp+"T"+(r.heure_mesure_temp||"12:00:00")),v:Number(r.resultat)})).filter(r=>isFinite(r.t)&&r.v>-1&&r.v<40).sort((a,b)=>a.t-b.t);
+    const last=rows[rows.length-1];
+    if(last&&Date.now()-last.t<=5*864e5) return {v:last.v,t:last.t,station:pick(s,"libelle_station")||code,river:pick(s,"libelle_cours_eau"),dist:d};
+  }
+  return null;
+}
+async function fetchHub(lat,lon){
+  const key="cdj-hub-"+lat.toFixed(2)+","+lon.toFixed(2);
+  try{ const c=JSON.parse(localStorage.getItem(key)||"null"); if(c&&Date.now()-c.ts<30*6e4) return c.v; }catch(e){}
+  const [hydro,temp]=await Promise.all([fetchHydro(lat,lon).catch(()=>null),fetchWaterTemp(lat,lon).catch(()=>null)]);
+  const v={hydro,temp};
+  try{ localStorage.setItem(key,JSON.stringify({ts:Date.now(),v})); }catch(e){}
+  return v;
+}
+// température mesurée utilisée seulement en rivière ou canal (une sonde de rivière ne dit rien d'un étang)
+const measuredTemp=meta=>mode==="live"&&waterType!=="etang"&&meta?.hub?.temp?meta.hub.temp.v:null;
+const hhmmOf=t=>new Date(t).toLocaleString("fr-FR",{weekday:"short",hour:"2-digit",minute:"2-digit"});
 // Débit de la rivière la plus proche (prévisions GloFAS via Open-Meteo, maille d'environ 5 km)
 async function fetchFlow(lat,lon){
   const key="cdj-flow";
@@ -547,16 +625,18 @@ async function loadLive(lat,lon,name){
       air:H.temperature_2m[i],dp,wind:H.wind_speed_10m[i],cloud:H.cloud_cover[i],rain:H.precipitation[i]||0});
   }
   const rain48=H.precipitation.slice(Math.max(0,i0-48),i0+1).reduce((a,v)=>a+(v||0),0);
-  const flow=await fetchFlow(lat,lon);
+  const [flow,hub]=await Promise.all([fetchFlow(lat,lon),fetchHub(lat,lon).catch(()=>null)]);
+  // le débit mesuré corrige la tendance prévue
+  if(flow&&hub?.hydro?.q?.r24){ const r=hub.hydro.q.r24; flow.trend=r>=1.25?"hausse":r<=0.8?"baisse":flow.trend; if(r>=2&&flow.status!=="crue") flow.status="haute"; }
   const today=sun[H.time[i0].slice(0,10)]||Object.values(sun)[0];
   const now=new Date();
   current={hours,meta:{place:name?"📍 "+name:lat.toFixed(3)+", "+lon.toFixed(3),lat,lon,
     when:now.getDate()+" "+MONTHS[now.getMonth()]+" "+String(now.getHours()).padStart(2,"0")+"h",
-    rise:today.rise,set:today.set,moon:moon(now),month:now.getMonth()+1,pressure:H.surface_pressure[i0],rain48,flow}};
+    rise:today.rise,set:today.set,moon:moon(now),month:now.getMonth()+1,pressure:H.surface_pressure[i0],rain48,flow,hub}};
   mode="live";
   // reporter dans le formulaire pour ajuster ensuite
   const h0=hours[0];
-  $("#f-water").value=h0.water.toFixed(1); $("#f-air").value=Math.round(h0.air);
+  $("#f-water").value=(measuredTemp(current.meta)??h0.water).toFixed(1); $("#f-air").value=Math.round(h0.air);
   $("#f-wind").value=Math.round(h0.wind);
   $("#f-cloud").value=h0.cloud>=65?"90":h0.cloud>=35?"50":"10";
   $("#f-rain").value=h0.rain>=3?"5":h0.rain>=0.3?"1":"0";
@@ -593,8 +673,8 @@ $("#locate").addEventListener("click",()=>locate(false));
 try{const w=localStorage.getItem("cdj-water"); if(w){waterType=w;document.querySelectorAll("#water-type button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.v===w)));}}catch(e){}
 window.CDJ_ADVICE={ loadAt:(lat,lon,name)=>loadLive(lat,lon,name), species:()=>SPECIES.map(s=>s.name||s.id),
   // conditions du moment, enregistrées avec les bilans et les prises (seulement si la météo est réelle)
-  snapshot:()=>{ if(!current||mode!=="live") return null; const h=current.hours[0], m=current.meta;
-    return {water:+h.water.toFixed(1),air:Math.round(h.air),dp:+h.dp.toFixed(1),wind:Math.round(h.wind),cloud:Math.round(h.cloud),rain:+(h.rain||0).toFixed(1),phase:h.phase,hour:new Date().getHours(),lat:+m.lat.toFixed(3),lon:+m.lon.toFixed(3),water_type:waterType,flow:m.flow?.status||null}; },
+  snapshot:()=>{ if(!current||mode!=="live") return null; const h=current.hours[0], m=current.meta; const tmv=measuredTemp(m);
+    return {water:+(tmv??h.water).toFixed(1),water_measured:tmv!=null,air:Math.round(h.air),dp:+h.dp.toFixed(1),wind:Math.round(h.wind),cloud:Math.round(h.cloud),rain:+(h.rain||0).toFixed(1),phase:h.phase,hour:new Date().getHours(),lat:+m.lat.toFixed(3),lon:+m.lon.toFixed(3),water_type:waterType,flow:m.flow?.status||null}; },
   refresh:()=>{ hist=null; histTry=0; loadHist(); } };
 setDefaults();
 buildManual();

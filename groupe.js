@@ -59,6 +59,26 @@ function renderBilan(){
     b.append(el("span","rate-e",x.e),el("span","rate-t",x.t)); r.append(b);
   });
 }
+// bilan pré-rempli depuis une trace GPS (durée, distance, touches)
+let draft=null;
+const fmtDur=m=>m>=60?Math.floor(m/60)+" h "+String(m%60).padStart(2,"0"):m+" min";
+function showDraft(){
+  $("#bilan .b-draft")?.remove();
+  if(!draft) return;
+  const d=el("div","b-draft");
+  d.append(el("span",null,"🛶 "+(draft.title?draft.title+" · ":"")+fmtDur(draft.duration_min)+" · "+(draft.distance_m>=1000?(draft.distance_m/1000).toFixed(1).replace(".",",")+" km":draft.distance_m+" m")+" · "+draft.bites+" touche"+(draft.bites>1?"s":"")+" · météo du moment jointe"));
+  d.append(btn("✕","linkbtn",()=>{ draft=null; showDraft(); }));
+  $("#bilan h2").after(d);
+}
+A.bilanFromTrack=d=>{
+  draft=d; location.hash="#fil";
+  setTimeout(()=>{
+    const b=document.querySelector('#post-mode [data-m="bilan"]');
+    if(b&&b.getAttribute("aria-pressed")!=="true") b.click();
+    if(!d.bites){ /* aucune touche : on propose le capot */ $("#b-capot").checked=true; $("#b-len").disabled=true; }
+    showDraft(); $("#bilan").scrollIntoView({behavior:"smooth",block:"start"});
+  },250);
+};
 $("#b-capot").addEventListener("change",()=>{ $("#b-len").disabled=$("#b-capot").checked; if($("#b-capot").checked) $("#b-len").value=""; });
 $("#bilan").addEventListener("submit",async e=>{
   e.preventDefault(); showErr($("#b-err"));
@@ -68,13 +88,14 @@ $("#bilan").addEventListener("submit",async e=>{
   const b=$("#b-submit"); b.disabled=true;
   const row={group_id:A.cur,user_id:A.me.id,species:pick.species,caught:!capot,
     length_cm:!capot&&len>0?Math.round(len):null,lure:pick.lure,color:pick.color,rating:pick.rating,water_type:waterType(),conditions:window.CDJ_ADVICE?.snapshot?.()||null};
+  if(draft){ row.track_id=draft.track_id; row.duration_min=draft.duration_min; row.distance_m=draft.distance_m; row.bites=draft.bites; }
   let {error}=navigator.onLine?await A.sb.from("sessions").insert(row):{error:new Error("Failed to fetch")};
   let queued=false;
   if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"sessions",row})){ error=null; queued=true; }
   b.disabled=false;
   if(error) return showErr($("#b-err"),frError(error));
   if(queued){ Object.keys(pick).forEach(k=>pick[k]=null); $("#bilan").reset(); $("#b-len").disabled=false; renderBilan(); return toast("Pas de réseau : ton bilan partira dès le retour du réseau"); }
-  Object.keys(pick).forEach(k=>pick[k]=null); $("#bilan").reset(); $("#b-len").disabled=false; renderBilan();
+  Object.keys(pick).forEach(k=>pick[k]=null); $("#bilan").reset(); $("#b-len").disabled=false; renderBilan(); draft=null; showDraft();
   toast("Bilan partagé avec le groupe"); A.loadFeed();
 });
 renderBilan();

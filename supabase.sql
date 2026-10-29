@@ -1222,3 +1222,58 @@ create policy depth_delete on public.depth_points for delete using (user_id = au
 -- ---------- Rappel d'amorçage : vérification toutes les 2 minutes ----------
 do $$ begin perform cron.unschedule('cdj-amorcage'); exception when others then null; end $$;
 select cron.schedule('cdj-amorcage','*/2 * * * *', $$ select public.call_notify('{"table":"bait_reminders"}'::jsonb) where exists (select 1 from public.carp_sessions where ended_at is null and next_bait_at <= now()) $$);
+
+
+-- ===== Lot 7 (v30) =====
+-- Coup du Jour lot 7 : surveillance des crues mesurées, bilan lié à une trace, zones sur la carte, stock d'appâts
+
+-- surveillance des stations Hub'Eau (alerte « l'eau monte vite »)
+alter table public.alert_prefs add column if not exists flood_sent_at timestamptz;
+
+-- bilan pré-rempli depuis une trace GPS
+alter table public.sessions add column if not exists track_id bigint references public.tracks (id) on delete set null;
+alter table public.sessions add column if not exists duration_min int check (duration_min between 0 and 10000);
+alter table public.sessions add column if not exists distance_m numeric check (distance_m >= 0 and distance_m <= 500000);
+alter table public.sessions add column if not exists bites int check (bites between 0 and 1000);
+
+-- zones dessinées par les membres
+create table if not exists public.map_zones (
+  id bigint generated always as identity primary key,
+  group_id bigint not null references public.groups (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  kind text not null check (kind in ('reserve', 'nokill', 'nuit', 'mise_eau', 'danger', 'autre')),
+  name text check (char_length(name) <= 60),
+  note text check (char_length(note) <= 300),
+  geom jsonb not null check (jsonb_typeof(geom) = 'object' and jsonb_array_length(geom -> 'coords') between 1 and 400),
+  created_at timestamptz not null default now()
+);
+create index if not exists map_zones_group on public.map_zones (group_id);
+alter table public.map_zones enable row level security;
+drop policy if exists zones_select on public.map_zones;
+drop policy if exists zones_insert on public.map_zones;
+drop policy if exists zones_update on public.map_zones;
+drop policy if exists zones_delete on public.map_zones;
+create policy zones_select on public.map_zones for select using (public.is_staff() or public.is_member_of(group_id));
+create policy zones_insert on public.map_zones for insert with check (user_id = auth.uid() and (public.is_member_of(group_id) or public.is_staff()));
+create policy zones_update on public.map_zones for update using (user_id = auth.uid() or public.can_moderate(group_id)) with check (user_id = auth.uid() or public.can_moderate(group_id));
+create policy zones_delete on public.map_zones for delete using (user_id = auth.uid() or public.can_moderate(group_id));
+
+-- stock d'appâts personnel
+create table if not exists public.bait_stock (
+  id bigint generated always as identity primary key,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  name text not null check (char_length(name) between 1 and 60),
+  unit text not null default 'kg' check (unit in ('kg', 'g', 'L', 'sachets', 'boîtes', 'pots', 'pièces')),
+  qty numeric not null default 0 check (qty >= 0 and qty <= 100000),
+  low_at numeric check (low_at >= 0 and low_at <= 100000),
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+create index if not exists bait_stock_user on public.bait_stock (user_id);
+alter table public.bait_stock enable row level security;
+drop policy if exists stock_own on public.bait_stock;
+create policy stock_own on public.bait_stock for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- vérification des stations toutes les heures
+do $$ begin perform cron.unschedule('cdj-crue'); exception when others then null; end $$;
+select cron.schedule('cdj-crue', '20 * * * *', $c$ select public.call_notify('{"table":"flood_watch"}'::jsonb) where exists (select 1 from public.alert_prefs where flood and lat is not null) $c$);

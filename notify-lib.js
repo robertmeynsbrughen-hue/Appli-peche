@@ -102,6 +102,7 @@ export async function handle(req, cfg) {
     if (t === "morning") return Response.json(await morning(ev, VAPID));
     if (t === "outing_reminders") return Response.json(await outingReminders(VAPID));
     if (t === "bait_reminders") return Response.json(await baitReminders(VAPID));
+    if (t === "flood_watch") return Response.json(await floodWatch(VAPID));
     let rec, group_id, author, recipients, msg;
     if (t === "memberships") {
       group_id = Number(ev.group_id); author = String(ev.user_id).replace(/[^0-9a-f-]/gi, "");
@@ -309,6 +310,56 @@ async function floodCheck(lat, lon, cache) {
   const n = best.k - i;
   return { ratio: best.ratio, when: n === 1 ? "demain" : "d'ici " + n + " jours" };
 }
+// ---- Surveillance des stations Hub'Eau : montée rapide mesurée (crue, lâcher de barrage) ----
+const HUB = "https://hubeau.eaufrance.fr/api/";
+function kmBetween(a, b, c, d) { const r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2; return 12742 * Math.asin(Math.sqrt(x)); }
+async function hubGet(path) { const r = await fetch(HUB + path); if (!r.ok) throw new Error("hubeau " + r.status); return r.json(); }
+export function riseOf(rows) {
+  // rows : [{t, v, g}] triés par date ; renvoie la montée sur 6 h (m) et le rapport de débit sur 24 h
+  const ser = (g) => rows.filter((x) => x.g === g);
+  const at = (r, h) => { if (!r.length) return null; const last = r[r.length - 1], target = last.t - h * 36e5; let best = null; for (const x of r) if (Math.abs(x.t - target) <= 2 * 36e5 && (!best || Math.abs(x.t - target) < Math.abs(best.t - target))) best = x; return best ? best.v : null; };
+  const H = ser("H"), Q = ser("Q");
+  const h6 = H.length ? at(H, 6) : null, q24 = Q.length ? at(Q, 24) : null;
+  return {
+    dh6: H.length && h6 != null ? (H[H.length - 1].v - h6) / 1000 : null,
+    rq24: Q.length && q24 ? Q[Q.length - 1].v / q24 : null,
+    last: Math.max(H.length ? H[H.length - 1].t : 0, Q.length ? Q[Q.length - 1].t : 0),
+  };
+}
+async function stationRise(lat, lon) {
+  const st = await hubGet("v2/hydrometrie/referentiel/stations?latitude=" + Number(lat).toFixed(4) + "&longitude=" + Number(lon).toFixed(4) + "&distance=15&en_service=true&format=json&size=60");
+  const near = (st.data || []).map((s) => ({ s, d: kmBetween(lat, lon, Number(s.latitude_station ?? s.latitude), Number(s.longitude_station ?? s.longitude)) })).filter((x) => x.d <= 15).sort((a, b) => a.d - b.d).slice(0, 3);
+  const since = new Date(Date.now() - 26 * 36e5).toISOString().slice(0, 19);
+  for (const { s } of near) {
+    try {
+      const o = await hubGet("v2/hydrometrie/observations_tr?code_entite=" + s.code_station + "&date_debut_obs=" + since + "&size=3000&fields=date_obs,resultat_obs,grandeur_hydro&format=json");
+      const rows = (o.data || []).filter((x) => x.resultat_obs != null).map((x) => ({ t: Date.parse(x.date_obs), v: Number(x.resultat_obs), g: x.grandeur_hydro })).sort((a, b) => a.t - b.t);
+      if (!rows.length) continue;
+      const r = riseOf(rows);
+      if (Date.now() - r.last > 6 * 36e5) continue;
+      return { ...r, station: s.libelle_station || s.code_station };
+    } catch (_) { /* station suivante */ }
+  }
+  return null;
+}
+async function floodWatch(vapid) {
+  const prefs = await db("alert_prefs?flood=eq.true&lat=not.is.null&select=user_id,lat,lon,place,flood_sent_at");
+  const cache = new Map(); let sent = 0, checked = 0;
+  for (const p of prefs) {
+    if (p.flood_sent_at && Date.now() - Date.parse(p.flood_sent_at) < 12 * 36e5) continue;
+    const key = Number(p.lat).toFixed(2) + "," + Number(p.lon).toFixed(2);
+    if (!cache.has(key)) cache.set(key, stationRise(p.lat, p.lon).catch(() => null));
+    const r = await cache.get(key); checked++;
+    if (!r) continue;
+    const fast = (r.dh6 != null && r.dh6 >= 0.3) || (r.rq24 != null && r.rq24 >= 1.8);
+    if (!fast) continue;
+    const what = [r.dh6 != null && r.dh6 > 0 ? "+" + Math.round(r.dh6 * 100) + " cm en 6 h" : null, r.rq24 ? "débit ×" + num(r.rq24.toFixed(1)) + " en 24 h" : null].filter(Boolean).join(", ");
+    sent += await pushTo(p.user_id, { title: "🌊 L'eau monte vite" + (p.place ? " · " + p.place : ""), body: "Station « " + r.station + " » : " + what + ". Crue ou lâcher de barrage possible, prudence au bord de l'eau.", url: "./#conseils", tag: "floodlive" }, vapid);
+    await db("alert_prefs?user_id=eq." + p.user_id, { method: "PATCH", body: JSON.stringify({ flood_sent_at: new Date().toISOString() }), headers: { Prefer: "return=minimal" } });
+  }
+  return { prefs: prefs.length, checked, sent };
+}
+
 // ---- Rappel d'amorçage des sessions carpe en cours ----
 async function baitReminders(vapid) {
   const now = new Date().toISOString();
@@ -349,7 +400,16 @@ async function outingReminders(vapid) {
       url: "./#groupe", tag: "outr-" + o.id,
     };
     let sent = 0;
-    for (const r of rs) sent += await pushTo(r.user_id, msg, vapid);
+    for (const r of rs) {
+      // stock d'appâts bas : on le rappelle la veille de la sortie
+      let m = msg;
+      try {
+        const st = await db("bait_stock?user_id=eq." + r.user_id + "&low_at=not.is.null&select=name,qty,low_at,unit");
+        const low = st.filter((x) => Number(x.qty) <= Number(x.low_at));
+        if (low.length) m = { ...msg, body: msg.body + " · 🥣 Stock bas : " + low.slice(0, 3).map((x) => x.name + " (" + num(Math.round(x.qty * 100) / 100) + " " + x.unit + ")").join(", ") };
+      } catch (_) { /* pas de stock */ }
+      sent += await pushTo(r.user_id, m, vapid);
+    }
     await db("outings?id=eq." + o.id, { method: "PATCH", body: JSON.stringify({ reminded: true }), headers: { Prefer: "return=minimal" } });
     report.push({ id: o.id, people: rs.length, sent });
   }

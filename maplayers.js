@@ -31,8 +31,12 @@ function bar(){
   const ob=btn("⬇️ Hors ligne","btn small",offline);
   const tb=btn(track.on?"⏹️ Fin de la trace":"🛶 Tracer ma sortie","btn small"+(track.on?" live":""),()=>track.on?stopTrack():startTrack());
   const mb=btn(ruler.on?"📏 Fin de la mesure":"📏 Mesurer","btn small"+(ruler.on?" on":""),()=>ruler.on?stopRuler():startRuler());
-  row.append(mb,pb,rb,tb,ob); box.append(row);
+  const wb=btn("💨 Vent","btn small"+(wind.on?" on":""),()=>{ wind.on=!wind.on; loadWind(); bar(); });
+  const zb=btn("🚧 Zones","btn small"+(zones.on?" on":""),()=>{ zones.on=!zones.on; set("cdj-zones",zones.on?"1":"0"); loadZones(); bar(); });
+  row.append(mb,wb,zb,pb,rb,tb,ob); box.append(row);
   if(ruler.on) box.append(rulerBar());
+  if(wind.on) box.append(windBar());
+  if(zones.on) box.append(zoneBar());
   if(track.on){
     const t=el("div","track-live");
     t.append(el("span",null,"● Trace en cours · "+fmtDist(track.dist)+" · "+track.bites.length+" touche"+(track.bites.length>1?"s":"")));
@@ -173,9 +177,15 @@ async function stopTrack(discard){
   if(track.layer) track.layer.clearLayers();
   if(discard||data.pts.length<2){ if(!discard) toast("Trace trop courte, rien d'enregistré"); bar(); return; }
   const title=prompt("Nom de la sortie (facultatif) :",new Date(data.start).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}))||null;
-  const {error}=await A.sb.from("tracks").insert({user_id:A.me.id,group_id:typeof A.cur==="number"?A.cur:null,title,started_at:new Date(data.start).toISOString(),ended_at:new Date().toISOString(),points:data.pts,bites:data.bites,distance_m:Math.round(data.dist)});
+  const {data:saved,error}=await A.sb.from("tracks").insert({user_id:A.me.id,group_id:typeof A.cur==="number"?A.cur:null,title,started_at:new Date(data.start).toISOString(),ended_at:new Date().toISOString(),points:data.pts,bites:data.bites,distance_m:Math.round(data.dist)}).select("id").single();
   if(error){ toast(frError(error)); set(TKEY,JSON.stringify(data)); return; }
   toast("Trace enregistrée · "+fmtDist(data.dist)); myTracks=null; bar();
+  // bilan pré-rempli : durée, distance, touches et météo au point d'arrivée
+  if(typeof A.cur==="number"&&A.bilanFromTrack&&confirm("Faire le bilan de cette sortie ? Durée, distance, touches et météo sont déjà remplies.")){
+    const last=data.pts[data.pts.length-1];
+    try{ await window.CDJ_ADVICE?.loadAt(last[0],last[1]); }catch(e){}
+    A.bilanFromTrack({track_id:saved?.id||null,duration_min:Math.round((Date.now()-data.start)/6e4),distance_m:Math.round(data.dist),bites:data.bites.length,title});
+  }
 }
 let myTracks=null, shown=new Map();
 function tracksList(){
@@ -311,6 +321,144 @@ function setMode(m){
 }
 document.querySelectorAll("#carte-sub [data-s]").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.s)));
 
+
+/* ---------- Vent sur la carte (Open-Meteo, heure par heure) ---------- */
+const wind={on:false,layer:null,data:null,key:null,h:0,times:[]};
+function arrowIcon(dir,kmh,gust){
+  const col=kmh>=40?"#b3261e":kmh>=25?"#d9822b":kmh>=12?"#2c8b73":"#5b7a8f";
+  const rot=(dir+180)%360; // la flèche indique où va le vent
+  return L.divIcon({className:"",iconSize:[44,44],iconAnchor:[22,22],html:'<div class="wind-arrow" style="--c:'+col+'"><svg viewBox="0 0 24 24" style="transform:rotate('+rot+'deg)"><path d="M12 2 L18 12 H14 V22 H10 V12 H6 Z"/></svg><b>'+Math.round(kmh)+(gust&&gust>kmh+10?"<i>↯"+Math.round(gust)+"</i>":"")+'</b></div>'});
+}
+async function loadWind(){
+  if(!map) return;
+  if(!wind.layer) wind.layer=L.layerGroup();
+  if(!wind.on){ map.removeLayer(wind.layer); return; }
+  if(!map.hasLayer(wind.layer)) wind.layer.addTo(map);
+  const b=map.getBounds(), N=4, la=[], lo=[];
+  const s=b.getSouth(), n=b.getNorth(), w=b.getWest(), e=b.getEast();
+  for(let i=0;i<N;i++) for(let j=0;j<N;j++){ la.push((s+(n-s)*(i+.5)/N).toFixed(3)); lo.push((w+(e-w)*(j+.5)/N).toFixed(3)); }
+  const key=la.join()+lo.join();
+  if(key!==wind.key){
+    try{
+      const r=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+la.join(",")+"&longitude="+lo.join(",")+"&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&forecast_days=2&timezone=auto");
+      if(!r.ok) throw 0; let d=await r.json(); if(!Array.isArray(d)) d=[d];
+      wind.data=d; wind.key=key;
+      const t0=d[0].hourly.time, off=d[0].utc_offset_seconds||0, nowKey=new Date(Date.now()+off*1000).toISOString().slice(0,13)+":00";
+      wind.i0=Math.max(0,t0.indexOf(nowKey)); wind.times=t0;
+    }catch(err){ toast("Vent indisponible pour le moment"); wind.on=false; bar(); return; }
+  }
+  drawWind(); bar();
+}
+function drawWind(){
+  if(!wind.data||!wind.layer) return;
+  wind.layer.clearLayers();
+  const i=wind.i0+wind.h;
+  wind.data.forEach(p=>{ const H=p.hourly; if(H.wind_speed_10m[i]==null) return;
+    L.marker([p.latitude,p.longitude],{icon:arrowIcon(H.wind_direction_10m[i],H.wind_speed_10m[i],H.wind_gusts_10m?.[i]),interactive:false,zIndexOffset:-800}).addTo(wind.layer); });
+}
+const DIRS=["nord","nord-est","est","sud-est","sud","sud-ouest","ouest","nord-ouest"];
+function windBar(){
+  const w=el("div","wind-bar");
+  const i=(wind.i0||0)+wind.h, t=wind.times[i];
+  const mid=wind.data?.[Math.floor(wind.data.length/2)]?.hourly;
+  const lab=t?(wind.h===0?"Maintenant":t.slice(8,10)+"/"+t.slice(5,7)+" "+t.slice(11,13)+"h"):"…";
+  const info=mid&&mid.wind_speed_10m[i]!=null?" · vent de "+DIRS[Math.round(mid.wind_direction_10m[i]/45)%8]+", "+Math.round(mid.wind_speed_10m[i])+" km/h":"";
+  w.append(el("b",null,"💨 "+lab+info));
+  const r=el("input"); r.type="range"; r.min="0"; r.max="36"; r.value=String(wind.h); r.setAttribute("aria-label","Heure du vent");
+  r.addEventListener("input",()=>{ wind.h=Number(r.value); drawWind(); const nb=windBar(); w.replaceWith(nb); nb.querySelector("input").focus(); });
+  w.append(r, el("p","note","La flèche montre où souffle le vent. En carpe, la berge qui prend le vent dans la face concentre souvent la nourriture et les poissons."));
+  return w;
+}
+
+/* ---------- Zones à respecter (dessinées par les membres) ---------- */
+const ZK={reserve:["🚫","Réserve, pêche interdite","#c0392b"],nokill:["♻️","Parcours no-kill","#2c8b73"],nuit:["🌙","Carpe de nuit autorisée","#6b4fbf"],mise_eau:["🛶","Mise à l'eau","#2c5f8f"],danger:["⚠️","Danger (courant, vase, barrage)","#d9822b"],autre:["📌","Autre","#5b6c65"]};
+const zones={on:get("cdj-zones","0")==="1",layer:null,list:[],draw:null};
+async function loadZones(){
+  if(!map) return;
+  if(!zones.layer) zones.layer=L.layerGroup();
+  if(!zones.on){ map.removeLayer(zones.layer); zones.draw=null; drawDraft(); return; }
+  if(!map.hasLayer(zones.layer)) zones.layer.addTo(map);
+  let q=A.sb.from("map_zones").select("id,group_id,user_id,kind,name,note,geom,created_at,profiles(username)").limit(500);
+  if(typeof A.cur==="number") q=q.eq("group_id",A.cur);
+  const {data,error}=await q;
+  if(error){ zones.list=[]; toast("Zones : "+frError(error)); }
+  else zones.list=data||[];
+  drawZones();
+}
+function drawZones(){
+  if(!zones.layer) return;
+  zones.layer.clearLayers();
+  zones.list.forEach(z=>{
+    const [ic,lab,col]=ZK[z.kind]||ZK.autre, c=(z.geom?.coords||[]);
+    const pop=el("div"); pop.append(el("b",null,ic+" "+(z.name||lab)));
+    if(z.name) pop.append(el("div","note",lab));
+    if(z.note){ const n=el("p",null,z.note); n.style.margin="6px 0"; n.style.whiteSpace="pre-wrap"; pop.append(n); }
+    pop.append(el("div","note","@"+(z.profiles?.username||"?")+" · "+new Date(z.created_at).toLocaleDateString("fr-FR")));
+    if(z.user_id===A.me?.id||A.canModerate(z.group_id)) pop.append(btn("Supprimer","linkbtn danger",async()=>{ if(!confirm("Supprimer cette zone ?")) return; const {error}=await A.sb.from("map_zones").delete().eq("id",z.id); if(error) return toast(frError(error)); map.closePopup(); loadZones(); }));
+    let shape;
+    if(z.geom?.type==="polygon"&&c.length>=3) shape=L.polygon(c,{color:col,weight:2,fillColor:col,fillOpacity:.18,dashArray:z.kind==="reserve"?"6 4":null});
+    else if(z.geom?.type==="line"&&c.length>=2) shape=L.polyline(c,{color:col,weight:5,opacity:.85});
+    else if(c[0]) shape=L.marker(c[0],{icon:L.divIcon({className:"",html:'<div class="zone-pin" style="--c:'+col+'">'+ic+'</div>',iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-14]})});
+    if(shape){ shape.bindPopup(pop); shape.addTo(zones.layer); }
+  });
+}
+function drawDraft(){
+  if(!map) return;
+  if(!zones.dl) zones.dl=L.layerGroup().addTo(map);
+  zones.dl.clearLayers();
+  const d=zones.draw; if(!d) return;
+  const col=(ZK[d.kind]||ZK.autre)[2];
+  if(d.pts.length>1) (d.shape==="polygon"&&d.pts.length>2?L.polygon(d.pts,{color:col,dashArray:"4 4",fillOpacity:.1}):L.polyline(d.pts,{color:col,dashArray:"4 4"})).addTo(zones.dl);
+  d.pts.forEach(p=>L.circleMarker(p,{radius:5,color:col,fillOpacity:1}).addTo(zones.dl));
+}
+function zoneBar(){
+  const w=el("div","zone-bar");
+  const d=zones.draw;
+  if(!d){
+    const leg=el("div","zone-leg"); Object.values(ZK).forEach(([ic,lab,col])=>{ const x=el("span","chip"); x.style.borderColor=col; x.append(ic+" "+lab); leg.append(x); });
+    w.append(leg);
+    if(typeof A.cur==="number"){
+      const sel=el("select"); sel.append(new Option("+ Ajouter une zone…",""));
+      Object.entries(ZK).forEach(([k,[ic,lab]])=>sel.append(new Option(ic+" "+lab,k)));
+      sel.addEventListener("change",()=>{ if(!sel.value) return; const k=sel.value; zones.draw={kind:k,shape:k==="mise_eau"?"point":"polygon",pts:[]}; drawDraft(); bar();
+        toast(k==="mise_eau"?"Touche la carte à l'endroit de la mise à l'eau":"Touche la carte pour poser les coins de la zone, puis « Terminer »"); });
+      w.append(sel);
+    }else w.append(el("p","note","Choisis un groupe précis pour ajouter des zones."));
+    w.append(el("p","note","Les zones sont dessinées par les membres : vérifie toujours l'arrêté préfectoral et les panneaux sur place."));
+    return w;
+  }
+  const [ic,lab]=ZK[d.kind];
+  w.append(el("b",null,ic+" "+lab+" · "+d.pts.length+" point"+(d.pts.length>1?"s":"")));
+  const a=el("div","actions");
+  if(d.kind!=="mise_eau"){
+    const shp=el("select"); shp.append(new Option("Surface","polygon"),new Option("Tronçon de berge","line")); shp.value=d.shape; shp.addEventListener("change",()=>{ d.shape=shp.value; drawDraft(); }); a.append(shp);
+  }
+  if(d.pts.length) a.append(btn("↶","btn small",()=>{ d.pts.pop(); drawDraft(); bar(); }));
+  const need=d.shape==="polygon"?3:d.shape==="line"?2:1;
+  const fin=btn("Terminer","btn primary small",finishZone); fin.disabled=d.pts.length<need; a.append(fin);
+  a.append(btn("Annuler","linkbtn danger",()=>{ zones.draw=null; drawDraft(); bar(); }));
+  w.append(a); return w;
+}
+function finishZone(){
+  const d=zones.draw; if(!d) return;
+  const [ic,lab]=ZK[d.kind];
+  const f=el("form","depth-form");
+  const ni=el("input"); ni.maxLength=60; ni.placeholder="Nom (facultatif)";
+  const no=el("textarea"); no.maxLength=300; no.rows=3; no.placeholder=d.kind==="nuit"?"Postes, dates, conditions (ex. postes 3 à 8, de juin à octobre)":d.kind==="mise_eau"?"Accès, pente, gratuit ou payant…":"Précisions";
+  const ok=el("button","btn primary small","Enregistrer"); ok.type="submit";
+  f.append(el("b",null,ic+" "+lab),ni,no,ok);
+  f.addEventListener("submit",async e=>{
+    e.preventDefault(); ok.disabled=true;
+    const {error}=await A.sb.from("map_zones").insert({group_id:A.cur,user_id:A.me.id,kind:d.kind,name:ni.value.trim()||null,note:no.value.trim()||null,geom:{type:d.shape,coords:d.pts.map(p=>[+p[0].toFixed(6),+p[1].toFixed(6)])}});
+    ok.disabled=false;
+    if(error) return toast(frError(error));
+    map.closePopup(); zones.draw=null; drawDraft(); toast("Zone ajoutée pour le groupe"); await loadZones(); bar();
+  });
+  const last=d.pts[d.pts.length-1];
+  L.popup().setLatLng(last).setContent(f).openOn(map);
+  setTimeout(()=>ni.focus(),100);
+}
+
 /* ---------- Mètre : tracer un trait et lire la distance ---------- */
 const ruler={on:false,pts:[],layer:null};
 const WRAP=3.66; // un tour de bâton à spod (12 pieds)
@@ -342,12 +490,14 @@ function stopRuler(){ ruler.on=false; ruler.pts=[]; drawRuler(); bar(); }
 const prevClick=A.hooks.mapClick;
 A.hooks.mapClick=ll=>{ if(prevClick?.(ll)) return true;
   if(ruler.on){ ruler.pts.push([ll.lat,ll.lng]); drawRuler(); bar(); return true; }
+  if(zones.draw){ const d=zones.draw; d.pts.push([ll.lat,ll.lng]); drawDraft(); if(d.shape==="point") finishZone(); else bar(); return true; }
   if(mode==="fond"){ addDepthAt(ll); return true; } return false; };
 const prevReady=A.hooks.mapReady;
 function init(m){
   if(map===m) return; map=m;
   if(baseKey!=="plan") setBase(baseKey);
-  map.on("moveend",()=>{ if(poiOn) poi(); });
+  let wt=null; map.on("moveend",()=>{ if(poiOn) poi(); if(wind.on){ clearTimeout(wt); wt=setTimeout(loadWind,700); } });
+  if(zones.on) loadZones();
   poi(); bar(); setMode(mode);
   try{ const t=JSON.parse(localStorage.getItem(TKEY)||"null"); if(t&&t.pts&&!track.on){ Object.assign(track,t); startTrack(true); toast("Trace reprise"); } }catch(e){}
 }
@@ -356,7 +506,7 @@ const prevShown=A.hooks.mapShown;
 A.hooks.mapShown=m=>{ prevShown?.(m); init(m); bar(); if(mode==="fond") setMode("fond"); };
 const prevChange=A.hooks.change;
 let lastCur;
-A.hooks.change=()=>{ prevChange?.(); if(A.cur!==lastCur){ lastCur=A.cur; myTracks=null; if(mode==="fond"&&map) setMode("fond"); } bar(); };
+A.hooks.change=()=>{ prevChange?.(); if(A.cur!==lastCur){ lastCur=A.cur; myTracks=null; if(zones.on&&map) loadZones(); if(mode==="fond"&&map) setMode("fond"); } bar(); };
 window.CDJ_MAPMODE=mode;
 if(A.map) init(A.map);
 document.querySelectorAll("#carte-sub [data-s]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.s===mode)));

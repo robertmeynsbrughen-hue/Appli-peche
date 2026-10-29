@@ -476,7 +476,7 @@ async function loadFeed(){
   let q=sb.from("posts")
     .select("id,group_id,caption,species,photo_path,photo_paths,created_at,user_id,status,length_cm,weight_kg,bait,profiles(username,is_admin),spots(id,name)")
     .order("created_at",{ascending:false}).limit(60);
-  let qs=sb.from("sessions").select("id,group_id,user_id,species,caught,length_cm,lure,color,rating,created_at,profiles(username,is_admin)")
+  let qs=sb.from("sessions").select("id,group_id,user_id,species,caught,length_cm,lure,color,rating,created_at,duration_min,distance_m,bites,profiles(username,is_admin)")
     .order("created_at",{ascending:false}).limit(40);
   if(cur!=="all"){ q=q.eq("group_id",cur); qs=qs.eq("group_id",cur); }
   const [{data,error},{data:sess}]=await Promise.all([q,qs]);
@@ -593,6 +593,7 @@ function sessionCard(x){
   if(x.caught===false) tags.append(el("span","tag muted","Capot"));
   else if(x.length_cm) tags.append(el("span","size",Number(x.length_cm).toLocaleString("fr-FR")+" cm"));
   if(tags.childNodes.length) body.append(tags);
+  if(x.duration_min!=null){ const m=x.duration_min, t=el("div","sess-trace"); t.textContent="🛶 "+(m>=60?Math.floor(m/60)+" h "+String(m%60).padStart(2,"0"):m+" min")+(x.distance_m?" · "+(x.distance_m>=1000?(x.distance_m/1000).toFixed(1).replace(".",",")+" km":Math.round(x.distance_m)+" m"):"")+(x.bites!=null?" · "+x.bites+" touche"+(x.bites>1?"s":""):""); body.append(t); }
   if(x.lure||x.color){ const c=el("div","combo"); c.append(el("span","label","Combo"),el("span",null,[x.lure,x.color].filter(Boolean).join(" · "))); body.append(c); }
   if(x.user_id===me.id||canModerate(x.group_id)){
     const foot=el("div","post-foot"); foot.append(el("span"));

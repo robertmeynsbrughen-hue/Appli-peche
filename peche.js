@@ -87,7 +87,7 @@ async function loadCarp(){
 }
 function drawCarp(recent){
   const box=$("#carp"); box.innerHTML=""; clearInterval(tick);
-  if(!carp) return drawStart(box,recent);
+  if(!carp){ drawStart(box,recent); A.hooks.carpDrawn?.(box,false); return; }
   const spot=A.spots.find(s=>s.id===carp.spot_id);
   const head=el("div","carp-head");
   const ht=el("div"); ht.append(el("h2",null,"Session en cours"));
@@ -144,9 +144,10 @@ function drawCarp(recent){
     const {error}=await A.sb.from("carp_sessions").update({ended_at:new Date().toISOString()}).eq("id",carp.id);
     if(error) return toast(frError(error));
     toast("Session terminée : "+pl(cnt("prise"),"prise")+" en "+dur(Date.now()-new Date(carp.started_at)));
-    carp=null; events=[]; loadCarp();
+    carp=null; events=[]; loadCarp(); A.hooks.carpEnded?.();
   },"btn"));
   box.append(end);
+  A.hooks.carpDrawn?.(box,true);
 }
 /* ---------- Rappel d'amorçage ---------- */
 // intervalle conseillé : eau froide = on amorce peu et rarement ; courant fort = la nourriture part plus vite ; poissons actifs = plus souvent

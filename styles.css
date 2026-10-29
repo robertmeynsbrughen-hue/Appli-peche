@@ -901,3 +901,38 @@ nav.tabs a{position:relative}
 .ruler-bar .actions{display:flex;gap:6px;align-items:center}
 .ruler-pt{width:14px;height:14px;border-radius:50%;background:#e7a650;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5);position:relative}
 .ruler-pt span{position:absolute;left:16px;top:-6px;white-space:nowrap;font:700 11px/1 "JetBrains Mono",monospace;background:rgba(19,34,29,.85);color:#fff;padding:3px 5px;border-radius:6px}
+
+/* ---------- Lot 7 : stations, vent, zones, bilan de trace, stock ---------- */
+.hero-src{grid-column:1/-1;font-size:.8rem;color:var(--muted);margin-top:6px;line-height:1.35}
+.flood-warn{background:color-mix(in srgb,#b3261e 14%,var(--surface));border-color:#b3261e}
+.flood-warn .k{color:#b3261e}
+.wind-arrow{width:44px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.wind-arrow svg{width:24px;height:24px;fill:var(--c);stroke:#fff;stroke-width:1.2;filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
+.wind-arrow b{font:700 10px/1 "JetBrains Mono",monospace;color:#fff;background:var(--c);padding:1px 4px;border-radius:6px;margin-top:-2px}
+.wind-arrow i{font-style:normal;opacity:.85;margin-left:2px}
+.wind-bar,.zone-bar{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px 10px}
+.wind-bar input[type=range]{width:100%;accent-color:var(--accent)}
+.wind-bar .note,.zone-bar .note{margin:0;font-size:.78rem}
+.zone-bar .actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.zone-bar select{font:inherit;padding:6px 8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.zone-leg{display:flex;flex-wrap:wrap;gap:5px}
+.zone-leg .chip{font-size:.74rem;padding:2px 8px;border-radius:999px;border:2px solid;background:var(--bg)}
+.zone-pin{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:16px;background:#fff;border:3px solid var(--c);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.b-draft{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--accent-soft);border-radius:12px;padding:8px 10px;font-weight:600;font-size:.88rem;margin-bottom:8px}
+.sess-trace{font-size:.85rem;color:var(--muted);margin:4px 0}
+.stock-list{display:flex;flex-direction:column}
+.stock-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
+.stock-row.low .stock-v{color:#b3261e;border-color:#b3261e}
+.stock-l{flex:1;display:flex;flex-direction:column;min-width:0}
+.stock-thr{font-size:.78rem;text-align:left;padding:0}
+.stock-q{display:flex;align-items:center;gap:4px}
+.stock-v{font:700 .9rem "JetBrains Mono",monospace;min-width:76px;padding:6px 4px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.stock-add{display:grid;grid-template-columns:1fr 70px 90px;gap:6px;margin-top:10px}
+.stock-add input:first-child{grid-column:1/-1}
+.stock-add input,.stock-add select{font:inherit;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);min-width:0}
+.stock-add button{grid-column:1/-1}
+.stock-warn{background:color-mix(in srgb,var(--amber) 18%,var(--surface));border:1px solid var(--amber);border-radius:12px;padding:8px 10px;margin-bottom:10px;font-size:.88rem}
+.stock-warn.soft{background:transparent;border-style:dashed;padding:4px 10px}
+.stock-usage{display:flex;flex-direction:column;gap:8px}
+.stock-urow{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.stock-urow input{width:90px;font:inherit;padding:6px 8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
