@@ -47,16 +47,19 @@ function day(){
 }
 
 /* ---------- Dernières prises du groupe ---------- */
+let outSeq=0, catSeq=0;
 async function catches(){
-  sCatch.innerHTML="";
-  if(!A.me||!A.groups.length) return;
+  const seq=++catSeq;
+  if(!A.me||!A.groups.length){ sCatch.innerHTML=""; return; }
   let q=A.sb.from("posts").select("id,group_id,species,length_cm,weight_kg,photo_path,photo_paths,created_at,profiles(username)").eq("status","published").order("created_at",{ascending:false}).limit(6);
   if(typeof A.cur==="number") q=q.eq("group_id",A.cur);
   const {data}=await q; const rows=data||[];
-  if(!rows.length) return;
+  if(seq!==catSeq) return;
+  if(!rows.length){ sCatch.innerHTML=""; return; }
   const paths=rows.map(r=>(r.photo_paths&&r.photo_paths[0])||r.photo_path).filter(Boolean);
   let urls={};
   if(paths.length){ const {data:s}=await A.sb.storage.from("photos").createSignedUrls(paths,3600); (s||[]).forEach(x=>urls[x.path]=x.signedUrl); }
+  if(seq!==catSeq) return;
   sCatch.innerHTML="";
   const h=el("div","today-h"); h.append(el("h2",null,"Dernières prises"),btn("Tout voir","linkbtn",()=>location.hash="#fil")); sCatch.append(h);
   const strip=el("div","catch-strip");
@@ -73,22 +76,25 @@ async function catches(){
 
 /* ---------- Prochaine sortie prévue ---------- */
 async function nextOuting(){
-  sOut.innerHTML="";
-  if(!A.me||!A.groups.length) return;
+  const seq=++outSeq;
+  if(!A.me||!A.groups.length){ sOut.innerHTML=""; return; }
+  const out=el("div");
   let q=A.sb.from("outings").select("id,group_id,title,place,start_at").gte("start_at",new Date(Date.now()-2*36e5).toISOString()).order("start_at").limit(1);
   if(typeof A.cur==="number") q=q.eq("group_id",A.cur);
   const {data}=await q; const o=data?.[0];
+  if(seq!==outSeq) return;
   const h=el("div","today-h"); h.append(el("h2",null,"Prochaine sortie"));
-  sOut.append(h);
-  if(!o){ const r=el("div","out-card empty"); r.append(el("span",null,"Rien de prévu pour l'instant."),btn("Proposer une sortie","btn small",()=>location.hash="#groupe")); sOut.append(r); return; }
+  out.append(h);
+  if(!o){ const r=el("div","out-card empty"); r.append(el("span",null,"Rien de prévu pour l'instant."),btn("Proposer une sortie","btn small",()=>location.hash="#groupe")); out.append(r); sOut.replaceChildren(...out.childNodes); return; }
   const {data:rs}=await A.sb.from("outing_rsvps").select("status").eq("outing_id",o.id);
+  if(seq!==outSeq) return;
   const yes=(rs||[]).filter(x=>x.status==="yes").length;
   const d=new Date(o.start_at);
   const r=el("button","out-card"); r.type="button";
   const cal=el("div","out-cal"); cal.append(el("b",null,String(d.getDate())),el("span",null,d.toLocaleDateString("fr-FR",{month:"short"}).replace(".","")));
   const t=el("div","out-t"); t.append(el("b",null,o.title),el("span","note",d.toLocaleDateString("fr-FR",{weekday:"long"})+" "+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}).replace(":","h")+(o.place?" · "+o.place:"")+" · "+yes+" partant"+(yes>1?"s":"")));
   r.append(cal,t); r.addEventListener("click",()=>location.hash="#groupe");
-  sOut.append(r);
+  out.append(r); sOut.replaceChildren(...out.childNodes);
 }
 
 /* ---------- Potes au bord de l'eau + bouton « Je pars pêcher » ---------- */

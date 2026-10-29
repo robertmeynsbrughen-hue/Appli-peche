@@ -1272,3 +1272,10 @@ html:root[data-theme="dark"][data-bg="foret"]{--bg:#0a140d;--surface:#122017;--s
 .ps-sec .actions{display:flex;gap:8px}
 .ps-sec a.btn{text-decoration:none}
 .ps-photos .gallery-count{right:auto;left:10px}
+
+/* corrections 0.37 */
+.bg-grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+.bg-sw{min-width:0;padding:8px;gap:6px;font-size:.84rem}
+.bg-sw span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bg-dot{width:20px;height:20px}
+.out-card.empty .btn{white-space:nowrap;flex:0 0 auto}
