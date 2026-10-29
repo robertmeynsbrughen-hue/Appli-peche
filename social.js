@@ -112,6 +112,7 @@ function refreshUI(){
   $("#post-mode").hidden=!canPost;
   $("#composer").hidden=!canPost||postMode!=="post";
   $("#bilan").hidden=!canPost||postMode!=="bilan";
+  $("#carp").hidden=!canPost||postMode!=="carp";
   $("#composer-all").hidden=!(member&&cur==="all");
   $("#feed-bar").hidden=!member;
   $("#map-bar").hidden=!member;
@@ -167,9 +168,9 @@ $$("#post-mode button").forEach(b=>b.addEventListener("click",()=>{
   postMode=b.dataset.m;
   $$("#post-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
   try{ localStorage.setItem("cdj-mode",postMode); }catch(e){}
-  refreshUI();
+  refreshUI(); hooks.mode?.(postMode);
 }));
-try{ const m=localStorage.getItem("cdj-mode"); if(m==="post"||m==="bilan"){ postMode=m; $$("#post-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.m===m))); } }catch(e){}
+try{ const m=localStorage.getItem("cdj-mode"); if(m==="post"||m==="bilan"||m==="carp"){ postMode=m; $$("#post-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.m===m))); } }catch(e){}
 
 // ---------- Comptes ----------
 let authMode="login";
@@ -597,7 +598,7 @@ function pinIcon(mine){ return L.divIcon({className:"",html:'<div class="spot-pi
 
 async function loadSpots(){
   if(!me||cur==null){ spots=[]; drawSpots(); return; }
-  let q=sb.from("spots").select("id,group_id,name,note,lat,lon,created_at,user_id,profiles(username,is_admin)").order("created_at",{ascending:false});
+  let q=sb.from("spots").select("id,group_id,name,note,lat,lon,created_at,user_id,depth_m,distance_tours,bottom,details,sheet_updated_at,profiles(username,is_admin)").order("created_at",{ascending:false});
   if(cur!=="all") q=q.eq("group_id",cur);
   const {data}=await q;
   spots=data||[];
@@ -619,6 +620,14 @@ function drawSpots(){
     box.append(by);
     if(cur==="all") box.append(el("div","post-group",groupName(s.group_id)));
     if(s.note){ const n=el("p",null,s.note); n.style.margin="6px 0"; n.style.whiteSpace="pre-wrap"; box.append(n); }
+    const sheet=[s.depth_m?String(s.depth_m).replace(".",",")+" m":null,s.distance_tours?s.distance_tours+" tours":null,s.bottom].filter(Boolean).join(" · ");
+    if(sheet) box.append(el("div","pop-sheet",sheet));
+    const tools=el("div","pop-tools");
+    const cond=el("button","btn small","🌤️ Conditions ici"); cond.type="button";
+    cond.addEventListener("click",()=>{ map.closePopup(); location.hash="#conseils"; window.CDJ_ADVICE?.loadAt(s.lat,s.lon,s.name).catch(()=>toast("Météo indisponible pour ce spot")); });
+    const fiche=el("button","btn small","📋 Fiche du poste"); fiche.type="button";
+    fiche.addEventListener("click",()=>{ map.closePopup(); hooks.spotSheet?.(s); });
+    tools.append(cond,fiche); box.append(tools);
     const go=el("a",null,"Itinéraire"); go.href="https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon; go.target="_blank"; go.rel="noopener";
     box.append(go);
     if(s.user_id===me?.id||canModerate(s.group_id)){
@@ -732,7 +741,7 @@ async function syncPush(){
 // ---------- Accès partagé pour groupe.js ----------
 window.CDJ={
   get sb(){ return sb; }, get me(){ return me; }, get cur(){ return cur; }, get groups(){ return groups; },
-  get curGroup(){ return curGroup(); }, get myRoles(){ return myRoles; },
+  get curGroup(){ return curGroup(); }, get myRoles(){ return myRoles; }, get spots(){ return spots; }, loadSpots,
   el, toast, showErr, ago, frError, confirmBtn, userLabel, roleBadge, avatar, compress,
   roleOf, canManage, canModerate, isManager, groupName, setGroup, loadGroups, loadFeed, refreshUI, hooks, RATING,
 };

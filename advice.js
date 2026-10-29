@@ -391,7 +391,7 @@ function readCache(){
     if(c&&Date.now()-c.ts<48*36e5) return {d:c.d,lat:c.lat,lon:c.lon,ts:c.ts};}catch(e){}
   return null;
 }
-async function loadLive(lat,lon){
+async function loadLive(lat,lon,name){
   const {d,ts,lat:la,lon:lo}=await fetchWeather(lat,lon); lat=la; lon=lo;
   window.CDJ_POS={lat,lon};
   window.dispatchEvent(new CustomEvent("cdj-pos",{detail:{lat,lon}}));
@@ -418,7 +418,7 @@ async function loadLive(lat,lon){
   const flow=await fetchFlow(lat,lon);
   const today=sun[H.time[i0].slice(0,10)]||Object.values(sun)[0];
   const now=new Date();
-  current={hours,meta:{place:lat.toFixed(3)+", "+lon.toFixed(3),lat,lon,
+  current={hours,meta:{place:name?"📍 "+name:lat.toFixed(3)+", "+lon.toFixed(3),lat,lon,
     when:now.getDate()+" "+MONTHS[now.getMonth()]+" "+String(now.getHours()).padStart(2,"0")+"h",
     rise:today.rise,set:today.set,moon:moon(now),month:now.getMonth()+1,pressure:H.surface_pressure[i0],rain48,flow}};
   mode="live";
@@ -459,6 +459,7 @@ $("#apply").addEventListener("click",()=>{mode="manual";buildManual();});
 $("#locate").addEventListener("click",()=>locate(false));
 
 try{const w=localStorage.getItem("cdj-water"); if(w){waterType=w;document.querySelectorAll("#water-type button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.v===w)));}}catch(e){}
+window.CDJ_ADVICE={ loadAt:(lat,lon,name)=>loadLive(lat,lon,name), species:()=>SPECIES.map(s=>s.name||s.id) };
 setDefaults();
 buildManual();
 locate(true);

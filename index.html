@@ -106,6 +106,7 @@ body{margin:0}
       <div class="section-head"><h2 id="r-title">Espèces du moment</h2><span class="note">classées sur 24 h</span></div>
       <div class="list" id="list"></div>
     </section>
+    <section class="panel" id="regl" aria-labelledby="regl-title"></section>
     <footer>Conseils tirés de règles générales de pêche. Température de l'eau estimée d'après l'air des 5 derniers jours. Dates d'ouverture : vérifie l'arrêté de ton département. Météo et débits (modèle GloFAS, maille de 5 km) : Open-Meteo.</footer>
   </section>
 
@@ -118,7 +119,9 @@ body{margin:0}
     <div class="seg" id="post-mode" hidden>
       <button type="button" data-m="bilan" aria-pressed="true">Bilan rapide</button>
       <button type="button" data-m="post" aria-pressed="false">Post photo</button>
+      <button type="button" data-m="carp" aria-pressed="false">Session carpe</button>
     </div>
+    <div class="panel" id="carp" hidden></div>
 
     <form class="panel" id="bilan" hidden>
       <h2>Bilan de session</h2>
@@ -245,6 +248,7 @@ body{margin:0}
     </div>
 
     <div class="panel" id="carnet" hidden></div>
+    <div class="panel" id="gear" hidden></div>
 
     <div class="panel" id="my-groups" hidden>
       <h2>Mes groupes</h2>
@@ -278,7 +282,7 @@ body{margin:0}
     <div class="panel">
       <h2>Installer l'appli</h2>
       <p class="note">Android (Chrome) : menu ⋮ puis « Ajouter à l'écran d'accueil » ou « Installer l'application ».<br>iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
-      <p class="note app-version">Version <span id="app-version">15</span></p>
+      <p class="note app-version">Version <span id="app-version">16</span></p>
     </div>
   </section>
   <!-- ========== GROUPE ========== -->
@@ -384,6 +388,7 @@ body{margin:0}
 <script src="groupe.js"></script>
 <script src="card.js"></script>
 <script src="extras.js"></script>
+<script src="peche.js"></script>
 <script>
 if("serviceWorker" in navigator){
   // dès qu'une nouvelle version prend la main, on recharge une fois pour l'afficher

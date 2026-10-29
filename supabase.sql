@@ -698,3 +698,105 @@ create trigger challenges_notify after insert on public.challenges
 
 revoke all on function public.group_is_full(bigint) from public, anon;
 grant execute on function public.group_is_full(bigint) to authenticated;
+
+-- ========== Vague 2 : fiche poste, sessions carpe, liste de matos ==========
+
+-- ---------- Fiche poste ----------
+alter table public.spots add column if not exists depth_m numeric check (depth_m > 0 and depth_m <= 100);
+alter table public.spots add column if not exists distance_tours int check (distance_tours between 1 and 500);
+alter table public.spots add column if not exists bottom text check (char_length(bottom) <= 40);
+alter table public.spots add column if not exists details text check (char_length(details) <= 1000);
+alter table public.spots add column if not exists sheet_updated_at timestamptz;
+alter table public.spots add column if not exists sheet_updated_by uuid references public.profiles (id) on delete set null;
+
+-- tout membre du groupe peut compléter la fiche (pas le nom ni la position)
+create or replace function public.update_spot_sheet(p_id bigint, p_depth numeric, p_tours int, p_bottom text, p_details text)
+returns void language plpgsql security definer set search_path = public as $$
+declare g bigint;
+begin
+  select group_id into g from public.spots where id = p_id;
+  if g is null then raise exception 'spot introuvable'; end if;
+  if not (public.is_member_of(g) or public.is_admin()) then raise exception 'non autorisé'; end if;
+  update public.spots set depth_m = p_depth, distance_tours = p_tours,
+    bottom = nullif(trim(p_bottom), ''), details = nullif(trim(p_details), ''),
+    sheet_updated_at = now(), sheet_updated_by = auth.uid()
+  where id = p_id;
+end;
+$$;
+revoke all on function public.update_spot_sheet(bigint, numeric, int, text, text) from public, anon;
+grant execute on function public.update_spot_sheet(bigint, numeric, int, text, text) to authenticated;
+
+-- ---------- Sessions carpe ----------
+create table if not exists public.carp_sessions (
+  id bigint generated always as identity primary key,
+  group_id bigint not null references public.groups (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  spot_id bigint references public.spots (id) on delete set null,
+  rods int not null default 2 check (rods between 1 and 6),
+  bait text check (char_length(bait) <= 120),
+  groundbait text check (char_length(groundbait) <= 200),
+  started_at timestamptz not null default now(),
+  ended_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists carp_sessions_group on public.carp_sessions (group_id, started_at desc);
+create index if not exists carp_sessions_spot on public.carp_sessions (spot_id);
+alter table public.carp_sessions enable row level security;
+drop policy if exists carp_sessions_select on public.carp_sessions;
+drop policy if exists carp_sessions_insert on public.carp_sessions;
+drop policy if exists carp_sessions_update on public.carp_sessions;
+drop policy if exists carp_sessions_delete on public.carp_sessions;
+create policy carp_sessions_select on public.carp_sessions for select using (public.is_admin() or public.is_member_of(group_id));
+create policy carp_sessions_insert on public.carp_sessions for insert with check (user_id = auth.uid() and public.is_member_of(group_id));
+create policy carp_sessions_update on public.carp_sessions for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy carp_sessions_delete on public.carp_sessions for delete using (user_id = auth.uid() or public.can_moderate(group_id));
+
+create or replace function public.carp_group(s bigint) returns bigint
+language sql stable security definer set search_path = public as $$
+  select group_id from public.carp_sessions where id = s;
+$$;
+create or replace function public.carp_owner(s bigint) returns uuid
+language sql stable security definer set search_path = public as $$
+  select user_id from public.carp_sessions where id = s;
+$$;
+
+create table if not exists public.carp_events (
+  id bigint generated always as identity primary key,
+  session_id bigint not null references public.carp_sessions (id) on delete cascade,
+  kind text not null check (kind in ('depart', 'touche', 'prise', 'amorcage')),
+  at timestamptz not null default now(),
+  rod int check (rod between 1 and 6),
+  weight_kg numeric check (weight_kg > 0 and weight_kg < 60),
+  note text check (char_length(note) <= 200)
+);
+create index if not exists carp_events_session on public.carp_events (session_id, at);
+alter table public.carp_events enable row level security;
+drop policy if exists carp_events_select on public.carp_events;
+drop policy if exists carp_events_insert on public.carp_events;
+drop policy if exists carp_events_delete on public.carp_events;
+create policy carp_events_select on public.carp_events for select
+  using (public.is_admin() or public.is_member_of(public.carp_group(session_id)));
+create policy carp_events_insert on public.carp_events for insert
+  with check (public.carp_owner(session_id) = auth.uid());
+create policy carp_events_delete on public.carp_events for delete
+  using (public.carp_owner(session_id) = auth.uid());
+
+-- ---------- Liste de matos (perso) ----------
+create table if not exists public.gear_items (
+  id bigint generated always as identity primary key,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  kit text not null default 'Général' check (char_length(kit) between 1 and 40),
+  name text not null check (char_length(name) between 1 and 80),
+  checked boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists gear_items_user on public.gear_items (user_id, kit);
+alter table public.gear_items enable row level security;
+drop policy if exists gear_items_all on public.gear_items;
+create policy gear_items_all on public.gear_items for all
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+revoke all on function public.carp_group(bigint) from public, anon;
+revoke all on function public.carp_owner(bigint) from public, anon;
+grant execute on function public.carp_group(bigint) to authenticated;
+grant execute on function public.carp_owner(bigint) to authenticated;
