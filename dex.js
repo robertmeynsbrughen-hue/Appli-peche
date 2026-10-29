@@ -303,7 +303,7 @@ A.hooks.profil=()=>{ prevProfil?.(); myDex(); };
 const prevGX=A.hooks.groupeExtras;
 A.hooks.groupeExtras=(box,gid,mod)=>{
   prevGX?.(box,gid,mod);
-  const host=el("div","g-dex"); box.after(host); groupDex(host,gid);
+  const host=el("div","g-dex"); host.dataset.sub="membres"; box.after(host); groupDex(host,gid);
 };
 const prevChange=A.hooks.change;
 A.hooks.change=()=>{ prevChange?.(); if(!A.me){ const d=$("#dex"); if(d) d.hidden=true; } };

@@ -10,7 +10,7 @@ let groups=[], cur=null;            // cur : id de groupe ou "all" (admin)
 let pendingGroups=[];               // groupes où ma demande attend une validation
 let roles=new Map();                // id de groupe -> Map(utilisateur -> "owner" | "moderator")
 let myRoles=new Map();              // id de groupe -> mon rôle actif
-let postMode="bilan";
+let postMode="none";
 let spots=[], map=null, layer=null, pending=null;
 const markers={};
 
@@ -60,6 +60,7 @@ function userLabel(name,isAdmin,role){
   const s=el("span","post-user","@"+(name||"?"));
   if(name){ s.dataset.user=name; s.tabIndex=0; s.setAttribute("role","link"); s.title="Voir le profil de @"+name; }
   if(isAdmin) s.append(el("span","badge","Admin"));
+  else if(name&&window.CDJ_CTRL?.has(name)) s.append(el("span","badge controller","Contrôle"));
   else if(role===true||role==="owner") s.append(roleBadge("owner"));
   else if(role==="moderator") s.append(roleBadge("moderator"));
   return s;
@@ -70,9 +71,11 @@ function avatar(name){
   return a;
 }
 const roleOf=(gid,uid)=>roles.get(gid)?.get(uid);
+const isStaff=()=>!!me&&(me.is_admin||me.is_controller);
 const canManage=gid=>!!me&&(me.is_admin||myRoles.get(gid)==="owner");
-const canModerate=gid=>!!me&&(me.is_admin||myRoles.get(gid)==="owner"||myRoles.get(gid)==="moderator");
-const isManager=()=>!!me&&(me.is_admin||[...myRoles.values()].some(r=>r!=="member"));
+const canModerate=gid=>!!me&&(isStaff()||myRoles.get(gid)==="owner"||myRoles.get(gid)==="moderator");
+const isManager=()=>!!me&&(isStaff()||[...myRoles.values()].some(r=>r!=="member"));
+const staffBadge=()=>me?.is_admin?el("span","badge","Admin"):me?.is_controller?el("span","badge controller","Contrôle"):null;
 const curGroup=()=>groups.find(g=>g.id===cur);
 const hooks={};   // points d'accroche pour groupe.js
 const groupName=id=>{ const g=groups.find(x=>x.id===id); return g?g.name:"?"; };
@@ -124,7 +127,7 @@ function refreshUI(){
   $("#my-groups").hidden=!logged;
   $("#tab-groupe").hidden=!member;
   $("#create-group").hidden=!logged;
-  if(me){ const h=$("#me-name"); h.textContent="@"+me.username; if(me.is_admin) h.append(el("span","badge","Admin")); }
+  if(me){ const h=$("#me-name"); h.textContent="@"+me.username; const sb2=staffBadge(); if(sb2) h.append(sb2); }
   if(!member){ $("#feed").innerHTML=""; }
   renderSwitcher();
   renderMyGroups();
@@ -139,7 +142,7 @@ function renderSwitcher(){
   name.textContent="";
   if(!me||!groups.length) return;
   if(cur==="all") name.append("Tous les groupes");
-  else{ name.append(curGroup()?.name||"Groupe"); const b=me.is_admin?el("span","badge","Admin"):roleBadge(myRoles.get(cur)); if(b) name.append(b); }
+  else{ name.append(curGroup()?.name||"Groupe"); const b=staffBadge()||roleBadge(myRoles.get(cur)); if(b) name.append(b); }
 }
 function openSwitcher(){
   const list=$("#gs-list"); list.innerHTML="";
@@ -150,8 +153,8 @@ function openSwitcher(){
     if(!disabled) b.addEventListener("click",()=>{ closeSheet(); setGroup(val); });
     list.append(b);
   };
-  if(me.is_admin) item("Tous les groupes","Vue d'ensemble admin","all");
-  groups.forEach(g=>item(g.name,g.region||"",g.id,me.is_admin?null:roleBadge(myRoles.get(g.id))));
+  if(isStaff()) item("Tous les groupes",me.is_admin?"Vue d'ensemble admin":"Vue d'ensemble contrôleur","all");
+  groups.forEach(g=>item(g.name,g.region||"",g.id,isStaff()?null:roleBadge(myRoles.get(g.id))));
   pendingGroups.forEach(g=>item(g.name,"Demande en attente de validation",null,null,true));
   $("#gs-sheet").hidden=false;
 }
@@ -166,12 +169,12 @@ function setGroup(v){
 }
 // Bilan rapide ou post photo
 $$("#post-mode button").forEach(b=>b.addEventListener("click",()=>{
-  postMode=b.dataset.m;
-  $$("#post-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
+  postMode=postMode===b.dataset.m?"none":b.dataset.m;
+  $$("#post-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.m===postMode)));
   try{ localStorage.setItem("cdj-mode",postMode); }catch(e){}
   refreshUI(); hooks.mode?.(postMode);
 }));
-try{ const m=localStorage.getItem("cdj-mode"); if(m==="post"||m==="bilan"||m==="carp"){ postMode=m; $$("#post-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.m===m))); } }catch(e){}
+try{ const m=localStorage.getItem("cdj-mode"); if(m==="post"||m==="bilan"||m==="carp"||m==="none"){ postMode=m; $$("#post-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.m===m))); } }catch(e){}
 
 // ---------- Comptes ----------
 let authMode="login";
@@ -240,9 +243,12 @@ async function loadMe(){
   const {data:{session}}=await sb.auth.getSession();
   hasSession=!!session;
   if(!session){ me=null; groups=[]; refreshUI(); return; }
-  const {data}=await sb.from("profiles").select("id,username,is_admin").eq("id",session.user.id).maybeSingle();
+  const {data}=await sb.from("profiles").select("id,username,is_admin,is_controller").eq("id",session.user.id).maybeSingle();
   me=data||null;
-  if(me){ await loadGroups(); loadSpots(); loadStats(); syncPush(); }
+  if(me){
+    sb.rpc("list_controllers").then(({data})=>{ window.CDJ_CTRL=new Set((data||[]).map(x=>x.username)); });
+    await loadGroups(); loadSpots(); loadStats(); syncPush();
+  }
   refreshUI();
 }
 
@@ -254,15 +260,15 @@ async function loadGroups(){
   myRoles=new Map((mine||[]).filter(m=>m.status==="active").map(m=>[m.group_id,m.role]));
   const all=gs||[];
   pendingGroups=all.filter(g=>mm.get(g.id)?.status==="pending");
-  groups=me.is_admin?all:all.filter(g=>mm.get(g.id)?.status==="active");
+  groups=isStaff()?all:all.filter(g=>mm.get(g.id)?.status==="active");
   roles=new Map();
   if(groups.length){
     const {data:rs}=await sb.from("memberships").select("group_id,user_id,role").in("role",["owner","moderator"]).eq("status","active").in("group_id",groups.map(g=>g.id));
     (rs||[]).forEach(o=>{ if(!roles.has(o.group_id)) roles.set(o.group_id,new Map()); roles.get(o.group_id).set(o.user_id,o.role); });
   }
   let saved=null; try{ saved=localStorage.getItem("cdj-grp"); }catch(e){}
-  const valid=v=>v==="all"?me.is_admin:groups.some(g=>String(g.id)===v);
-  cur=saved&&valid(saved)?(saved==="all"?"all":Number(saved)):(me.is_admin?"all":(groups[0]?.id??null));
+  const valid=v=>v==="all"?isStaff():groups.some(g=>String(g.id)===v);
+  cur=saved&&valid(saved)?(saved==="all"?"all":Number(saved)):(isStaff()?"all":(groups[0]?.id??null));
   refreshUI();
 }
 
@@ -761,7 +767,7 @@ window.CDJ={
   get sb(){ return sb; }, get me(){ return me; }, get cur(){ return cur; }, get groups(){ return groups; },
   get curGroup(){ return curGroup(); }, get myRoles(){ return myRoles; }, get spots(){ return spots; }, loadSpots, get map(){ return map; }, get pics(){ return pics; }, focusSpot,
   el, toast, showErr, ago, frError, confirmBtn, userLabel, roleBadge, avatar, compress,
-  roleOf, canManage, canModerate, isManager, groupName, setGroup, loadGroups, loadFeed, refreshUI, hooks, RATING,
+  roleOf, canManage, canModerate, isManager, isStaff, groupName, setGroup, loadGroups, loadFeed, refreshUI, hooks, RATING,
 };
 
 // ---------- Démarrage ----------

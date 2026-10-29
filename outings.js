@@ -120,7 +120,7 @@ const prev=A.hooks.groupeExtras;
 A.hooks.groupeExtras=(box,gid,mod)=>{
   prev?.(box,gid,mod);
   const root=box.parentElement; if(!root) return;
-  const host=el("div","g-outings");
+  const host=el("div","g-outings"); host.dataset.sub="activite";
   const anchor=root.querySelector(".todo")||root.querySelector(".g-head");
   if(anchor) anchor.after(host); else root.prepend(host);
   render(host,gid);

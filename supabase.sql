@@ -976,3 +976,65 @@ create policy avatars_delete on storage.objects for delete to authenticated
   using (bucket_id = 'avatars' and split_part(name, '/', 1) = auth.uid()::text);
 create policy avatars_select on storage.objects for select to authenticated
   using (bucket_id = 'avatars' and split_part(name, '/', 1) = auth.uid()::text);
+
+-- ========== Rôle contrôleur ==========
+alter table public.profiles add column if not exists is_controller boolean not null default false;
+
+create or replace function public.is_controller() returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((select is_controller from public.profiles where id = auth.uid()), false);
+$$;
+create or replace function public.is_staff() returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.is_admin() or public.is_controller();
+$$;
+create or replace function public.can_moderate(g bigint) returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.is_staff() or public.is_mod_of(g);
+$$;
+
+-- le contrôleur voit tout, comme l'admin
+do $$ declare r record; begin
+  for r in select schemaname, tablename, policyname, qual from pg_policies
+           where cmd = 'SELECT' and qual like '%is_admin()%' loop
+    execute format('alter policy %I on %I.%I using (%s)', r.policyname, r.schemaname, r.tablename, replace(r.qual, 'is_admin()', 'is_staff()'));
+  end loop;
+end $$;
+
+-- il peut écrire dans les chats et retirer un simple membre
+drop policy if exists messages_insert on public.messages;
+create policy messages_insert on public.messages for insert
+  with check (user_id = auth.uid() and (public.is_member_of(group_id) or public.is_staff()));
+drop policy if exists memberships_delete on public.memberships;
+create policy memberships_delete on public.memberships for delete
+  using (user_id = auth.uid() or public.is_admin()
+         or (public.is_owner_of(group_id) and role <> 'owner')
+         or ((public.is_mod_of(group_id) or public.is_controller()) and role = 'member'));
+
+-- son rôle apparaît dans la vue d'ensemble des groupes
+do $$ declare d text; begin
+  d := pg_get_functiondef('public.manage_groups()'::regprocedure);
+  if position('is_controller' in d) = 0 then
+    execute replace(d, 'when public.is_admin() then ''admin''', 'when public.is_admin() then ''admin'' when public.is_controller() then ''controleur''');
+  end if;
+end $$;
+
+-- nomination par l'admin uniquement
+create or replace function public.set_controller(p_username text, p_on boolean) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'seul l''admin peut nommer un contrôleur'; end if;
+  update public.profiles set is_controller = p_on where lower(username) = lower(p_username) and not is_admin;
+  if not found then raise exception 'utilisateur introuvable'; end if;
+end;
+$$;
+create or replace function public.list_controllers() returns table (username text)
+language sql stable security definer set search_path = public as $$
+  select username from public.profiles where is_controller order by username;
+$$;
+revoke all on function public.set_controller(text, boolean) from public, anon;
+revoke all on function public.list_controllers() from public, anon;
+grant execute on function public.set_controller(text, boolean) to authenticated;
+grant execute on function public.list_controllers() to authenticated;
+grant execute on function public.is_controller() to authenticated;
+grant execute on function public.is_staff() to authenticated;

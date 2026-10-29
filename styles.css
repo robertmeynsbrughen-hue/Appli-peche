@@ -698,3 +698,60 @@ button.dex-card{font:inherit;cursor:pointer}
 .pf-more[open]{display:flex;flex-direction:column;gap:10px}
 .pf-edit-btns{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
 #pub-profile .g-sec-head h2{margin:0}
+
+/* =====================================================================
+   Refonte v24 : sous-onglets, tuiles de partage, cartes plus aérées
+   ===================================================================== */
+/* Sous-onglets collants sous l'en-tête */
+.subbar{position:sticky;top:calc(56px + env(safe-area-inset-top,0px));z-index:900;display:flex;gap:4px;padding:4px;margin:0 -4px;
+  background:color-mix(in srgb,var(--surface) 92%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow-x:auto;scrollbar-width:none}
+.subbar::-webkit-scrollbar{display:none}
+.subbar[hidden]{display:none}
+.subbar button{flex:1 0 auto;font:inherit;font-size:.86rem;font-weight:700;min-height:40px;padding:6px 12px;border:none;border-radius:12px;background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap}
+.subbar button[aria-selected="true"]{background:var(--accent);color:var(--on-accent)}
+.has-sub[data-s="moi"] [data-sub]:not([data-sub="moi"]),
+.has-sub[data-s="collection"] [data-sub]:not([data-sub="collection"]),
+.has-sub[data-s="matos"] [data-sub]:not([data-sub="matos"]),
+.has-sub[data-s="reglages"] [data-sub]:not([data-sub="reglages"]),
+.has-sub[data-s="activite"] > [data-sub]:not([data-sub="activite"]),
+.has-sub[data-s="infos"] > [data-sub]:not([data-sub="infos"]),
+.has-sub[data-s="membres"] > [data-sub]:not([data-sub="membres"]){display:none!important}
+#groupe-root{display:flex;flex-direction:column;gap:20px}
+#groupe-root > .g-extras{display:flex;flex-direction:column;gap:20px}
+
+/* Carte « Moi » */
+.me-card{background:linear-gradient(135deg,var(--hero-1),var(--hero-2));color:var(--hero-fg);border:none}
+.me-card .note{color:color-mix(in srgb,var(--hero-fg) 80%,transparent)}
+.me-top{display:flex;align-items:center;gap:14px}
+.me-top h2{margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.me-card .avatar.big{box-shadow:0 0 0 3px color-mix(in srgb,var(--hero-fg) 70%,transparent)}
+
+/* Tuiles « Partager » du fil */
+.share-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.share-tiles[hidden]{display:none}
+.share-tiles button{font:inherit;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 10px;min-height:92px;text-align:left;
+  background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);color:var(--fg);cursor:pointer;transition:transform .1s}
+.share-tiles button:active{transform:scale(.97)}
+.share-tiles button[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent);background:var(--accent-soft)}
+.st-ico{font-size:1.5rem;line-height:1.1}
+.st-t{font-family:var(--f-display);font-weight:700;font-size:1.02rem;text-transform:uppercase;letter-spacing:.03em}
+.st-s{font-size:.72rem;color:var(--muted);line-height:1.25}
+
+/* Fil : actions secondaires plus discrètes */
+.post-foot .linkbtn.danger{color:var(--muted);font-weight:500;font-size:.8rem}
+.post{overflow:hidden}
+
+/* Titres de section un peu plus compacts */
+.g-sec-head h2,.panel h2{font-size:1.18rem}
+.g-head h1{font-size:clamp(1.5rem,7vw,2rem)}
+.subbar button{flex:1 1 0;min-width:0;padding:6px 6px;font-size:.8rem;overflow:hidden;text-overflow:ellipsis}
+
+/* Bulle de chat : en haut à gauche par défaut, déplaçable */
+.chat-fab{left:max(12px,env(safe-area-inset-left,0px));right:auto;top:calc(118px + env(safe-area-inset-top,0px));bottom:auto;width:52px;height:52px;touch-action:none;
+  transition:left .2s ease,top .2s ease}
+.chat-fab.dragging{transition:none;transform:scale(1.08);box-shadow:0 14px 30px -6px rgba(0,0,0,.5)}
+/* Contrôleur de l'appli : violet ⚖️ */
+.badge.controller{background:#6b4fbf;color:#fff}
+.msg-who.is-ctl{color:#6b4fbf}
+@media (prefers-color-scheme: dark){ .msg-who.is-ctl{color:#b9a4ff} }

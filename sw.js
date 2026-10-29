@@ -1,6 +1,6 @@
 /* Coup du Jour : service worker (fonctionnement hors ligne) */
-const VERSION="cdj-v23";
-const SHELL=["./","index.html","styles.css","advice.js","social.js","groupe.js","card.js","extras.js","peche.js","alerts.js","offline.js","species.js","dex.js","reco.js","outings.js","maptools.js","profile.js","config.js","manifest.webmanifest",
+const VERSION="cdj-v24";
+const SHELL=["./","index.html","styles.css","advice.js","social.js","groupe.js","card.js","extras.js","peche.js","alerts.js","offline.js","species.js","dex.js","reco.js","outings.js","maptools.js","profile.js","layout.js","config.js","manifest.webmanifest",
   "icon-192.png","badge-96.png","logo.svg","icon-512.png"];
 const CDN=["unpkg.com","cdn.jsdelivr.net","fonts.googleapis.com","fonts.gstatic.com"];
 self.addEventListener("install",e=>{ e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())); });

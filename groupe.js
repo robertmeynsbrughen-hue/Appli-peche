@@ -105,7 +105,7 @@ async function renderGroupe(){
 
   // En-tête du groupe
   const head=el("div","g-head");
-  const t=el("div"); const h=el("h1",null,g.name); const rb=A.me.is_admin?el("span","badge","Admin"):roleBadge(A.myRoles.get(gid)); if(rb) h.append(rb);
+  const t=el("div"); const h=el("h1",null,g.name); const rb=A.me.is_admin?el("span","badge","Admin"):A.me.is_controller?el("span","badge controller","Contrôle"):roleBadge(A.myRoles.get(gid)); if(rb) h.append(rb);
   const nb=info?Number(info.members):cnt.count, wait=info?Number(info.pending_members||0):0;
   const full=nb+wait>=MAXM;
   const cap=nb!=null?nb+"/"+MAXM+" membres"+(wait?" · "+wait+" en attente":"")+(full?" · complet":""):"";
@@ -139,11 +139,13 @@ async function renderGroupe(){
     root.append(box);
   }
 
-  root.append(renderMemos(gid,memos.data||[],memoUrls,mod));
-  root.append(renderPolls(gid,polls.data||[],votes.data||[],mod));
-  root.append(renderStats(sess.data||[]));
-  const ex=el("div","g-extras"); root.append(ex); A.hooks.groupeExtras?.(ex,gid,mod);
-  if(mod) root.append(renderManage(g,info,members.data||[],man));
+  const sub=(n,k)=>{ n.dataset.sub=k; return n; };
+  root.append(sub(renderMemos(gid,memos.data||[],memoUrls,mod),"infos"));
+  root.append(sub(renderPolls(gid,polls.data||[],votes.data||[],mod),"infos"));
+  root.append(sub(renderStats(sess.data||[]),"infos"));
+  const ex=sub(el("div","g-extras"),"activite"); root.append(ex); A.hooks.groupeExtras?.(ex,gid,mod);
+  if(mod) root.append(sub(renderManage(g,info,members.data||[],man),"membres"));
+  A.hooks.groupeRendered?.(root);
 }
 A.hooks.groupe=renderGroupe;
 
@@ -391,7 +393,7 @@ async function adminOverview(seq){
 const fab=$("#chat-fab"), panel=$("#chat-panel"), box=$("#chat-msgs"), badge=$("#chat-badge"), tabs=$("#chat-groups");
 let chatGid=null, channel=null, msgs=[], names=new Map(), unread=new Map(), poll=null, subKey="";
 const seenKey=g=>"cdj-chat-seen-"+g;
-const isAdmin=()=>!!A.me?.is_admin;
+const isAdmin=()=>!!(A.me?.is_admin||A.me?.is_controller);   // admin ou contrôleur : voit tous les chats
 const chatGroups=()=>isAdmin()?A.groups:A.groups.filter(g=>A.myRoles.has(g.id));
 const totalUnread=()=>isAdmin()?[...unread.values()].reduce((a,b)=>a+b,0):(unread.get(chatGid)||0);
 function renderFab(){
@@ -481,14 +483,15 @@ function drawMsgs(scroll){
     const row=el("div","msg"+(mine?" mine":""));
     if(lastUser!==m.user_id){
       // pseudo toujours affiché ; admin en orange 👑, responsable en vert 👮, modérateur en bleu 🛡️
-      const isAdm=!!m.profiles?.is_admin, role=isAdm?null:A.roleOf(chatGid,m.user_id);
+      const isAdm=!!m.profiles?.is_admin, isCtl=!isAdm&&!!window.CDJ_CTRL?.has(m.profiles?.username), role=isAdm||isCtl?null:A.roleOf(chatGid,m.user_id);
       const isResp=role==="owner", isMod=role==="moderator";
-      const who=el("div","msg-who"+(isAdm?" is-admin":isResp?" is-owner":isMod?" is-mod":""));
+      const who=el("div","msg-who"+(isAdm?" is-admin":isCtl?" is-ctl":isResp?" is-owner":isMod?" is-mod":""));
       if(isAdm) who.append(el("span","msg-ico","👑"));
+      else if(isCtl) who.append(el("span","msg-ico","⚖️"));
       else if(isResp) who.append(el("span","msg-ico","👮"));
       else if(isMod) who.append(el("span","msg-ico","🛡️"));
       who.append("@"+(m.profiles?.username||"?"));
-      if(isAdm||isResp||isMod) who.setAttribute("title",isAdm?"Admin":isResp?"Responsable du groupe":"Modérateur du groupe");
+      if(isAdm||isCtl||isResp||isMod) who.setAttribute("title",isAdm?"Admin":isCtl?"Contrôleur de l'appli":isResp?"Responsable du groupe":"Modérateur du groupe");
       row.append(who);
     }
     const b=el("div","bubble"+(m.body&&mentionsMe(m.body)&&!mine?" mention-me":"")+(m.photo_path?" has-photo":"")+(m.audio_path?" has-voice":""));
