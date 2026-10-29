@@ -897,3 +897,7 @@ nav.tabs a{position:relative}
 .map-layers{gap:6px}
 /* la bulle du chat (en haut à gauche par défaut) ne doit pas cacher « Spot à ma position » */
 #map-bar{padding-left:64px}
+.ruler-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;background:color-mix(in srgb,var(--amber) 16%,var(--surface));border:1px solid var(--amber);border-radius:14px;padding:8px 10px;font-size:.92rem}
+.ruler-bar .actions{display:flex;gap:6px;align-items:center}
+.ruler-pt{width:14px;height:14px;border-radius:50%;background:#e7a650;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5);position:relative}
+.ruler-pt span{position:absolute;left:16px;top:-6px;white-space:nowrap;font:700 11px/1 "JetBrains Mono",monospace;background:rgba(19,34,29,.85);color:#fff;padding:3px 5px;border-radius:6px}

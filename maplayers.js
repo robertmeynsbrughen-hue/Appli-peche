@@ -30,7 +30,9 @@ function bar(){
   const rb=btn("🌧️ Radar pluie","btn small"+(radarOn?" on":""),()=>{ radarOn=!radarOn; rain(); bar(); });
   const ob=btn("⬇️ Hors ligne","btn small",offline);
   const tb=btn(track.on?"⏹️ Fin de la trace":"🛶 Tracer ma sortie","btn small"+(track.on?" live":""),()=>track.on?stopTrack():startTrack());
-  row.append(pb,rb,tb,ob); box.append(row);
+  const mb=btn(ruler.on?"📏 Fin de la mesure":"📏 Mesurer","btn small"+(ruler.on?" on":""),()=>ruler.on?stopRuler():startRuler());
+  row.append(mb,pb,rb,tb,ob); box.append(row);
+  if(ruler.on) box.append(rulerBar());
   if(track.on){
     const t=el("div","track-live");
     t.append(el("span",null,"● Trace en cours · "+fmtDist(track.dist)+" · "+track.bites.length+" touche"+(track.bites.length>1?"s":"")));
@@ -309,9 +311,38 @@ function setMode(m){
 }
 document.querySelectorAll("#carte-sub [data-s]").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.s)));
 
+/* ---------- Mètre : tracer un trait et lire la distance ---------- */
+const ruler={on:false,pts:[],layer:null};
+const WRAP=3.66; // un tour de bâton à spod (12 pieds)
+function rulerDist(){ let d=0; for(let i=1;i<ruler.pts.length;i++) d+=hav(ruler.pts[i-1],ruler.pts[i]); return d; }
+function rulerBar(){
+  const w=el("div","ruler-bar"); const d=rulerDist();
+  const txt=ruler.pts.length<2?"Touche la carte pour poser les points du trait":fmtDist(d)+(d<=400?" · ≈ "+Math.round(d/WRAP)+" tours de bâton":"");
+  w.append(el("b",null,"📏 "+txt));
+  const a=el("div","actions");
+  if(ruler.pts.length) a.append(btn("↶ Annuler","btn small",()=>{ ruler.pts.pop(); drawRuler(); bar(); }), btn("Effacer","linkbtn danger",()=>{ ruler.pts=[]; drawRuler(); bar(); }));
+  w.append(a); return w;
+}
+function drawRuler(){
+  if(!map) return;
+  if(!ruler.layer) ruler.layer=L.layerGroup().addTo(map);
+  ruler.layer.clearLayers();
+  if(ruler.pts.length>1) L.polyline(ruler.pts,{color:"#e7a650",weight:4,dashArray:"8 6"}).addTo(ruler.layer);
+  let acc=0;
+  ruler.pts.forEach((p,i)=>{
+    if(i) acc+=hav(ruler.pts[i-1],p);
+    const lab=i?fmtDist(acc):"0";
+    L.marker(p,{icon:L.divIcon({className:"",html:'<div class="ruler-pt"><span>'+lab+'</span></div>',iconSize:[14,14],iconAnchor:[7,7]}),interactive:false}).addTo(ruler.layer);
+  });
+}
+function startRuler(){ ruler.on=true; ruler.pts=[]; drawRuler(); bar(); toast("Touche la carte point par point pour tracer ton trait"); }
+function stopRuler(){ ruler.on=false; ruler.pts=[]; drawRuler(); bar(); }
+
 /* ---------- Accroches ---------- */
 const prevClick=A.hooks.mapClick;
-A.hooks.mapClick=ll=>{ if(prevClick?.(ll)) return true; if(mode==="fond"){ addDepthAt(ll); return true; } return false; };
+A.hooks.mapClick=ll=>{ if(prevClick?.(ll)) return true;
+  if(ruler.on){ ruler.pts.push([ll.lat,ll.lng]); drawRuler(); bar(); return true; }
+  if(mode==="fond"){ addDepthAt(ll); return true; } return false; };
 const prevReady=A.hooks.mapReady;
 function init(m){
   if(map===m) return; map=m;
