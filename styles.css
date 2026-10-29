@@ -399,3 +399,8 @@ nav.tabs a[aria-current="page"]{color:var(--accent);background:var(--accent-soft
 .chat-form .btn{width:46px;padding:0;border-radius:50%;display:grid;place-items:center}
 .chat-form .btn svg{width:20px;height:20px;fill:currentColor}
 body.chat-open{overflow:hidden}
+.chat-groups{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:8px max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px));background:var(--surface);border-bottom:1px solid var(--line)}
+.chat-groups::-webkit-scrollbar{display:none}
+.chat-tab{flex-shrink:0;display:flex;align-items:center;gap:6px;font:inherit;font-size:.86rem;font-weight:600;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+.chat-tab.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.chat-tab-n{min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:var(--warn);color:#fff;font-family:var(--f-mono);font-size:.68rem;display:grid;place-items:center}

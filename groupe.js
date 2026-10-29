@@ -7,7 +7,7 @@ const root=$("#groupe-root");
 let lastGroup;
 const isMember=()=>!!A.me&&A.cur!=null&&A.cur!=="all"&&A.myRoles.has(A.cur);
 const canChat=()=>!!A.me&&A.cur!=null&&A.cur!=="all"&&(A.myRoles.has(A.cur)||A.me.is_admin);
-const chatVisible=()=>!!A.me&&A.groups.length>0&&(canChat()||(A.cur==="all"&&A.me.is_admin));
+const chatVisible=()=>!!A.me&&A.groups.length>0&&(canChat()||!!A.me.is_admin);
 const store={ get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } },
               set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
 const waterType=()=>{ try{ const w=localStorage.getItem("cdj-water"); return ["etang","riviere","canal"].includes(w)?w:null; }catch(e){ return null; } };
@@ -377,27 +377,61 @@ async function adminOverview(seq){
 }
 
 /* ================= Chat de groupe ================= */
-const fab=$("#chat-fab"), panel=$("#chat-panel"), box=$("#chat-msgs"), badge=$("#chat-badge");
-let chatGid=null, channel=null, msgs=[], names=new Map(), unread=0, poll=null;
+// Membre : chat du groupe sélectionné. Admin : onglets pour passer d'un groupe à l'autre dans le chat.
+const fab=$("#chat-fab"), panel=$("#chat-panel"), box=$("#chat-msgs"), badge=$("#chat-badge"), tabs=$("#chat-groups");
+let chatGid=null, channel=null, msgs=[], names=new Map(), unread=new Map(), poll=null, subKey="";
 const seenKey=g=>"cdj-chat-seen-"+g;
+const isAdmin=()=>!!A.me?.is_admin;
+const chatGroups=()=>isAdmin()?A.groups:A.groups.filter(g=>A.myRoles.has(g.id));
+const totalUnread=()=>isAdmin()?[...unread.values()].reduce((a,b)=>a+b,0):(unread.get(chatGid)||0);
 function renderFab(){
   fab.hidden=!chatVisible()||!panel.hidden;
-  badge.hidden=!unread; badge.textContent=unread>9?"9+":String(unread);
+  const n=totalUnread(); badge.hidden=!n; badge.textContent=n>9?"9+":String(n);
 }
-async function onGroupChanged(){
+function renderTabs(){
+  tabs.innerHTML=""; tabs.hidden=!isAdmin();
+  if(!isAdmin()) return;
+  chatGroups().forEach(gr=>{
+    const b=btn("","chat-tab"+(gr.id===chatGid?" on":""),()=>switchChat(gr.id));
+    b.append(el("span",null,gr.name));
+    const n=unread.get(gr.id)||0; if(n) b.append(el("span","chat-tab-n",n>9?"9+":String(n)));
+    b.setAttribute("aria-pressed",String(gr.id===chatGid)); tabs.append(b);
+  });
+  tabs.querySelector(".on")?.scrollIntoView({inline:"center",block:"nearest"});
+}
+async function countUnread(gids){
+  await Promise.all(gids.map(async gid=>{
+    const seen=store.get(seenKey(gid),new Date(Date.now()-7*864e5).toISOString());
+    const {count}=await A.sb.from("messages").select("id",{count:"exact",head:true}).eq("group_id",gid).gt("created_at",seen).neq("user_id",A.me.id);
+    unread.set(gid,count||0);
+  }));
+  renderFab(); renderTabs();
+}
+// Abonnement temps réel : tous les groupes pour l'admin, le groupe courant pour un membre
+function subscribe(){
+  const gids=isAdmin()?chatGroups().map(g=>g.id):(canChat()?[A.cur]:[]);
+  const key=(A.me?.id||"")+"|"+gids.join(",");
+  if(key===subKey) return;
+  subKey=key;
   if(channel){ A.sb?.removeChannel(channel); channel=null; }
-  msgs=[]; unread=0; box.innerHTML=""; chatGid=canChat()?A.cur:null;
-  if(!chatGid){ closeChat(); renderFab(); return; }
-  if(!panel.hidden) loadChat();
-  const seen=store.get(seenKey(chatGid),new Date(Date.now()-7*864e5).toISOString());
-  const {count}=await A.sb.from("messages").select("id",{count:"exact",head:true}).eq("group_id",chatGid).gt("created_at",seen).neq("user_id",A.me.id);
-  unread=count||0; renderFab();
-  const gid=chatGid;
-  channel=A.sb.channel("chat-"+gid).on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:"group_id=eq."+gid},async ({new:m})=>{
-    if(gid!==chatGid) return;
-    if(!panel.hidden){ await addMsg(m); markSeen(); }
-    else if(m.user_id!==A.me.id){ unread++; renderFab(); }
+  unread=new Map();
+  if(!gids.length){ renderFab(); return; }
+  const opts={event:"INSERT",schema:"public",table:"messages"};
+  if(!isAdmin()) opts.filter="group_id=eq."+gids[0];
+  channel=A.sb.channel("chat-"+key).on("postgres_changes",opts,async ({new:m})=>{
+    if(!gids.includes(m.group_id)) return;
+    if(!panel.hidden&&m.group_id===chatGid){ await addMsg(m); markSeen(); }
+    else if(m.user_id!==A.me.id){ unread.set(m.group_id,(unread.get(m.group_id)||0)+1); renderFab(); renderTabs(); }
   }).subscribe();
+  countUnread(gids);
+}
+function onGroupChanged(){
+  if(!A.me){ if(channel){ A.sb?.removeChannel(channel); channel=null; } subKey=""; unread=new Map(); closeChat(); renderFab(); return; }
+  if(!isAdmin()){
+    const next=canChat()?A.cur:null;
+    if(next!==chatGid){ chatGid=next; msgs=[]; box.innerHTML=""; if(!chatGid) closeChat(); else if(!panel.hidden) loadChat(); }
+  }
+  subscribe(); renderFab();
 }
 async function nameOf(uid){
   if(names.has(uid)) return names.get(uid);
@@ -406,12 +440,15 @@ async function nameOf(uid){
 }
 async function loadChat(){
   if(!chatGid) return;
-  const {data,error}=await A.sb.from("messages").select("id,user_id,body,created_at,profiles(username,is_admin)").eq("group_id",chatGid).order("created_at",{ascending:false}).limit(80);
+  const gid=chatGid;
+  const {data,error}=await A.sb.from("messages").select("id,user_id,body,created_at,profiles(username,is_admin)").eq("group_id",gid).order("created_at",{ascending:false}).limit(80);
+  if(gid!==chatGid) return;
   if(error){ box.innerHTML=""; box.append(el("p","err",frError(error))); return; }
   msgs=(data||[]).reverse(); msgs.forEach(m=>{ if(m.profiles) names.set(m.user_id,m.profiles); });
   drawMsgs(true); markSeen();
 }
 async function addMsg(m){
+  if(m.group_id&&m.group_id!==chatGid) return;
   if(msgs.some(x=>x.id===m.id)) return;
   m.profiles=m.profiles||await nameOf(m.user_id);
   msgs.push(m); drawMsgs(true);
@@ -431,13 +468,30 @@ function drawMsgs(scroll){
   });
   if(scroll) requestAnimationFrame(()=>{ box.scrollTop=box.scrollHeight; });
 }
-function markSeen(){ if(chatGid){ store.set(seenKey(chatGid),new Date().toISOString()); unread=0; renderFab(); } }
+function markSeen(){ if(chatGid){ store.set(seenKey(chatGid),new Date().toISOString()); unread.set(chatGid,0); renderFab(); renderTabs(); } }
+function headerText(){
+  const gr=A.groups.find(x=>x.id===chatGid);
+  $("#chat-title").textContent="Chat · "+(gr?.name||"");
+  $("#chat-sub").textContent=A.myRoles.has(chatGid)?"Visible par les membres du groupe":"Tu suis ce chat en tant qu'admin";
+}
+function switchChat(gid){
+  if(gid===chatGid) return;
+  chatGid=gid; msgs=[]; box.innerHTML="";
+  store.set("cdj-chat-last",gid);
+  headerText(); renderTabs(); loadChat();
+}
 function openChat(){
-  if(!canChat()){ toast("Choisis le groupe dont tu veux ouvrir le chat"); document.querySelector("#grp-switch")?.click(); return; }
-  $("#chat-title").textContent="Chat · "+(A.curGroup?.name||"");
-  $("#chat-sub").textContent=A.myRoles.has(chatGid)?"Visible par les membres du groupe":"Tu lis ce chat en tant qu'admin (tu n'es pas membre du groupe)";
+  if(!chatVisible()) return;
+  if(isAdmin()){
+    const list=chatGroups().map(g=>g.id);
+    const last=store.get("cdj-chat-last",null);
+    chatGid=canChat()?A.cur:(list.includes(last)?last:list[0]);
+  }else if(!canChat()){ toast("Choisis un de tes groupes pour ouvrir le chat"); return; }
+  else chatGid=A.cur;
+  if(!chatGid) return;
+  headerText(); renderTabs();
   panel.hidden=false; document.body.classList.add("chat-open"); renderFab();
-  loadChat();
+  msgs=[]; box.innerHTML=""; loadChat();
   clearInterval(poll); poll=setInterval(()=>{ if(!panel.hidden) loadChat(); },20000);
   setTimeout(()=>$("#chat-input").focus(),150);
 }
@@ -449,7 +503,7 @@ $("#chat-form").addEventListener("submit",async e=>{
   e.preventDefault();
   const inp=$("#chat-input"), body=inp.value.trim(); if(!body||!chatGid) return;
   inp.value="";
-  const {data,error}=await A.sb.from("messages").insert({group_id:chatGid,user_id:A.me.id,body}).select("id,user_id,body,created_at").single();
+  const {data,error}=await A.sb.from("messages").insert({group_id:chatGid,user_id:A.me.id,body}).select("id,user_id,group_id,body,created_at").single();
   if(error){ inp.value=body; return toast(frError(error)); }
   await addMsg({...data,profiles:{username:A.me.username,is_admin:A.me.is_admin}}); markSeen();
 });
@@ -457,7 +511,7 @@ $("#chat-form").addEventListener("submit",async e=>{
 /* ---------- Accroches ---------- */
 A.hooks.openChat=openChat;
 A.hooks.groupChanged=()=>{ lastGroup=A.cur; onGroupChanged(); };
-A.hooks.change=()=>{ if(A.cur!==lastGroup){ lastGroup=A.cur; onGroupChanged(); } renderFab(); };
+A.hooks.change=()=>{ if(A.cur!==lastGroup){ lastGroup=A.cur; onGroupChanged(); } else if(A.sb) subscribe(); renderFab(); };
 A.hooks.change();
 if(!$("#v-groupe").hidden) renderGroupe();   // si les données sont arrivées avant le chargement de ce fichier
 })();
