@@ -67,7 +67,7 @@ $("#bilan").addEventListener("submit",async e=>{
   const capot=$("#b-capot").checked, len=parseFloat($("#b-len").value);
   const b=$("#b-submit"); b.disabled=true;
   const row={group_id:A.cur,user_id:A.me.id,species:pick.species,caught:!capot,
-    length_cm:!capot&&len>0?Math.round(len):null,lure:pick.lure,color:pick.color,rating:pick.rating,water_type:waterType()};
+    length_cm:!capot&&len>0?Math.round(len):null,lure:pick.lure,color:pick.color,rating:pick.rating,water_type:waterType(),conditions:window.CDJ_ADVICE?.snapshot?.()||null};
   let {error}=navigator.onLine?await A.sb.from("sessions").insert(row):{error:new Error("Failed to fetch")};
   let queued=false;
   if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"sessions",row})){ error=null; queued=true; }
@@ -118,24 +118,13 @@ async function renderGroupe(){
   }
   root.append(head);
 
-  // À traiter (modération)
+  // À traiter : renvoi vers l'onglet Modération
   const pendingMembers=(members.data||[]).filter(m=>m.status==="pending");
-  if(mod&&(pendingMembers.length||info?.pending_posts)){
-    const box=el("div","todo");
-    if(pendingMembers.length){
-      box.append(el("div","todo-t",pendingMembers.length+" demande"+(pendingMembers.length>1?"s":"")+" d'adhésion"));
-      pendingMembers.forEach(m=>{
-        const r=el("div","mrow"); r.append(userLabel(m.username,m.is_admin));
-        const act=el("div","actions");
-        act.append(btn("Accepter","btn primary small",async()=>{ const {error}=await A.sb.rpc("approve_member",{p_group:gid,p_user:m.user_id}); if(error) return toast(frError(error)); toast("@"+m.username+" a rejoint le groupe"); renderGroupe(); }));
-        act.append(confirmBtn("Refuser","Confirmer",async()=>{ const {error}=await A.sb.from("memberships").delete().eq("group_id",gid).eq("user_id",m.user_id); if(error) return toast(frError(error)); toast("Demande refusée"); renderGroupe(); }));
-        r.append(act); box.append(r);
-      });
-    }
-    if(info?.pending_posts){
-      const r=el("div","mrow"); r.append(el("span",null,info.pending_posts+" publication"+(info.pending_posts>1?"s":"")+" à valider"));
-      r.append(btn("Voir dans le fil","btn small",()=>{ location.hash="#fil"; })); box.append(r);
-    }
+  const todoN=pendingMembers.length+(info?.pending_posts||0);
+  if(mod&&todoN){
+    const box=el("button","todo todo-link"); box.type="button";
+    box.append(el("span",null,"🛡️ "+todoN+" élément"+(todoN>1?"s":"")+" à traiter"),el("span","todo-go","Modération ›"));
+    box.addEventListener("click",()=>{ location.hash="#modo"; });
     root.append(box);
   }
 
@@ -144,10 +133,11 @@ async function renderGroupe(){
   root.append(sub(renderPolls(gid,polls.data||[],votes.data||[],mod),"infos"));
   root.append(sub(renderStats(sess.data||[]),"infos"));
   const ex=sub(el("div","g-extras"),"activite"); root.append(ex); A.hooks.groupeExtras?.(ex,gid,mod);
-  if(mod) root.append(sub(renderManage(g,info,members.data||[],man),"membres"));
+
   A.hooks.groupeRendered?.(root);
 }
 A.hooks.groupe=renderGroupe;
+A.groupeAPI={renderManage:(g,info,members,man)=>renderManage(g,info,members,man)};
 
 /* ---------- Mémos ---------- */
 function renderMemos(gid,list,urls,mod){
@@ -313,6 +303,7 @@ function renderStats(list){
 }
 
 /* ---------- Gestion (modérateurs, responsables, admin) ---------- */
+function afterManage(){ renderGroupe(); A.hooks.modo?.(); }
 function renderManage(g,info,members,man){
   const s=section("Gestion du groupe");
   const active=members.filter(m=>m.status==="active");
@@ -327,11 +318,11 @@ function renderManage(g,info,members,man){
       const sel=el("select","role-sel"); sel.setAttribute("aria-label","Rôle de @"+m.username);
       [["member","Membre"],["moderator","Modérateur"]].concat(A.me.is_admin?[["owner","Responsable"]]:[]).forEach(([v,l])=>sel.append(new Option(l,v)));
       sel.value=m.role;
-      sel.addEventListener("change",async()=>{ const {error}=await A.sb.rpc("set_member_role",{p_group:g.id,p_user:m.user_id,p_role:sel.value}); if(error){ sel.value=m.role; return toast(frError(error)); } toast("@"+m.username+" est maintenant "+sel.options[sel.selectedIndex].text.toLowerCase()); await A.loadGroups(); renderGroupe(); });
+      sel.addEventListener("change",async()=>{ const {error}=await A.sb.rpc("set_member_role",{p_group:g.id,p_user:m.user_id,p_role:sel.value}); if(error){ sel.value=m.role; return toast(frError(error)); } toast("@"+m.username+" est maintenant "+sel.options[sel.selectedIndex].text.toLowerCase()); await A.loadGroups(); afterManage(); });
       act.append(sel);
     }
     const canKick=!self&&(A.me.is_admin||(man&&m.role!=="owner")||(!man&&m.role==="member"));
-    if(canKick) act.append(confirmBtn("Retirer","Confirmer",async()=>{ const {error}=await A.sb.from("memberships").delete().eq("group_id",g.id).eq("user_id",m.user_id); if(error) return toast(frError(error)); toast("@"+m.username+" retiré du groupe"); renderGroupe(); }));
+    if(canKick) act.append(confirmBtn("Retirer","Confirmer",async()=>{ const {error}=await A.sb.from("memberships").delete().eq("group_id",g.id).eq("user_id",m.user_id); if(error) return toast(frError(error)); toast("@"+m.username+" retiré du groupe"); afterManage(); }));
     r.append(act); list.append(r);
   });
   s.append(el("h4","g-sub","Membres ("+active.length+"/"+MAXM+")"), list);
@@ -357,7 +348,7 @@ function renderManage(g,info,members,man){
     const ok=el("button","btn","Enregistrer"); ok.type="submit"; f.append(ok);
     f.addEventListener("submit",async e=>{ e.preventDefault(); showErr(err);
       const {error}=await A.sb.rpc("manage_save_group",{p_id:g.id,p_name:n.value.trim(),p_region:rg.value.trim(),p_code:cd.value.trim()});
-      if(error) return showErr(err,frError(error)); toast("Groupe modifié"); await A.loadGroups(); renderGroupe(); });
+      if(error) return showErr(err,frError(error)); toast("Groupe modifié"); await A.loadGroups(); afterManage(); });
     s.append(f);
   }
   return s;
@@ -496,6 +487,10 @@ function drawMsgs(scroll){
     }
     const b=el("div","bubble"+(m.body&&mentionsMe(m.body)&&!mine?" mention-me":"")+(m.photo_path?" has-photo":"")+(m.audio_path?" has-voice":""));
     const mn=mediaNode(m); if(mn) b.append(mn);
+    if(!mine&&A.report){
+      // appui long (ou clic droit) sur un message : le signaler
+      b.addEventListener("contextmenu",e=>{ e.preventDefault(); A.report({kind:"message",target_id:m.id,group_id:chatGid,excerpt:m.body||(m.photo_path?"📷 Photo":m.audio_path?"🎤 Message vocal":""),author_id:m.user_id}); });
+    }
     if(m.body) b.append(withMentions(m.body));
     b.append(el("span","msg-h",d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})));
     row.append(b); box.append(row); lastUser=m.user_id;

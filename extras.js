@@ -68,6 +68,7 @@ function drawSocial(box,p,reac,coms,open){
       const t=el("div","cmt-t"); t.append(userLabel(c.profiles?.username,c.profiles?.is_admin,A.roleOf(p.group_id,c.user_id)));
       t.append(el("span","post-date",ago(c.created_at)));
       r.append(t, el("p",null,c.body));
+      if(c.user_id!==A.me.id&&A.report) r.append(btn("⚑ Signaler","linkbtn small rep-btn",()=>A.report({kind:"comment",target_id:c.id,group_id:p.group_id,excerpt:c.body,author_id:c.user_id})));
       if(c.user_id===A.me.id||A.canModerate(p.group_id)){
         r.append(confirmBtn("Supprimer","Confirmer",async()=>{
           const {error}=await A.sb.from("comments").delete().eq("id",c.id);
@@ -212,7 +213,7 @@ async function carnet(force){
   const seq=++cSeq;
   if(!cache||force){
     const [{data:posts},{data:sess},{data:chal}]=await Promise.all([
-      A.sb.from("posts").select("id,group_id,species,length_cm,weight_kg,bait,created_at,status").eq("user_id",A.me.id).order("created_at",{ascending:false}).limit(1000),
+      A.sb.from("posts").select("id,group_id,species,length_cm,weight_kg,bait,created_at,status,photo_path,photo_paths").eq("user_id",A.me.id).order("created_at",{ascending:false}).limit(1000),
       A.sb.from("sessions").select("id,group_id,species,caught,length_cm,lure,color,rating,created_at").eq("user_id",A.me.id).order("created_at",{ascending:false}).limit(1000),
       A.sb.from("challenges").select("id,group_id,title,species,min_length,month").limit(500),
     ]);
@@ -224,6 +225,7 @@ async function carnet(force){
 function drawCarnet(box,{posts,sess,chal}){
   box.innerHTML="";
   const h=el("div","g-sec-head"); h.append(el("h2",null,"Mon carnet"));
+  const pdf=el("button","btn small","📄 Exporter en PDF"); pdf.type="button"; pdf.addEventListener("click",()=>exportPdf(cache)); h.append(pdf);
   box.append(h);
   const catches=[...posts.filter(p=>p.species||p.length_cm).map(p=>({...p,kind:"post"})),...sess.filter(s=>s.caught!==false&&(s.species||s.length_cm)).map(s=>({...s,kind:"sess"}))];
   if(!posts.length&&!sess.length){ box.append(el("p","empty small","Ton carnet se remplit tout seul avec tes prises et tes bilans de session.")); return; }
@@ -281,20 +283,59 @@ function drawCarnet(box,{posts,sess,chal}){
   }else box.append(el("p","note","Réussis un défi du mois de ton groupe pour gagner ton premier badge 🏅"));
 
   // Historique
-  const hist=[...posts.filter(inY).map(p=>({...p,kind:"post"})),...ys.map(s=>({...s,kind:"sess"}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,12);
+  const all=[...posts.filter(inY).map(p=>({...p,kind:"post"})),...ys.map(s=>({...s,kind:"sess"}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const hist=showAll?all:all.slice(0,12);
   if(hist.length){
-    box.append(el("h4","g-sub","Dernières sorties"));
+    box.append(el("h4","g-sub","Mes sorties "+year+" ("+all.length+")"));
     const list=el("div","list tight rk-list");
     hist.forEach(x=>{
       const r=el("div","mrow");
       const what=x.kind==="sess"&&x.caught===false?(x.species?x.species+" ciblé · capot":"Capot")
         :[x.species||"Prise",x.length_cm?fmt(x.length_cm)+" cm":null,x.weight_kg?fmt(x.weight_kg)+" kg":null].filter(Boolean).join(" · ");
       const l=el("div"); l.append(el("div",null,what), el("div","post-date",(x.kind==="sess"?"Bilan":"Prise publiée")+" · "+A.groupName(x.group_id)));
-      r.append(l, el("span","post-date",new Date(x.created_at).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})));
+      const rt=el("div","carnet-act"); rt.append(el("span","post-date",new Date(x.created_at).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})));
+      rt.append(confirmBtn("🗑","Supprimer ?",async()=>{
+        if(x.kind==="post"){
+          const ph=(x.photo_paths&&x.photo_paths.length)?x.photo_paths:(x.photo_path?[x.photo_path]:[]);
+          const {error}=await A.sb.from("posts").delete().eq("id",x.id); if(error) return toast(frError(error));
+          if(ph.length) await A.sb.storage.from("photos").remove(ph);
+          cache.posts=cache.posts.filter(p=>p.id!==x.id);
+        }else{
+          const {error}=await A.sb.from("sessions").delete().eq("id",x.id); if(error) return toast(frError(error));
+          cache.sess=cache.sess.filter(p=>p.id!==x.id);
+        }
+        toast(x.kind==="post"?"Prise supprimée":"Bilan supprimé"); drawCarnet(box,cache); A.loadFeed();
+      },"linkbtn danger small"));
+      r.append(l, rt);
       list.append(r);
     });
     box.append(list);
+    if(all.length>12){ const more=el("div","actions"); more.append(btn(showAll?"Voir moins":"Voir les "+all.length+" sorties","linkbtn",()=>{ showAll=!showAll; drawCarnet(box,cache); })); box.append(more); }
   }
+}
+let showAll=false;
+// export : page imprimable, le téléphone propose « Enregistrer en PDF »
+function exportPdf(data){
+  if(!data) return;
+  const esc=t=>String(t??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const rows=[...data.posts.map(p=>({...p,kind:"Prise"})),...data.sess.map(s=>({...s,kind:s.caught===false?"Capot":"Bilan"}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const rec=new Map(); rows.filter(r=>r.species&&r.length_cm&&r.kind!=="Capot").forEach(r=>{ const b=rec.get(r.species); if(!b||Number(r.length_cm)>Number(b.length_cm)) rec.set(r.species,r); });
+  const d=x=>new Date(x).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"});
+  const html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Carnet de pêche · @'+esc(A.me.username)+'</title><style>'+
+    'body{font-family:system-ui,sans-serif;color:#13221d;margin:24px}h1{margin:0 0 4px;font-size:22px}p{margin:0 0 16px;color:#5b6c65}'+
+    'h2{font-size:15px;text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid #1f6f5c;padding-bottom:4px;margin:22px 0 8px}'+
+    'table{border-collapse:collapse;width:100%;font-size:12px}th,td{border-bottom:1px solid #d3ddd8;padding:5px 6px;text-align:left}th{background:#e9efeb}'+
+    '.rec{display:flex;flex-wrap:wrap;gap:8px}.rec div{border:1px solid #d3ddd8;border-radius:8px;padding:6px 10px}.rec b{display:block;font-size:18px;color:#c27a22}'+
+    '@media print{body{margin:10mm}button{display:none}}</style></head><body>'+
+    '<button onclick="print()" style="float:right;padding:8px 14px">Imprimer / PDF</button>'+
+    '<h1>🎣 Carnet de pêche de @'+esc(A.me.username)+'</h1><p>Coup du Jour · exporté le '+d(Date.now())+' · '+rows.length+' entrées</p>'+
+    '<h2>Records</h2><div class="rec">'+([...rec.values()].map(r=>'<div>'+esc(r.species)+'<b>'+esc(String(r.length_cm).replace(".",","))+' cm</b>'+(r.weight_kg?esc(String(r.weight_kg).replace(".",","))+' kg · ':'')+d(r.created_at)+'</div>').join("")||'<span>Aucun record mesuré</span>')+'</div>'+
+    '<h2>Historique</h2><table><thead><tr><th>Date</th><th>Type</th><th>Espèce</th><th>Taille</th><th>Poids</th><th>Appât / combo</th><th>Groupe</th></tr></thead><tbody>'+
+    rows.map(r=>'<tr><td>'+d(r.created_at)+'</td><td>'+r.kind+'</td><td>'+esc(r.species||"")+'</td><td>'+(r.length_cm?esc(String(r.length_cm).replace(".",","))+' cm':'')+'</td><td>'+(r.weight_kg?esc(String(r.weight_kg).replace(".",","))+' kg':'')+'</td><td>'+esc(r.bait||[r.lure,r.color].filter(Boolean).join(" · "))+'</td><td>'+esc(A.groupName(r.group_id))+'</td></tr>').join("")+
+    '</tbody></table></body></html>';
+  const w=window.open("","_blank");
+  if(!w){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([html],{type:"text/html"})); a.download="carnet-peche-"+A.me.username+".html"; a.click(); return toast("Carnet téléchargé : ouvre-le puis Imprimer → PDF"); }
+  w.document.write(html); w.document.close(); setTimeout(()=>{ try{ w.print(); }catch(e){} },400);
 }
 
 A.hooks.feedExtras=feedExtras;

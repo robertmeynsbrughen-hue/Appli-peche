@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#1f6f5c">
 <meta name="description" content="Conseils pêche selon la météo, fil photo et carte des spots du groupe.">
 <link rel="manifest" href="manifest.webmanifest">
+<script>try{var t=localStorage.getItem("cdj-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="icon" href="icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -262,6 +263,9 @@ body{margin:0}
     <div class="panel" id="carnet" hidden data-sub="moi"></div>
     <div class="panel" id="dex" hidden data-sub="collection"></div>
     <div class="panel" id="gear" hidden data-sub="matos"></div>
+    <div class="panel" id="lures" hidden data-sub="matos"></div>
+
+    <div class="panel" id="theme-panel" data-sub="reglages"></div>
 
     <div class="panel" id="my-groups" hidden data-sub="reglages">
       <h2>Mes groupes</h2>
@@ -297,10 +301,8 @@ body{margin:0}
     <div class="panel" data-sub="reglages">
       <h2>Installer l'appli</h2>
       <p class="note">Android (Chrome) : menu ⋮ puis « Ajouter à l'écran d'accueil » ou « Installer l'application ».<br>iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
-      <p class="note app-version">Version <span id="app-version">24</span></p>
+      <p class="note app-version">Version <span id="app-version">25</span></p>
     </div>
-
-    <div class="panel" data-sub="reglages" id="ctrl-panel" hidden></div>
 
     <div class="panel" data-sub="reglages" id="account-panel" hidden>
       <h2>Compte</h2>
@@ -308,6 +310,11 @@ body{margin:0}
     </div>
   </section>
   <!-- ========== GROUPE ========== -->
+  <section class="view" id="v-modo" hidden>
+    <div id="modo-root"></div>
+    <div class="panel" id="ctrl-panel" hidden></div>
+  </section>
+
   <section class="view" id="v-groupe" hidden>
     <div class="empty" data-need-login hidden></div>
     <div id="groupe-root"></div>
@@ -341,6 +348,8 @@ body{margin:0}
     <svg viewBox="0 0 24 24"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>Carte</a>
   <a href="#groupe" data-v="groupe" id="tab-groupe" hidden>
     <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9.5" r="2.5"/><path d="M3 20c.8-3.6 3.2-5.5 6-5.5s5.2 1.9 6 5.5M15 15.2c2.6-.4 4.9 1 5.7 4.3"/></svg>Groupe</a>
+  <a href="#modo" data-v="modo" id="tab-modo" hidden>
+    <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>Modo<span class="tab-badge" id="modo-badge" hidden></span></a>
   <a href="#profil" data-v="profil">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Profil</a>
 </nav>
@@ -427,6 +436,10 @@ body{margin:0}
 <script src="maptools.js"></script>
 <script src="profile.js"></script>
 <script src="layout.js"></script>
+<script src="tools.js"></script>
+<script src="lures.js"></script>
+<script src="compet.js"></script>
+<script src="modo.js"></script>
 <script>
 if("serviceWorker" in navigator){
   // dès qu'une nouvelle version prend la main, on recharge une fois pour l'afficher

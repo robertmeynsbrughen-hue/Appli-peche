@@ -81,18 +81,20 @@ const hooks={};   // points d'accroche pour groupe.js
 const groupName=id=>{ const g=groups.find(x=>x.id===id); return g?g.name:"?"; };
 
 // ---------- Navigation ----------
-const VIEWS=["conseils","fil","carte","groupe","profil"];
+const VIEWS=["conseils","fil","carte","groupe","modo","profil"];
 function route(){
   let h=location.hash.slice(1);
   if(h==="admin") h="groupe";
   if(h==="chat"){ h="fil"; setTimeout(()=>hooks.openChat?.(),300); }
   let v=VIEWS.includes(h)?h:"conseils";
+  if(v==="modo"&&!(me&&isManager())) v=me?"groupe":"conseils";
   VIEWS.forEach(n=>{ $("#v-"+n).hidden=n!==v; });
   $$("nav.tabs a").forEach(a=>a.setAttribute("aria-current",a.dataset.v===v?"page":"false"));
   if(v==="carte") openMap();
   if(v==="fil") loadFeed();
   if(v==="groupe") hooks.groupe?.();
   if(v==="profil") hooks.profil?.();
+  if(v==="modo") hooks.modo?.();
   window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",route);
@@ -126,6 +128,7 @@ function refreshUI(){
   $("#me").hidden=!logged;
   $("#my-groups").hidden=!logged;
   $("#tab-groupe").hidden=!member;
+  $("#tab-modo").hidden=!(member&&isManager());
   $("#create-group").hidden=!logged;
   if(me){ const h=$("#me-name"); h.textContent="@"+me.username; const sb2=staffBadge(); if(sb2) h.append(sb2); }
   if(!member){ $("#feed").innerHTML=""; }
@@ -427,7 +430,7 @@ $("#composer").addEventListener("submit",async e=>{
     const blobs=[]; for(const p of pics) blobs.push(await compress(p.file));
     const len=parseFloat($("#p-len").value), wt=parseFloat($("#p-wt").value);
     const ok=await window.CDJ.offline?.enqueue({kind:"post",blobs,row:{group_id:cur,caption:cap||null,species:$("#p-species").value||null,
-      spot_id:$("#p-spot").value?Number($("#p-spot").value):null,length_cm:len>0?Math.round(len*10)/10:null,weight_kg:wt>0?Math.round(wt*100)/100:null,bait:$("#p-bait").value.trim()||null}});
+      spot_id:$("#p-spot").value?Number($("#p-spot").value):null,length_cm:len>0?Math.round(len*10)/10:null,weight_kg:wt>0?Math.round(wt*100)/100:null,bait:$("#p-bait").value.trim()||null,conditions:window.CDJ_ADVICE?.snapshot?.()||null}});
     if(!ok) return false;
     pics.forEach(f=>URL.revokeObjectURL(f.url)); pics=[]; renderThumbs();
     $("#composer").reset(); $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
@@ -451,7 +454,8 @@ $("#composer").addEventListener("submit",async e=>{
       bait:$("#p-bait").value.trim()||null,date:new Date().toISOString(),username:me.username,group:curGroup()?.name||"",
       spot:spot?($("#p-spot").selectedOptions[0]?.textContent||null):null,photoUrl:pics[0]?URL.createObjectURL(pics[0].file):null};
     const {error}=await sb.from("posts").insert({group_id:cur,caption:cap||null,species:$("#p-species").value||null,photo_path:path,photo_paths:paths.length?paths:null,spot_id:spot,
-      length_cm:len>0?Math.round(len*10)/10:null, weight_kg:wt>0?Math.round(wt*100)/100:null, bait:$("#p-bait").value.trim()||null});
+      length_cm:len>0?Math.round(len*10)/10:null, weight_kg:wt>0?Math.round(wt*100)/100:null, bait:$("#p-bait").value.trim()||null,
+      conditions:window.CDJ_ADVICE?.snapshot?.()||null});
     if(error){ if(paths.length) await sb.storage.from("photos").remove(paths); throw error; }
     pics.forEach(f=>URL.revokeObjectURL(f.url)); pics=[]; renderThumbs();
     $("#composer").reset(); $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;

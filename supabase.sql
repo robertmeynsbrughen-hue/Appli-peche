@@ -1038,3 +1038,99 @@ grant execute on function public.set_controller(text, boolean) to authenticated;
 grant execute on function public.list_controllers() to authenticated;
 grant execute on function public.is_controller() to authenticated;
 grant execute on function public.is_staff() to authenticated;
+
+-- ========== Lot 5 : leurres, signalements, compétitions, sauvegarde ==========
+
+-- ---------- Conditions météo enregistrées avec les bilans et les prises (prédiction) ----------
+alter table public.sessions add column if not exists conditions jsonb;
+alter table public.posts add column if not exists conditions jsonb;
+
+-- ---------- Journal des leurres (perso) ----------
+create table if not exists public.lures (
+  id bigint generated always as identity primary key,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  name text not null check (char_length(name) between 1 and 60),
+  kind text check (char_length(kind) <= 40),
+  color text check (char_length(color) <= 40),
+  weight_g numeric check (weight_g > 0 and weight_g < 1000),
+  photo_path text check (char_length(photo_path) <= 200),
+  notes text check (char_length(notes) <= 300),
+  created_at timestamptz not null default now()
+);
+alter table public.lures enable row level security;
+drop policy if exists lures_all on public.lures;
+create policy lures_all on public.lures for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ---------- Signalements ----------
+create table if not exists public.reports (
+  id bigint generated always as identity primary key,
+  group_id bigint not null references public.groups (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  kind text not null check (kind in ('post', 'comment', 'message')),
+  target_id bigint not null,
+  excerpt text check (char_length(excerpt) <= 200),
+  author_id uuid references public.profiles (id) on delete set null,
+  reason text not null check (char_length(reason) between 2 and 200),
+  status text not null default 'open' check (status in ('open', 'done', 'dismissed')),
+  handled_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists reports_group on public.reports (group_id, status);
+alter table public.reports enable row level security;
+drop policy if exists reports_select on public.reports;
+drop policy if exists reports_insert on public.reports;
+drop policy if exists reports_update on public.reports;
+create policy reports_select on public.reports for select using (user_id = auth.uid() or public.can_moderate(group_id));
+create policy reports_insert on public.reports for insert with check (user_id = auth.uid() and (public.is_member_of(group_id) or public.is_staff()));
+create policy reports_update on public.reports for update using (public.can_moderate(group_id)) with check (public.can_moderate(group_id));
+drop trigger if exists reports_notify on public.reports;
+create trigger reports_notify after insert on public.reports for each row execute function public.notify_new();
+
+-- ---------- Compétitions ----------
+create table if not exists public.competitions (
+  id bigint generated always as identity primary key,
+  group_id bigint not null references public.groups (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  title text not null check (char_length(title) between 3 and 80),
+  mode text not null default 'points' check (mode in ('points', 'biggest', 'count')),
+  species text check (char_length(species) <= 30),
+  start_at timestamptz not null,
+  end_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  check (end_at > start_at and end_at <= start_at + interval '31 days')
+);
+create index if not exists competitions_group on public.competitions (group_id, end_at);
+alter table public.competitions enable row level security;
+drop policy if exists competitions_select on public.competitions;
+drop policy if exists competitions_insert on public.competitions;
+drop policy if exists competitions_delete on public.competitions;
+create policy competitions_select on public.competitions for select using (public.is_staff() or public.is_member_of(group_id));
+create policy competitions_insert on public.competitions for insert with check (user_id = auth.uid() and public.can_moderate(group_id));
+create policy competitions_delete on public.competitions for delete using (user_id = auth.uid() or public.can_moderate(group_id));
+drop trigger if exists competitions_notify on public.competitions;
+create trigger competitions_notify after insert on public.competitions for each row execute function public.notify_new();
+
+-- ---------- Sauvegarde automatique hebdomadaire (5 semaines gardées) ----------
+create schema if not exists backup;
+revoke all on schema backup from public, anon, authenticated;
+create table if not exists backup.snapshots (
+  id bigint generated always as identity primary key,
+  snap date not null,
+  tbl text not null,
+  data jsonb not null
+);
+create index if not exists snapshots_snap on backup.snapshots (snap, tbl);
+create or replace function backup.weekly() returns void
+language plpgsql security definer set search_path = public, backup as $$
+declare t text;
+begin
+  delete from backup.snapshots where snap = current_date or snap < current_date - 35;
+  foreach t in array array['settings','groups','profiles','memberships','spots','posts','sessions','polls','poll_votes','memos','messages',
+    'reactions','comments','challenges','carp_sessions','carp_events','gear_items','alert_prefs','outings','outing_rsvps','lures','reports','competitions'] loop
+    if to_regclass('public.' || t) is not null then
+      execute format('insert into backup.snapshots (snap, tbl, data) select current_date, %L, to_jsonb(x) from public.%I x', t, t);
+    end if;
+  end loop;
+end;
+$$;
+revoke all on function backup.weekly() from public, anon, authenticated;

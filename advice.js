@@ -244,20 +244,29 @@ function render(){
     ["Soleil",fmtH(meta.rise)+" · "+fmtH(meta.set)],
     ["Lune",meta.moon]
   ];
+  const start=new Date(); start.setMinutes(0,0,0);
+  const pos=meta.lat!=null?meta:DEFAULT_POS;
+  const sol=solunar(start,pos.lat,pos.lon);
+  cells.push(["Solunaire","★ "+(sol.major.map(hhmm).join(", ")||"–")+" · ☆ "+(sol.minor.map(hhmm).join(", ")||"–")]);
   if(waterType!=="etang"){
     const f=getFlow(meta);
     cells.push(["Débit rivière",f?(f.q!=null?Math.round(f.q)+" m³/s · ":"")+FLOW_TXT[f.status]+(f.trend==="hausse"?" ↑":f.trend==="baisse"?" ↓":""):"indisponible"]);
   }
-  for(const [k,v] of cells){ const d=mk("div","cell"); d.append(mk("div","k",k),mk("div","v",v)); g.append(d); }
+  for(const [k,v] of cells){ const d=mk("div","cell"+(k==="Solunaire"?" wide":"")); d.append(mk("div","k",k),mk("div","v",v)); if(k==="Solunaire") d.title="★ périodes majeures (lune au plus haut ou au plus bas, ±1 h) · ☆ mineures (lever et coucher de lune, ±30 min)"; g.append(d); }
+  const cmp=mk("button","btn small cmp-btn","📅 Comparer les 7 prochains jours"); cmp.type="button"; cmp.addEventListener("click",compareDays); g.append(cmp);
+  const solAt=k=>{ const t=start.getTime()+k*36e5+18e5; return sol.major.some(x=>Math.abs(x-t)<=90*6e4)?"maj":sol.minor.some(x=>Math.abs(x-t)<=60*6e4)?"min":null; };
+  loadHist();
 
   const m=meta.month;
   const results=SPECIES.map(sp=>{
     const series=hours.map(h=>scoreHour(sp,h));
-    const peak=Math.max(...series);
+    const theory=Math.max(...series);
+    const exp=experience(sp,now,meta);
+    const peak=exp&&exp.succ!=null?.7*theory+.3*exp.succ:theory;
     const best=series.map(v=>v>=peak*0.85&&peak>0.15);
     let a=best.indexOf(true), b=a;
     while(b+1<best.length&&best[b+1]) b++;
-    return {sp,series,peak,best,a,b};
+    return {sp,series,peak,best,a,b,exp};
   }).sort((x,y)=>y.peak-x.peak);
 
   const list=$("#list"); list.innerHTML="";
@@ -281,7 +290,7 @@ function render(){
     const tl=mk("div","timeline");
     const strip=mk("div","strip");
     r.series.forEach((v,k)=>{
-      const d=mk("div",r.best[k]?"best":null);
+      const so=solAt(k); const d=mk("div",[r.best[k]?"best":null,so?"sol-"+so:null].filter(Boolean).join(" ")||null);
       if(!r.best[k]) d.style.opacity=(0.14+v*0.6).toFixed(2);
       d.style.height=(30+v*70).toFixed(0)+"%";
       d.title=hours[k].label+" : "+Math.round(v*100);
@@ -293,6 +302,7 @@ function render(){
     if(r.a<0) win.textContent="Aucun créneau vraiment favorable dans les 24 h.";
     else{ win.append("Meilleur créneau "); win.append(mk("b",null,hours[r.a].label+" – "+(hours[r.b+1]?hours[r.b+1].label:hours[r.b].label))); }
     card.append(win);
+    if(r.exp&&r.exp.n>=3) card.append(mk("div","exp","📒 Vos bilans : "+r.exp.n+" sorties dans des conditions proches, "+r.exp.caught+" avec prise"+(r.exp.succ>=.55?" · bon signe":r.exp.succ<.25?" · souvent difficile":"")));
     // menu déroulant des conseils
     const det=mk("details","tips"); det.open=openTips.has(r.sp.id);
     det.addEventListener("toggle",()=>{ det.open?openTips.add(r.sp.id):openTips.delete(r.sp.id); });
@@ -317,6 +327,118 @@ function render(){
     det.append(body); card.append(det);
     list.append(card);
   });
+}
+
+// ---------- Solunaire : position de la lune (formules simplifiées de SunCalc) ----------
+const RAD=Math.PI/180;
+function moonAlt(date,lat,lon){
+  const d=date/864e5-0.5+2440588-2451545, e=RAD*23.4397;
+  const L=RAD*(218.316+13.176396*d), M=RAD*(134.963+13.064993*d), F=RAD*(93.272+13.22935*d);
+  const l=L+RAD*6.289*Math.sin(M), b=RAD*5.128*Math.sin(F);
+  const ra=Math.atan2(Math.sin(l)*Math.cos(e)-Math.tan(b)*Math.sin(e),Math.cos(l));
+  const dec=Math.asin(Math.sin(b)*Math.cos(e)+Math.cos(b)*Math.sin(e)*Math.sin(l));
+  const H=RAD*(280.16+360.9856235*d)+RAD*lon-ra, phi=RAD*lat;
+  return Math.asin(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H));
+}
+// périodes majeures (lune au plus haut ou au plus bas) et mineures (lever, coucher) sur 24 h
+function solunar(start,lat,lon){
+  const step=6e5, n=24*6+2, a=[];
+  for(let i=-1;i<=n;i++) a.push(moonAlt(new Date(start.getTime()+i*step),lat,lon));
+  const major=[], minor=[];
+  for(let i=1;i<a.length-1;i++){
+    const t=new Date(start.getTime()+(i-1)*step);
+    if(t<start||t>start.getTime()+864e5) continue;
+    if((a[i]>a[i-1]&&a[i]>=a[i+1])||(a[i]<a[i-1]&&a[i]<=a[i+1])) major.push(t);
+    if((a[i-1]<0&&a[i]>=0)||(a[i-1]>0&&a[i]<=0)) minor.push(t);
+  }
+  return {major,minor};
+}
+const hhmm=d=>String(d.getHours()).padStart(2,"0")+"h"+String(d.getMinutes()).padStart(2,"0");
+
+// ---------- Ce que disent vos bilans (conditions proches, près d'ici) ----------
+let hist=null, histTry=0;
+async function loadHist(){
+  const A=window.CDJ; if(!A||!A.me||!A.sb||hist||Date.now()-histTry<60000) return;
+  histTry=Date.now();
+  try{
+    const [{data:se},{data:po}]=await Promise.all([
+      A.sb.from("sessions").select("species,caught,rating,conditions").not("conditions","is",null).limit(2000),
+      A.sb.from("posts").select("species,conditions").eq("status","published").not("conditions","is",null).limit(2000),
+    ]);
+    hist=[...(se||[]).map(x=>({sp:x.species,ok:x.caught!==false,r:x.rating||2,c:x.conditions})),...(po||[]).map(x=>({sp:x.species,ok:true,r:3,c:x.conditions}))];
+    render();
+  }catch(e){}
+}
+function km(a,b,c,d){ const R=6371, dl=(c-a)*RAD, dg=(d-b)*RAD; const h=Math.sin(dl/2)**2+Math.cos(a*RAD)*Math.cos(c*RAD)*Math.sin(dg/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+function experience(sp,now,meta){
+  if(!hist) return null;
+  const nm=sp.name.toLowerCase();
+  const near=hist.filter(h=>String(h.sp||"").toLowerCase()===nm&&h.c).map(h=>{
+    const c=h.c;
+    let d=Math.abs((c.water??now.water)-now.water)/3+Math.abs((c.dp??0)-now.dp)/2+Math.abs((c.wind??now.wind)-now.wind)/15+Math.abs((c.cloud??now.cloud)-now.cloud)/60;
+    if(c.phase&&c.phase!==now.phase) d+=.5;
+    if(c.lat!=null&&meta.lat!=null&&km(c.lat,c.lon,meta.lat,meta.lon)>30) d+=1;
+    return {d,ok:h.ok,r:h.r};
+  }).filter(x=>x.d<2.5).sort((a,b)=>a.d-b.d).slice(0,8);
+  if(near.length<3) return {n:near.length};
+  return {n:near.length,caught:near.filter(x=>x.ok).length,succ:near.reduce((a,x)=>a+(x.ok?x.r/4:0),0)/near.length};
+}
+
+// ---------- Comparateur des 7 prochains jours ----------
+async function compareDays(){
+  const pos=current&&current.meta.lat!=null?current.meta:DEFAULT_POS;
+  const back=mk("div","sheet-back"); const sh=mk("div","sheet cmp-sheet"); sh.setAttribute("role","dialog"); sh.setAttribute("aria-modal","true"); sh.setAttribute("aria-label","Comparer les jours");
+  const head=mk("div","sheet-head"); head.append(mk("h2",null,"Quel jour aller pêcher ?"));
+  const x=mk("button","icon-btn"); x.type="button"; x.setAttribute("aria-label","Fermer"); x.innerHTML='<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  const close=()=>{ back.remove(); document.removeEventListener("keydown",esc); }; const esc=e=>{ if(e.key==="Escape") close(); };
+  x.addEventListener("click",close); back.addEventListener("click",e=>{ if(e.target===back) close(); }); document.addEventListener("keydown",esc);
+  head.append(x); sh.append(head, mk("p","note","Chargement des prévisions…")); back.append(sh); document.body.append(back);
+  let d;
+  try{
+    const url="https://api.open-meteo.com/v1/forecast?latitude="+pos.lat.toFixed(3)+"&longitude="+pos.lon.toFixed(3)+"&hourly=temperature_2m,surface_pressure,cloud_cover,wind_speed_10m,precipitation&past_days=5&forecast_days=7&timezone=auto";
+    const r=await fetch(url); if(!r.ok) throw 0; d=await r.json();
+  }catch(e){ sh.lastChild.textContent="Prévisions indisponibles (pas de réseau ?)."; return; }
+  const H=d.hourly, days=[...new Set(H.time.map(t=>t.slice(0,10)))];
+  const today=new Date(); const todayKey=today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
+  const list=days.filter(k=>k>=todayKey).slice(0,7);
+  const res=list.map(k=>{
+    const i0=H.time.indexOf(k+"T00:00");
+    const past=H.temperature_2m.slice(Math.max(0,i0-120),i0+1).filter(v=>v!=null);
+    const water=Math.max(2,Math.min(30,0.85*past.reduce((a,b)=>a+b,0)/past.length+1.5));
+    const date=new Date(k+"T12:00:00"); const {rise,set}=sunTimes(date,pos.lat,pos.lon);
+    const per=SPECIES.map(sp=>{
+      let best=0, at=null;
+      for(let h=5;h<=22;h++){ const i=i0+h; if(H.time[i]==null) break;
+        const c={phase:phase(h+.5,rise,set),water,air:H.temperature_2m[i],dp:(H.surface_pressure[i]??0)-(H.surface_pressure[i-3]??H.surface_pressure[i]),wind:H.wind_speed_10m[i],cloud:H.cloud_cover[i],rain:H.precipitation[i]||0};
+        const v=scoreHour(sp,c); if(v>best){ best=v; at=h; } }
+      const closed=sp.closed&&sp.closed(date.getMonth()+1);
+      return {sp,best:closed?0:best,at,closed};
+    });
+    const rain=H.precipitation.slice(i0+5,i0+22).reduce((a,v)=>a+(v||0),0), wind=Math.max(...H.wind_speed_10m.slice(i0+5,i0+22));
+    return {k,date,per,rain,wind,top:Math.max(...per.map(p=>p.best))};
+  });
+  sh.lastChild.remove();
+  const bestDay=res.reduce((a,b)=>b.top>a.top?b:a,res[0]);
+  sh.append(mk("p","note","Meilleur score de la journée (5 h à 22 h) pour chaque espèce, d'après les prévisions météo. Touche une case pour l'heure conseillée."));
+  const wrap=mk("div","cmp-wrap"); const t=mk("table","cmp");
+  const tr=mk("tr"); tr.append(mk("th"));
+  res.forEach(r=>{ const th=mk("th",r===bestDay?"best":null); th.append(mk("span",null,r.date.toLocaleDateString("fr-FR",{weekday:"short"})),mk("small",null,r.date.getDate()+"/"+(r.date.getMonth()+1))); tr.append(th); });
+  const thead=mk("thead"); thead.append(tr); t.append(thead);
+  const tb=mk("tbody");
+  SPECIES.forEach((sp,j)=>{
+    const row=mk("tr"); row.append(mk("th",null,sp.name));
+    const max=Math.max(...res.map(r=>r.per[j].best)), topI=res.findIndex(r=>r.per[j].best===max);
+    res.forEach((r,ri)=>{ const p=r.per[j]; const v=Math.round(p.best*100);
+      const td=mk("td",p.closed?"closed":(ri===topI&&v>=50?"top":null)); td.textContent=p.closed?"–":String(v);
+      td.style.setProperty("--v",p.best.toFixed(2)); td.title=p.closed?"Fermé":(p.at!=null?"Vers "+p.at+"h":"");
+      td.tabIndex=0; td.addEventListener("click",()=>info.textContent=sp.name+" · "+r.date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})+" : "+(p.closed?"fermé":v+" % vers "+p.at+"h"));
+      row.append(td); });
+    tb.append(row);
+  });
+  const wr=mk("tr","cmp-meteo"); wr.append(mk("th",null,"Météo"));
+  res.forEach(r=>wr.append(mk("td",null,(r.rain>=3?"🌧":r.rain>=.5?"🌦":"☀️")+(r.wind>=35?"💨":""))));
+  tb.append(wr); t.append(tb); wrap.append(t); sh.append(wrap);
+  const info=mk("p","cmp-info",bestDay?"Meilleure journée : "+bestDay.date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}):""); sh.append(info);
 }
 
 // ---------- Mode manuel ----------
@@ -469,7 +591,11 @@ $("#apply").addEventListener("click",()=>{mode="manual";buildManual();});
 $("#locate").addEventListener("click",()=>locate(false));
 
 try{const w=localStorage.getItem("cdj-water"); if(w){waterType=w;document.querySelectorAll("#water-type button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.v===w)));}}catch(e){}
-window.CDJ_ADVICE={ loadAt:(lat,lon,name)=>loadLive(lat,lon,name), species:()=>SPECIES.map(s=>s.name||s.id) };
+window.CDJ_ADVICE={ loadAt:(lat,lon,name)=>loadLive(lat,lon,name), species:()=>SPECIES.map(s=>s.name||s.id),
+  // conditions du moment, enregistrées avec les bilans et les prises (seulement si la météo est réelle)
+  snapshot:()=>{ if(!current||mode!=="live") return null; const h=current.hours[0], m=current.meta;
+    return {water:+h.water.toFixed(1),air:Math.round(h.air),dp:+h.dp.toFixed(1),wind:Math.round(h.wind),cloud:Math.round(h.cloud),rain:+(h.rain||0).toFixed(1),phase:h.phase,hour:new Date().getHours(),lat:+m.lat.toFixed(3),lon:+m.lon.toFixed(3),water_type:waterType}; },
+  refresh:()=>{ hist=null; histTry=0; loadHist(); } };
 setDefaults();
 buildManual();
 locate(true);

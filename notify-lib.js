@@ -85,7 +85,7 @@ async function activeMembers(g, exclude) {
 async function moderators(g, exclude) {
   const [mods, admins] = await Promise.all([
     db("memberships?group_id=eq." + g + "&status=eq.active&role=in.(owner,moderator)&select=user_id"),
-    db("profiles?is_admin=eq.true&select=id"),
+    db("profiles?or=(is_admin.eq.true,is_controller.eq.true)&select=id"),
   ]);
   const ids = new Set([...mods.map((m) => m.user_id), ...admins.map((a) => a.id)]);
   if (exclude) ids.delete(exclude);
@@ -116,6 +116,8 @@ export async function handle(req, cfg) {
         comments: "id,post_id,user_id,body",
         challenges: "id,group_id,user_id,title,species,min_length",
         outings: "id,group_id,user_id,title,place,start_at",
+        reports: "id,group_id,user_id,kind,reason,excerpt",
+        competitions: "id,group_id,user_id,title,start_at,end_at",
       }[t];
       if (!cols) return new Response("bad table", { status: 400 });
       [rec] = await db(t + "?id=eq." + Number(ev.id) + "&select=" + cols);
@@ -154,6 +156,10 @@ export async function handle(req, cfg) {
         recipients = await activeMembers(group_id, author);
         msg = { title: "🎣 Nouvelle prise · " + group, body: who + " : " + text, url: "./#fil", tag: "post-" + rec.id };
       }
+    } else if (t === "reports") {
+      recipients = await moderators(group_id, author);
+      const what = { post: "une prise", comment: "un commentaire", message: "un message" }[rec.kind] || "un contenu";
+      msg = { title: "⚑ Signalement · " + group, body: who + " signale " + what + " : " + cut(rec.reason, 80) + (rec.excerpt ? " (« " + cut(rec.excerpt, 50) + " »)" : ""), url: "./#groupe", tag: "rep-" + rec.id };
     } else {
       recipients = await activeMembers(group_id, author);
       if (t === "spots") msg = { title: "📍 Nouveau spot · " + group, body: who + " a ajouté « " + rec.name + " »", url: "./#carte", tag: "spot-" + rec.id };
@@ -163,6 +169,8 @@ export async function handle(req, cfg) {
         const fish = rec.caught === false ? (rec.species ? rec.species + " ciblé, capot" : "capot") : [rec.species, rec.length_cm ? num(rec.length_cm) + " cm" : ""].filter(Boolean).join(" ");
         const combo = [rec.lure, rec.color].filter(Boolean).join(" ");
         msg = { title: "🧾 Bilan de session · " + group, body: who + " : " + [fish, combo, RATING[rec.rating]].filter(Boolean).join(" · "), url: "./#groupe", tag: "sess-" + rec.id };
+      } else if (t === "competitions") {
+        msg = { title: "🏆 Compétition · " + group, body: who + " lance « " + cut(rec.title, 60) + " » du " + whenFr(rec.start_at) + " au " + whenFr(rec.end_at), url: "./#groupe", tag: "comp-" + rec.id };
       } else if (t === "outings") {
         msg = { title: "📅 Sortie prévue · " + group, body: who + " : " + cut(rec.title, 70) + " · " + whenFr(rec.start_at) + (rec.place ? " · " + cut(rec.place, 40) : ""), url: "./#groupe", tag: "out-" + rec.id };
       } else if (t === "challenges") {
