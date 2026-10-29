@@ -22,6 +22,7 @@ function pikeStatus(now){
   const nextClose=t<close?close:lastWeekday(y+1,0,0);
   return {open:true,next:nextClose};
 }
+const openRegl=new Set((()=>{ try{ return JSON.parse(localStorage.getItem("cdj-regl-open")||"[]"); }catch(e){ return []; } })());
 function renderRegl(){
   const box=$("#regl"); if(!box) return;
   const now=new Date(), today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
@@ -39,21 +40,24 @@ function renderRegl(){
   }
   alert.append(at); box.append(alert);
   const rows=[
-    ["Brochet",st.open?"Ouvert":"Fermé","60 cm","Fermé du dernier dimanche de janvier au dernier samedi d'avril",st.open],
-    ["Sandre",st.open?"Ouvert*":"Fermé*","50 cm","Dates fixées par l'arrêté du département",st.open],
-    ["Black-bass",st.open?"Ouvert*":"Fermé*","30 cm*","Dates et taille parfois différentes selon le département",st.open],
-    ["Perche","Toute l'année","—","Pas de taille nationale",true],
-    ["Silure","Toute l'année","—","Pas de taille nationale",true],
-    ["Chevesne","Toute l'année","—","Pas de taille nationale",true],
-    ["Carpe","Toute l'année","—","De nuit seulement sur les parcours autorisés",true],
+    ["Brochet",st.open?"Ouvert":"Fermé","60 cm",st.open,["Fermé du dernier dimanche de janvier au dernier samedi d'avril (2e catégorie).","Taille mini 60 cm ; certains départements imposent une fenêtre 60 à 80 cm.","2 brochets maximum par jour, compris dans les 3 carnassiers.","Pendant la fermeture, les leurres et les vifs sont souvent interdits aussi."]],
+    ["Sandre",st.open?"Ouvert*":"Fermé*","50 cm",st.open,["Dates fixées par l'arrêté du département, souvent les mêmes que le brochet, parfois plus tard.","Taille mini 50 cm.","Compte dans les 3 carnassiers par jour."]],
+    ["Black-bass",st.open?"Ouvert*":"Fermé*","30 cm*",st.open,["Taille mini nationale 30 cm, parfois 40 cm selon le département.","Dates parfois différentes du brochet : vérifie l'arrêté.","Compte dans les 3 carnassiers par jour."]],
+    ["Perche","Toute l'année","—",true,["Ouverte toute l'année en 2e catégorie.","Pas de taille nationale, certains départements en fixent une."]],
+    ["Silure","Toute l'année","—",true,["Ouvert toute l'année, sans taille ni quota national.","Matériel costaud obligatoire, manipule-le avec précaution."]],
+    ["Chevesne","Toute l'année","—",true,["Ouvert toute l'année, sans taille nationale."]],
+    ["Carpe","Toute l'année","—",true,["Ouverte toute l'année.","La nuit, seulement sur les parcours autorisés par l'arrêté, et toute carpe prise de nuit doit être remise à l'eau."]],
   ];
-  const list=el("div","list tight rk-list");
-  rows.forEach(([sp,state,size,hint,ok])=>{
-    const r=el("div","mrow");
-    const l=el("div","regl-l"); const top=el("div","regl-top"); top.append(el("span","tag",sp), el("span","chip "+(ok?"plus":"minus"),state));
-    l.append(top, el("div","note",hint));
-    const sz=el("div","regl-size"); sz.append(el("span","label","Taille mini"), el("span","rk-v",size));
-    r.append(l,sz); list.append(r);
+  const list=el("div","regl-list");
+  rows.forEach(([sp,state,size,ok,lines])=>{
+    const d=el("details","regl-item"); d.open=openRegl.has(sp);
+    d.addEventListener("toggle",()=>{ d.open?openRegl.add(sp):openRegl.delete(sp); try{ localStorage.setItem("cdj-regl-open",JSON.stringify([...openRegl])); }catch(e){} });
+    const sm=el("summary");
+    const top=el("span","regl-top"); top.append(el("span","tag",sp), el("span","chip "+(ok?"plus":"minus"),state));
+    const sz=el("span","regl-size"); sz.append(el("span","label","Taille mini"), el("span","rk-v",size));
+    sm.append(top,sz,el("span","regl-chev","›"));
+    const ul=el("ul","regl-lines"); lines.forEach(t=>ul.append(el("li",null,t)));
+    d.append(sm,ul); list.append(d);
   });
   box.append(list);
   const y=now.getFullYear();

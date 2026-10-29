@@ -111,7 +111,7 @@ export async function handle(req, cfg) {
         polls: "id,group_id,user_id,question,place",
         memos: "id,group_id,user_id,title",
         sessions: "id,group_id,user_id,species,caught,length_cm,lure,color,rating",
-        messages: "id,group_id,user_id,body",
+        messages: "id,group_id,user_id,body,photo_path,audio_secs",
         comments: "id,post_id,user_id,body",
         challenges: "id,group_id,user_id,title,species,min_length",
       }[t];
@@ -171,15 +171,18 @@ export async function handle(req, cfg) {
         recipients = [...ids].filter((id) => active.has(id)).map((user_id) => ({ user_id }));
         msg = { title: "💬 Commentaire · " + group, body: who + " : " + cut(rec.body, 130), url: "./#fil", tag: "com-" + rec.post_id };
       } else {
-        msg = { title: "💬 " + group, body: who + " : " + cut(rec.body, 140), url: "./#chat", tag: "chat-" + group_id };
-        const names = [...new Set((String(rec.body).match(/@([A-Za-z0-9_]{3,20})/g) || []).map((x) => x.slice(1).toLowerCase()))].slice(0, 10);
+        const secs = Number(rec.audio_secs) || 0;
+        const text = secs ? "🎤 Message vocal (" + Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0") + ")"
+          : rec.photo_path ? "📷 Photo" + (rec.body ? " · " + cut(rec.body, 110) : "") : cut(rec.body, 140);
+        msg = { title: "💬 " + group, body: who + " : " + text, url: "./#chat", tag: "chat-" + group_id };
+        const names = [...new Set((String(rec.body || "").match(/@([A-Za-z0-9_]{3,20})/g) || []).map((x) => x.slice(1).toLowerCase()))].slice(0, 10);
         if (names.length) {
           const cand = await db("profiles?select=id,username&or=(" + names.map((n) => "username.ilike." + n.replace(/[,()*%]/g, "")).join(",") + ")");
           const found = cand.filter((p) => names.includes(String(p.username).toLowerCase()));
           const hit = new Set(found.map((p) => p.id).filter((id) => id !== author && recipients.some((m) => m.user_id === id)));
           if (hit.size) {
             recipients = recipients.filter((m) => !hit.has(m.user_id));
-            extra = { recipients: [...hit].map((user_id) => ({ user_id })), msg: { title: "📣 " + who + " t'a mentionné · " + group, body: cut(rec.body, 140), url: "./#chat", tag: "ment-" + rec.id } };
+            extra = { recipients: [...hit].map((user_id) => ({ user_id })), msg: { title: "📣 " + who + " t'a mentionné · " + group, body: text, url: "./#chat", tag: "ment-" + rec.id } };
           }
         }
       }

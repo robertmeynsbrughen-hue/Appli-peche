@@ -849,3 +849,20 @@ grant execute on function public.test_morning_alert() to authenticated;
 create extension if not exists pg_cron;
 select cron.unschedule('cdj-alerte-matin') where exists (select 1 from cron.job where jobname = 'cdj-alerte-matin');
 select cron.schedule('cdj-alerte-matin', '30 4 * * *', $c$ select public.call_notify('{"table":"morning"}'::jsonb) $c$);
+
+-- ========== Photos et messages vocaux dans le chat ==========
+alter table public.messages add column if not exists photo_path text;
+alter table public.messages add column if not exists audio_path text;
+alter table public.messages add column if not exists audio_secs int;
+alter table public.messages alter column body drop not null;
+do $$ declare c text; begin
+  for c in select conname from pg_constraint where conrelid = 'public.messages'::regclass and contype = 'c' loop
+    execute format('alter table public.messages drop constraint %I', c);
+  end loop;
+end $$;
+alter table public.messages add constraint messages_body_len check (body is null or char_length(body) between 1 and 1000);
+alter table public.messages add constraint messages_not_empty check (body is not null or photo_path is not null or audio_path is not null);
+alter table public.messages add constraint messages_photo_path check (photo_path is null or photo_path like group_id::text || '/' || user_id::text || '/%');
+alter table public.messages add constraint messages_audio_path check (audio_path is null or audio_path like group_id::text || '/' || user_id::text || '/%');
+alter table public.messages add constraint messages_audio_secs check (audio_secs is null or audio_secs between 1 and 180);
+update storage.buckets set allowed_mime_types = array['image/jpeg','image/png','image/webp','audio/webm','audio/ogg','audio/mp4','audio/mpeg','audio/aac'] where id = 'photos';

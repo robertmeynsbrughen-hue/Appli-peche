@@ -288,7 +288,7 @@ body{margin:0}
     <div class="panel">
       <h2>Installer l'appli</h2>
       <p class="note">Android (Chrome) : menu ⋮ puis « Ajouter à l'écran d'accueil » ou « Installer l'application ».<br>iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
-      <p class="note app-version">Version <span id="app-version">20</span></p>
+      <p class="note app-version">Version <span id="app-version">21</span></p>
     </div>
   </section>
   <!-- ========== GROUPE ========== -->
@@ -380,8 +380,15 @@ body{margin:0}
   </div>
   <div class="chat-groups" id="chat-groups" role="tablist" aria-label="Groupes" hidden></div>
   <div class="chat-msgs" id="chat-msgs" aria-live="polite"></div>
+  <div class="chat-rec" id="chat-rec" hidden>
+    <span class="rec-dot" aria-hidden="true"></span><span class="rec-t" id="rec-t" aria-live="off">0:00</span><span class="note">Enregistrement…</span>
+    <button type="button" class="btn small" id="rec-cancel">Annuler</button>
+    <button type="button" class="btn primary small" id="rec-send">Envoyer</button>
+  </div>
   <form class="chat-form" id="chat-form">
+    <button type="button" class="chat-ico" id="chat-photo" aria-label="Envoyer une photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
     <input id="chat-input" maxlength="1000" autocomplete="off" placeholder="Écrire au groupe…" aria-label="Message">
+    <button type="button" class="chat-ico" id="chat-mic" aria-label="Enregistrer un message vocal"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
     <button class="btn primary" type="submit" aria-label="Envoyer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2-7z"/></svg></button>
   </form>
 </div>
