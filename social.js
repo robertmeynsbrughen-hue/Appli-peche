@@ -495,8 +495,10 @@ $("#composer").addEventListener("submit",async e=>{
 });
 $("#feed-refresh").addEventListener("click",()=>loadFeed());
 
+let feedSeq=0;
 async function loadFeed(){
   if(!me||!groups.length||cur==null) return;
+  const seq=++feedSeq;
   const feed=$("#feed");
   // silhouettes grisées pendant le premier chargement
   if(!feed.querySelector("article.post,article.sess")){ feed.innerHTML=""; for(let i=0;i<3;i++){ const k=el("div","skel-card"); k.append(el("div","skel skel-head"),el("div","skel skel-photo"),el("div","skel skel-line"),el("div","skel skel-line short")); feed.append(k); } }
@@ -507,8 +509,8 @@ async function loadFeed(){
     .order("created_at",{ascending:false}).limit(40);
   if(cur!=="all"){ q=q.eq("group_id",cur); qs=qs.eq("group_id",cur); }
   const [{data,error},{data:sess}]=await Promise.all([q,qs]);
-  feed.innerHTML="";
-  if(error){ feed.append(el("p","err",frError(error))); return; }
+  if(seq!==feedSeq) return;   // un chargement plus récent a pris le relais : pas de doublon
+  if(error){ feed.innerHTML=""; feed.append(el("p","err",frError(error))); return; }
   const allPaths=p=>(p.photo_paths&&p.photo_paths.length)?p.photo_paths:(p.photo_path?[p.photo_path]:[]);
   const paths=data.flatMap(allPaths);
   const urls={};
@@ -516,6 +518,8 @@ async function loadFeed(){
     const {data:signed}=await sb.storage.from("photos").createSignedUrls(paths,3600);
     (signed||[]).forEach(s=>{ if(s.signedUrl) urls[s.path]=s.signedUrl; });
   }
+  if(seq!==feedSeq) return;
+  feed.innerHTML="";
   const items=[...data,...(sess||[]).map(x=>({...x,_kind:"session"}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   if(!items.length){ const e=el("div","empty-state"); e.append(el("div","es-ico","🎣"),el("b",null,"Le fil est encore vide"),el("p",null,"Sois le premier : partage une prise avec sa photo, ou un bilan rapide de ta dernière sortie."));
     const a=el("div","actions"); const b1=el("button","btn primary","📸 Partager une prise"); b1.type="button"; b1.addEventListener("click",()=>document.querySelector('#post-mode [data-m="post"]')?.click());
@@ -666,6 +670,7 @@ async function loadSpots(){
   spots.forEach(s=>sel.append(new Option(s.name,s.id)));
   sel.value=prev;
   drawSpots();
+  hooks.spotsLoaded?.();
 }
 function drawSpots(){
   if(!layer) return;

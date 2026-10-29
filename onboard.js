@@ -20,10 +20,9 @@ async function maybeStart(force){
   if(running||!A.me) return;
   const key="cdj-onboard-"+A.me.id;
   if(!force&&get(key,"")==="1"){ A.onbPending=false; return; }
-  A.onbPending=true;
+  A.onbPending=true; running=true;
   const {data:prof}=await A.sb.from("profiles").select("bio,fav_species,avatar_path").eq("id",A.me.id).maybeSingle();
-  if(!force&&(prof?.bio||(prof?.fav_species||[]).length||prof?.avatar_path)){ set(key,"1"); A.onbPending=false; return; }
-  running=true;
+  if(!force&&(prof?.bio||(prof?.fav_species||[]).length||prof?.avatar_path)){ set(key,"1"); A.onbPending=false; running=false; return; }
   const st={file:null,preview:null,fav:prof?.fav_species||[],bio:prof?.bio||null,avatar:prof?.avatar_path||null,place:null,alert:true};
   const back=el("div","tour-back onb-back"); const card=el("div","onb"); card.setAttribute("role","dialog"); card.setAttribute("aria-modal","true"); card.setAttribute("aria-label","Bienvenue");
   back.append(card); document.body.append(back);

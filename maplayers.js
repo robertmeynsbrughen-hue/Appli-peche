@@ -576,6 +576,7 @@ function init(m){
 A.hooks.mapReady=m=>{ prevReady?.(m); init(m); };
 const prevShown=A.hooks.mapShown;
 A.hooks.mapShown=m=>{ prevShown?.(m); init(m); bar(); if(mode==="fond") setMode("fond"); };
+const prevSpots=A.hooks.spotsLoaded; A.hooks.spotsLoaded=()=>{ prevSpots?.(); bar(); };
 const prevChange=A.hooks.change;
 let lastCur;
 A.hooks.change=()=>{ prevChange?.(); if(A.cur!==lastCur){ lastCur=A.cur; myTracks=null; if(zones.on&&map) loadZones(); if(mode==="fond"&&map) setMode("fond"); } bar(); };

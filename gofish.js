@@ -185,11 +185,15 @@ async function open(){
 }
 
 /* ---------- Réglages « potes à proximité » ---------- */
+let setSeq=0;
 async function settings(){
   const box=$("#nearby-panel"); if(!box) return;
   if(!A.me){ box.hidden=true; return; }
-  box.hidden=false; box.innerHTML="";
+  const seq=++setSeq;
+  box.hidden=false;
   const {data}=await A.sb.from("profiles").select("nearby_km,nearby_share").eq("id",A.me.id).maybeSingle();
+  if(seq!==setSeq) return;
+  box.innerHTML="";
   const kmv=data?.nearby_km??15, share=data?.nearby_share!==false;
   box.append(el("h2",null,"📍 Potes à proximité"));
   const l1=el("label","field","Me prévenir quand un pote pêche à moins de"); const s1=el("select");

@@ -36,11 +36,14 @@ A.hooks.feedExtras=list=>{
 };
 
 /* ---------- Carte de pêche ---------- */
+let permSeq=0;
 async function permitPanel(){
   const box=$("#permit-panel"); if(!box) return;
   if(!A.me){ box.hidden=true; return; }
   box.hidden=false;
+  const seq=++permSeq;
   const {data}=await A.sb.from("profiles").select("permit_end").eq("id",A.me.id).maybeSingle();
+  if(seq!==permSeq) return;
   const end=data?.permit_end||null;
   box.innerHTML="";
   box.append(el("h2",null,"🎫 Ma carte de pêche"));
@@ -65,6 +68,7 @@ async function permitPanel(){
   box.append(el("p","note","Le rappel arrive par notification : active-les dans Réglages."));
   // carte scannée, gardée uniquement dans le téléphone
   const scans=await idb.all();
+  if(seq!==permSeq) return;
   const sc=el("div","permit-scan");
   sc.append(el("h3",null,"📷 Carte scannée pour les contrôles"));
   if(scans.length){

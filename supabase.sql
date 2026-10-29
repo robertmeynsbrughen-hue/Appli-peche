@@ -1331,3 +1331,14 @@ grant execute on function public.set_nearby(int, boolean) to authenticated;
 -- réactions supplémentaires (appui long)
 alter table public.reactions drop constraint if exists reactions_emoji_check;
 alter table public.reactions add constraint reactions_emoji_check check (emoji in ('fire','clap','fish','heart','wow','lol','muscle','jealous'));
+
+
+-- ===== Durcissement (0.38) =====
+revoke execute on function public.can_manage(bigint), public.can_moderate(bigint), public.is_admin(), public.is_controller(),
+  public.is_member_of(bigint), public.is_mod_of(bigint), public.is_owner_of(bigint), public.is_pending_in(bigint), public.is_staff(),
+  public.poll_group(bigint), public.post_group(bigint), public.shares_group(uuid) from anon, public;
+grant execute on function public.can_manage(bigint), public.can_moderate(bigint), public.is_admin(), public.is_controller(),
+  public.is_member_of(bigint), public.is_mod_of(bigint), public.is_owner_of(bigint), public.is_pending_in(bigint), public.is_staff(),
+  public.poll_group(bigint), public.post_group(bigint), public.shares_group(uuid) to authenticated, service_role;
+revoke execute on function public.memo_guard(), public.set_post_status(), public.rls_auto_enable() from anon, authenticated, public;
+revoke execute on function public.admin_groups(), public.admin_members(bigint), public.admin_save_group(bigint, text, text, text) from anon, public;
