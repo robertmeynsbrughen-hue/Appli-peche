@@ -1332,3 +1332,34 @@ html:root[data-theme="dark"][data-bg="foret"]{--bg:#0a140d;--surface:#122017;--s
 .lure-day b{font-family:var(--f-display);font-size:1.4rem;text-transform:uppercase}
 .b-wt-note{margin:4px 0 0}
 .wake-act .btn,.wake-act a.btn{box-sizing:border-box;max-width:100%}
+
+/* ---------- Lot 11 : no-kill / prélevé, fraie ---------- */
+.rel-field{display:flex;flex-direction:column;gap:6px}
+.rel-seg button{flex:1}
+.rel-seg button[aria-pressed="true"][data-v="1"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.rel-seg button[aria-pressed="true"][data-v="0"]{background:var(--amber);color:#2a1d05;border-color:var(--amber)}
+#b-rel{margin-top:8px}
+.fraie-hint{color:#b8336a;font-weight:600}
+.rel-tag,.kept-tag{display:inline-flex;align-items:center;font-size:.78rem;font-weight:700;padding:3px 9px;border-radius:999px}
+.rel-tag{background:var(--accent-soft);color:var(--accent)}
+.kept-tag{background:var(--amber-soft);color:var(--fg)}
+.rel-rate{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:10px 0;border-radius:16px;background:var(--surface-2);border:1px solid var(--line)}
+.rel-rate.good{background:var(--accent-soft);border-color:var(--accent)}
+.rel-rate .rr-ico{font-size:1.6rem}
+.rel-rate b{display:block;font-size:1.05rem}
+.fraie-banner{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;cursor:pointer;margin-top:10px;padding:12px 14px;border-radius:18px;
+  background:linear-gradient(135deg,rgba(224,90,138,.16),rgba(224,90,138,.06));border:1px solid rgba(224,90,138,.45);color:var(--fg)}
+.fraie-banner .fb-ico{font-size:1.6rem}
+.fraie-banner .fb-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:.9rem}
+.fraie-banner .fb-txt span{color:var(--muted)}
+.fraie-banner .fb-go{font-size:1.4rem;color:#e05a8a}
+.fraie-grid{display:grid;grid-template-columns:minmax(84px,auto) repeat(12,1fr);gap:3px;align-items:center;margin:12px 0 6px}
+.fg-m{text-align:center;font-size:.72rem;color:var(--muted);font-weight:700}
+.fg-m.now{color:#e05a8a}
+.fg-sp{all:unset;cursor:pointer;font-size:.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:4px}
+.fg-sp.on{font-weight:800;color:#e05a8a}
+.fg-c{height:16px;border-radius:4px;background:var(--surface-2)}
+.fg-c.f{background:rgba(224,90,138,.55)}
+.fg-c.now{outline:2px solid var(--fg);outline-offset:-1px}
+.fg-c.f.now{background:#e05a8a}
+.fraie-info{min-height:2.6em;font-size:.9rem;margin:6px 0}

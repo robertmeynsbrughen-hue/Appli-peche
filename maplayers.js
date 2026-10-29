@@ -392,7 +392,7 @@ function windBar(){
 }
 
 /* ---------- Zones à respecter (dessinées par les membres) ---------- */
-const ZK={reserve:["🚫","Réserve, pêche interdite","#c0392b"],nokill:["♻️","Parcours no-kill","#2c8b73"],nuit:["🌙","Carpe de nuit autorisée","#6b4fbf"],mise_eau:["🛶","Mise à l'eau","#2c5f8f"],danger:["⚠️","Danger (courant, vase, barrage)","#d9822b"],autre:["📌","Autre","#5b6c65"]};
+const ZK={reserve:["🚫","Réserve, pêche interdite","#c0392b"],nokill:["♻️","Parcours no-kill","#2c8b73"],nuit:["🌙","Carpe de nuit autorisée","#6b4fbf"],mise_eau:["🛶","Mise à l'eau","#2c5f8f"],danger:["⚠️","Danger (courant, vase, barrage)","#d9822b"],frayere:["🐣","Frayère (ne pas pêcher)","#e05a8a"],autre:["📌","Autre","#5b6c65"]};
 const zones={on:get("cdj-zones","0")==="1",layer:null,list:[],draw:null};
 async function loadZones(){
   if(!map) return;
@@ -465,7 +465,7 @@ function finishZone(){
   const [ic,lab]=ZK[d.kind];
   const f=el("form","depth-form");
   const ni=el("input"); ni.maxLength=60; ni.placeholder="Nom (facultatif)";
-  const no=el("textarea"); no.maxLength=300; no.rows=3; no.placeholder=d.kind==="nuit"?"Postes, dates, conditions (ex. postes 3 à 8, de juin à octobre)":d.kind==="mise_eau"?"Accès, pente, gratuit ou payant…":"Précisions";
+  const no=el("textarea"); no.maxLength=300; no.rows=3; no.placeholder=d.kind==="frayere"?"Espèce, période (ex. brochet, herbiers inondés en mars)":d.kind==="nuit"?"Postes, dates, conditions (ex. postes 3 à 8, de juin à octobre)":d.kind==="mise_eau"?"Accès, pente, gratuit ou payant…":"Précisions";
   const ok=el("button","btn primary small","Enregistrer"); ok.type="submit";
   f.append(el("b",null,ic+" "+lab),ni,no,ok);
   f.addEventListener("submit",async e=>{
@@ -590,6 +590,12 @@ window.CDJ_MAPMODE=mode;
   $("#layers-close")?.addEventListener("click",()=>setP(false));
 })();
 A.track={start:o=>{ startTrack(false,o); }, stop:()=>stopTrack(), get on(){ return track.on; }};
+A.zones={get list(){ return zones.list; }, kinds:ZK, draw:k=>{
+  if(!map) return toast("Ouvre la carte d'abord");
+  if(typeof A.cur!=="number") return toast("Choisis un groupe précis pour ajouter une zone");
+  if(!zones.on){ zones.on=true; set("cdj-zones","1"); loadZones(); }
+  zones.draw={kind:k,shape:"polygon",pts:[]}; drawDraft(); bar();
+  toast("Touche la carte pour poser les coins de la zone, puis « Terminer »"); }};
 if(A.map) init(A.map);
 document.querySelectorAll("#carte-sub [data-s]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.s===mode)));
 bar();

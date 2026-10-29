@@ -1363,3 +1363,12 @@ drop policy if exists wake_own on public.wake_alarms;
 create policy wake_own on public.wake_alarms for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 do $$ begin perform cron.unschedule('cdj-reveil'); exception when others then null; end $$;
 select cron.schedule('cdj-reveil', '* * * * *', $c$ select public.call_notify('{"table":"wake_alarms"}'::jsonb) where exists (select 1 from public.wake_alarms where sent_at is null and fire_at <= now()) $c$);
+
+-- Lot 11 : no-kill / prélevé + zones frayère
+alter table public.posts add column if not exists released boolean;
+alter table public.sessions add column if not exists released boolean;
+do $$ declare c text; begin
+  select conname into c from pg_constraint where conrelid='public.map_zones'::regclass and contype='c' and pg_get_constraintdef(oid) like '%kind%';
+  if c is not null then execute format('alter table public.map_zones drop constraint %I', c); end if;
+end $$;
+alter table public.map_zones add constraint map_zones_kind_check check (kind in ('reserve','nokill','nuit','mise_eau','danger','frayere','autre'));

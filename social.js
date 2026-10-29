@@ -365,6 +365,10 @@ $("#p-photo").addEventListener("change",()=>{
   renderThumbs();
 });
 
+// ---------- Relâché / gardé ----------
+function relOf(sel){ const b=document.querySelector(sel+' [aria-pressed="true"]'); return b?b.dataset.v==="1":null; }
+document.addEventListener("click",e=>{ const b=e.target.closest(".rel-seg button"); if(!b) return; const on=b.getAttribute("aria-pressed")==="true"; b.parentNode.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed","false")); if(!on) b.setAttribute("aria-pressed","true"); });
+window.CDJ_REL=relOf;
 // ---------- Poids estimé (formules longueur-poids : poids en g = a × longueur en cm ^ b) ----------
 const LW={"Brochet":[0.0045,3.1],"Sandre":[0.0055,3.12],"Perche":[0.0105,3.1],"Black-bass":[0.011,3.08],"Silure":[0.0045,3.1],"Carpe":[0.019,3.0],"Chevesne":[0.0105,3.05],"Truite fario":[0.0105,3.0],"Barbeau":[0.009,3.05],"Tanche":[0.015,3.05],"Brème":[0.009,3.15],"Gardon":[0.011,3.1],"Aspe":[0.008,3.05]};
 let wtTouched=false;
@@ -455,10 +459,10 @@ $("#composer").addEventListener("submit",async e=>{
     const blobs=[]; for(const p of pics) blobs.push(await compress(p.file));
     const len=parseFloat($("#p-len").value), wt=parseFloat($("#p-wt").value);
     const ok=await window.CDJ.offline?.enqueue({kind:"post",blobs,row:{group_id:cur,caption:cap||null,species:$("#p-species").value||null,
-      spot_id:$("#p-spot").value?Number($("#p-spot").value):null,length_cm:len>0?Math.round(len*10)/10:null,weight_kg:wt>0?Math.round(wt*100)/100:null,bait:$("#p-bait").value.trim()||null,conditions:window.CDJ_ADVICE?.snapshot?.()||null}});
+      spot_id:$("#p-spot").value?Number($("#p-spot").value):null,length_cm:len>0?Math.round(len*10)/10:null,weight_kg:wt>0?Math.round(wt*100)/100:null,bait:$("#p-bait").value.trim()||null,released:relOf("#p-rel"),conditions:window.CDJ_ADVICE?.snapshot?.()||null}});
     if(!ok) return false;
     pics.forEach(f=>URL.revokeObjectURL(f.url)); pics=[]; renderThumbs();
-    $("#composer").reset(); $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
+    $("#composer").reset(); document.querySelectorAll("#p-rel button").forEach(x=>x.setAttribute("aria-pressed","false")); $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
     toast("Pas de réseau : ta prise partira automatiquement dès le retour du réseau"); return true;
   };
   if(!navigator.onLine&&window.CDJ.offline){ try{ await queuePost(); }finally{ btn.disabled=false; btn.textContent="Publier"; } return; }
@@ -480,10 +484,10 @@ $("#composer").addEventListener("submit",async e=>{
       spot:spot?($("#p-spot").selectedOptions[0]?.textContent||null):null,photoUrl:pics[0]?URL.createObjectURL(pics[0].file):null};
     const {error}=await sb.from("posts").insert({group_id:cur,caption:cap||null,species:$("#p-species").value||null,photo_path:path,photo_paths:paths.length?paths:null,spot_id:spot,
       length_cm:len>0?Math.round(len*10)/10:null, weight_kg:wt>0?Math.round(wt*100)/100:null, bait:$("#p-bait").value.trim()||null,
-      conditions:window.CDJ_ADVICE?.snapshot?.()||null});
+      released:relOf("#p-rel"),conditions:window.CDJ_ADVICE?.snapshot?.()||null});
     if(error){ if(paths.length) await sb.storage.from("photos").remove(paths); throw error; }
     pics.forEach(f=>URL.revokeObjectURL(f.url)); pics=[]; renderThumbs();
-    $("#composer").reset(); $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
+    $("#composer").reset(); document.querySelectorAll("#p-rel button").forEach(x=>x.setAttribute("aria-pressed","false")); $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
     if(curGroup()?.post_approval&&!canModerate(cur)) toast("Prise envoyée : elle sera visible après validation"); else if(window.CDJ?.celebrate) window.CDJ.celebrate("🎣","Prise partagée","Le groupe est prévenu"); else toast("Prise partagée");
     loadFeed(); loadStats();
     // une belle prise avec photo : on propose tout de suite la carte d'identité
@@ -504,9 +508,9 @@ async function loadFeed(){
   // silhouettes grisées pendant le premier chargement
   if(!feed.querySelector("article.post,article.sess")){ feed.innerHTML=""; for(let i=0;i<3;i++){ const k=el("div","skel-card"); k.append(el("div","skel skel-head"),el("div","skel skel-photo"),el("div","skel skel-line"),el("div","skel skel-line short")); feed.append(k); } }
   let q=sb.from("posts")
-    .select("id,group_id,caption,species,photo_path,photo_paths,created_at,user_id,status,length_cm,weight_kg,bait,profiles(username,is_admin),spots(id,name)")
+    .select("id,group_id,caption,species,photo_path,photo_paths,created_at,user_id,status,length_cm,weight_kg,bait,released,profiles(username,is_admin),spots(id,name)")
     .order("created_at",{ascending:false}).limit(60);
-  let qs=sb.from("sessions").select("id,group_id,user_id,species,caught,length_cm,lure,color,rating,created_at,duration_min,distance_m,bites,profiles(username,is_admin)")
+  let qs=sb.from("sessions").select("id,group_id,user_id,species,caught,length_cm,lure,color,rating,created_at,duration_min,distance_m,bites,released,profiles(username,is_admin)")
     .order("created_at",{ascending:false}).limit(40);
   if(cur!=="all"){ q=q.eq("group_id",cur); qs=qs.eq("group_id",cur); }
   const [{data,error},{data:sess}]=await Promise.all([q,qs]);
@@ -574,6 +578,8 @@ async function loadFeed(){
     if(p.species) tags.append(el("span","tag",p.species));
     const size=[p.length_cm?Number(p.length_cm).toLocaleString("fr-FR")+" cm":"",p.weight_kg?Number(p.weight_kg).toLocaleString("fr-FR")+" kg":""].filter(Boolean).join(" · ");
     if(size) tags.append(el("span","size",size));
+    if(p.released===true) tags.append(el("span","tag rel-tag","♻️ Relâché"));
+    else if(p.released===false) tags.append(el("span","tag kept-tag","🍽️ Gardé"));
     if(tags.childNodes.length) body.append(tags);
     if(p.bait){
       const bx=el("div","bait-box");
@@ -626,6 +632,7 @@ function sessionCard(x){
   if(x.species) tags.append(el("span","tag",x.species));
   if(x.caught===false) tags.append(el("span","tag muted","Capot"));
   else if(x.length_cm) tags.append(el("span","size",Number(x.length_cm).toLocaleString("fr-FR")+" cm"));
+  if(x.caught!==false&&x.released===true) tags.append(el("span","tag rel-tag","♻️ Relâché")); else if(x.caught!==false&&x.released===false) tags.append(el("span","tag kept-tag","🍽️ Gardé"));
   if(tags.childNodes.length) body.append(tags);
   if(x.duration_min!=null){ const m=x.duration_min, t=el("div","sess-trace"); t.textContent="🛶 "+(m>=60?Math.floor(m/60)+" h "+String(m%60).padStart(2,"0"):m+" min")+(x.distance_m?" · "+(x.distance_m>=1000?(x.distance_m/1000).toFixed(1).replace(".",",")+" km":Math.round(x.distance_m)+" m"):"")+(x.bites!=null?" · "+x.bites+" touche"+(x.bites>1?"s":""):""); body.append(t); }
   if(x.lure||x.color){ const c=el("div","combo"); c.append(el("span","label","Combo"),el("span",null,[x.lure,x.color].filter(Boolean).join(" · "))); body.append(c); }

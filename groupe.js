@@ -95,15 +95,15 @@ $("#bilan").addEventListener("submit",async e=>{
   const capot=$("#b-capot").checked, len=parseFloat($("#b-len").value);
   const b=$("#b-submit"); b.disabled=true;
   const row={group_id:A.cur,user_id:A.me.id,species:pick.species,caught:!capot,
-    length_cm:!capot&&len>0?Math.round(len):null,lure:pick.lure,color:pick.color,rating:pick.rating,water_type:waterType(),conditions:window.CDJ_ADVICE?.snapshot?.()||null};
+    length_cm:!capot&&len>0?Math.round(len):null,lure:pick.lure,color:pick.color,rating:pick.rating,water_type:waterType(),released:capot?null:(window.CDJ_REL?.("#b-rel")??null),conditions:window.CDJ_ADVICE?.snapshot?.()||null};
   if(draft){ row.track_id=draft.track_id; row.duration_min=draft.duration_min; row.distance_m=draft.distance_m; row.bites=draft.bites; }
   let {error}=navigator.onLine?await A.sb.from("sessions").insert(row):{error:new Error("Failed to fetch")};
   let queued=false;
   if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"sessions",row})){ error=null; queued=true; }
   b.disabled=false;
   if(error) return showErr($("#b-err"),frError(error));
-  if(queued){ Object.keys(pick).forEach(k=>pick[k]=null); $("#bilan").reset(); $("#b-len").disabled=false; renderBilan(); return toast("Pas de réseau : ton bilan partira dès le retour du réseau"); }
-  Object.keys(pick).forEach(k=>pick[k]=null); $("#bilan").reset(); $("#b-len").disabled=false; renderBilan(); draft=null; showDraft();
+  if(queued){ Object.keys(pick).forEach(k=>pick[k]=null); $("#bilan").reset(); document.querySelectorAll("#b-rel button").forEach(x=>x.setAttribute("aria-pressed","false")); $("#b-len").disabled=false; renderBilan(); return toast("Pas de réseau : ton bilan partira dès le retour du réseau"); }
+  Object.keys(pick).forEach(k=>pick[k]=null); $("#bilan").reset(); document.querySelectorAll("#b-rel button").forEach(x=>x.setAttribute("aria-pressed","false")); $("#b-len").disabled=false; renderBilan(); draft=null; showDraft();
   toast("Bilan partagé avec le groupe"); A.loadFeed();
 });
 renderBilan();

@@ -105,7 +105,7 @@ function progress(found){
 /* ---------- Trophées automatiques ---------- */
 // rows : prises (posts + bilans) ; carp : sessions carpe avec leurs événements ; sess : tous les bilans (capots compris)
 function catchesOf(rows,carp){
-  const list=rows.map(r=>({sp:entryOf(r.species)?.name||r.species,len:Number(r.length_cm)||0,kg:Number(r.weight_kg)||0,at:new Date(r.created_at)}));
+  const list=rows.map(r=>({sp:entryOf(r.species)?.name||r.species,len:Number(r.length_cm)||0,kg:Number(r.weight_kg)||0,at:new Date(r.created_at),rel:r.released}));
   (carp||[]).forEach(cs=>(cs.carp_events||[]).filter(e=>e.kind==="prise").forEach(e=>list.push({sp:"Carpe",len:0,kg:Number(e.weight_kg)||0,at:new Date(e.at),session:cs.id})));
   return list;
 }
@@ -127,6 +127,7 @@ const TROPHIES=[
   ["maitre","👑","Maître du Fishdex","10 espèces différentes",s=>s.species>=10],
   ["regulier","📆","Régulier","10 sorties enregistrées",s=>s.outings>=10],
   ["centurion","💯","Centurion","100 prises",s=>s.c.length>=100],
+  ["responsable","♻️","Pêcheur responsable","10 poissons relâchés et 80 % de remise à l'eau",s=>{ const k=s.c.filter(c=>c.rel===true||c.rel===false), r=k.filter(c=>c.rel===true).length; return r>=10&&r/k.length>=0.8; }],
   ["capots","😵","Pas de bol","10 capots d'affilée",s=>{ let run=0, best=0; s.sess.slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(x=>{ run=x.caught===false?run+1:0; best=Math.max(best,run); }); return best>=10; }],
 ].map(([id,e,name,desc,test])=>({id,e,name,desc,test}));
 function trophiesOf(rows,carp,sessAll,found){
@@ -162,8 +163,8 @@ async function myDex(){
   box.hidden=false;
   const s=++mySeq;
   const [{data:p},{data:se},{data:cs}]=await Promise.all([
-    A.sb.from("posts").select("species,length_cm,weight_kg,created_at").eq("user_id",A.me.id).eq("status","published").limit(2000),
-    A.sb.from("sessions").select("species,caught,length_cm,created_at").eq("user_id",A.me.id).limit(2000),
+    A.sb.from("posts").select("species,length_cm,weight_kg,created_at,released").eq("user_id",A.me.id).eq("status","published").limit(2000),
+    A.sb.from("sessions").select("species,caught,length_cm,created_at,released").eq("user_id",A.me.id).limit(2000),
     A.sb.from("carp_sessions").select("id,started_at,carp_events(kind,at,weight_kg)").eq("user_id",A.me.id).limit(500),
   ]);
   if(s!==mySeq) return;
@@ -188,8 +189,8 @@ async function groupDex(host,gid){
   const s=++gSeq;
   const [{data:mem},{data:p},{data:se},{data:cs}]=await Promise.all([
     A.sb.from("memberships").select("user_id,profiles(username,is_admin)").eq("group_id",gid).eq("status","active"),
-    A.sb.from("posts").select("user_id,species,length_cm,weight_kg,created_at").eq("group_id",gid).eq("status","published").limit(3000),
-    A.sb.from("sessions").select("user_id,species,caught,length_cm,created_at").eq("group_id",gid).limit(3000),
+    A.sb.from("posts").select("user_id,species,length_cm,weight_kg,created_at,released").eq("group_id",gid).eq("status","published").limit(3000),
+    A.sb.from("sessions").select("user_id,species,caught,length_cm,created_at,released").eq("group_id",gid).limit(3000),
     A.sb.from("carp_sessions").select("id,user_id,started_at,carp_events(kind,at,weight_kg)").eq("group_id",gid).limit(1000),
   ]);
   if(s!==gSeq||!host.isConnected) return;

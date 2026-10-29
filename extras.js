@@ -242,8 +242,8 @@ async function carnet(force){
   const seq=++cSeq;
   if(!cache||force){
     const [{data:posts},{data:sess},{data:chal}]=await Promise.all([
-      A.sb.from("posts").select("id,group_id,species,length_cm,weight_kg,bait,created_at,status,photo_path,photo_paths").eq("user_id",A.me.id).order("created_at",{ascending:false}).limit(1000),
-      A.sb.from("sessions").select("id,group_id,species,caught,length_cm,lure,color,rating,created_at").eq("user_id",A.me.id).order("created_at",{ascending:false}).limit(1000),
+      A.sb.from("posts").select("id,group_id,species,length_cm,weight_kg,bait,created_at,status,photo_path,photo_paths,released").eq("user_id",A.me.id).order("created_at",{ascending:false}).limit(1000),
+      A.sb.from("sessions").select("id,group_id,species,caught,length_cm,lure,color,rating,created_at,released").eq("user_id",A.me.id).order("created_at",{ascending:false}).limit(1000),
       A.sb.from("challenges").select("id,group_id,title,species,min_length,month").limit(500),
     ]);
     if(seq!==cSeq) return;
@@ -258,6 +258,15 @@ function drawCarnet(box,{posts,sess,chal}){
   box.append(h);
   const catches=[...posts.filter(p=>p.species||p.length_cm).map(p=>({...p,kind:"post"})),...sess.filter(s=>s.caught!==false&&(s.species||s.length_cm)).map(s=>({...s,kind:"sess"}))];
   if(!posts.length&&!sess.length){ { const e=el("div","empty-state"); e.append(el("div","es-ico","\ud83d\udcd2"),el("b",null,"Ton carnet est vide"),el("p",null,"Il se remplit tout seul : records par esp\u00e8ce, bilan de l'ann\u00e9e et historique de tes sorties, d\u00e8s ta premi\u00e8re prise ou ton premier bilan.")); const a=el("div","actions"); const b0=el("button","btn primary","\ud83d\udcf8 Ma premi\u00e8re prise"); b0.type="button"; b0.addEventListener("click",()=>{ location.hash="#fil"; setTimeout(()=>document.querySelector('#post-mode [data-m="post"]')?.getAttribute("aria-pressed")!=="true"&&document.querySelector('#post-mode [data-m="post"]')?.click(),250); }); a.append(b0);const b1=el("button","btn","\ud83e\uddfe Un bilan rapide"); b1.type="button"; b1.addEventListener("click",()=>{ location.hash="#fil"; setTimeout(()=>document.querySelector('#post-mode [data-m="bilan"]')?.getAttribute("aria-pressed")!=="true"&&document.querySelector('#post-mode [data-m="bilan"]')?.click(),250); }); a.append(b1); e.append(a); box.append(e); } return; }
+
+  // Remise à l'eau
+  const known=catches.filter(x=>x.released===true||x.released===false), rel=known.filter(x=>x.released===true).length;
+  if(known.length){
+    const pct=Math.round(rel/known.length*100);
+    const r=el("div","rel-rate"+(pct>=80?" good":""));
+    r.append(el("span","rr-ico","♻️"),el("div",null)); r.lastChild.append(el("b",null,pct+" % remis à l'eau"),el("span","note",rel+" relâché"+(rel>1?"s":"")+" sur "+known.length+" prise"+(known.length>1?"s":"")+" renseignée"+(known.length>1?"s":"")+(pct>=80&&rel>=10?" · 🏅 Pêcheur responsable":"")));
+    box.append(r);
+  }
 
   // Records par espèce
   const rec=new Map();
