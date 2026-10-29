@@ -1342,3 +1342,24 @@ grant execute on function public.can_manage(bigint), public.can_moderate(bigint)
   public.poll_group(bigint), public.post_group(bigint), public.shares_group(uuid) to authenticated, service_role;
 revoke execute on function public.memo_guard(), public.set_post_status(), public.rls_auto_enable() from anon, authenticated, public;
 revoke execute on function public.admin_groups(), public.admin_members(bigint), public.admin_save_group(bigint, text, text, text) from anon, public;
+
+
+-- ===== 0.39 =====
+-- Coup du Jour 0.39 : réveil pêche par notification
+create table if not exists public.wake_alarms (
+  id bigint generated always as identity primary key,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  fire_at timestamptz not null,
+  title text not null check (char_length(title) <= 80),
+  body text check (char_length(body) <= 200),
+  spot_id bigint references public.spots (id) on delete set null,
+  sent_at timestamptz,
+  created_at timestamptz not null default now(),
+  check (fire_at <= created_at + interval '10 days')
+);
+create index if not exists wake_due on public.wake_alarms (fire_at) where sent_at is null;
+alter table public.wake_alarms enable row level security;
+drop policy if exists wake_own on public.wake_alarms;
+create policy wake_own on public.wake_alarms for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+do $$ begin perform cron.unschedule('cdj-reveil'); exception when others then null; end $$;
+select cron.schedule('cdj-reveil', '* * * * *', $c$ select public.call_notify('{"table":"wake_alarms"}'::jsonb) where exists (select 1 from public.wake_alarms where sent_at is null and fire_at <= now()) $c$);

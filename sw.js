@@ -1,6 +1,6 @@
 /* Coup du Jour : service worker (fonctionnement hors ligne) */
-const VERSION="cdj-v38";
-const SHELL=["./","index.html","styles.css","advice.js","social.js","groupe.js","card.js","extras.js","peche.js","alerts.js","offline.js","species.js","dex.js","reco.js","outings.js","maptools.js","profile.js","layout.js","tools.js","lures.js","compet.js","modo.js","share.js","maplayers.js","stock.js","gofish.js","voice.js","today.js","ui.js","feed.js","onboard.js","postsheet.js","sharein.js","share.html","config.js","manifest.webmanifest",
+const VERSION="cdj-v39";
+const SHELL=["./","index.html","styles.css","advice.js","social.js","groupe.js","card.js","extras.js","peche.js","alerts.js","offline.js","species.js","dex.js","reco.js","outings.js","maptools.js","profile.js","layout.js","tools.js","lures.js","compet.js","modo.js","share.js","maplayers.js","stock.js","gofish.js","voice.js","today.js","ui.js","feed.js","onboard.js","postsheet.js","sharein.js","calendar.js","knots.js","share.html","config.js","manifest.webmanifest",
   "icon-192.png","badge-96.png","logo.svg","icon-512.png"];
 const CDN=["unpkg.com","cdn.jsdelivr.net","fonts.googleapis.com","fonts.gstatic.com"];
 self.addEventListener("install",e=>{ e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())); });
@@ -42,7 +42,8 @@ self.addEventListener("push",e=>{
   let d={};
   try{ d=e.data?e.data.json():{}; }catch(_){ d={body:e.data?e.data.text():""}; }
   e.waitUntil(self.registration.showNotification(d.title||"Coup du Jour",{
-    body:d.body||"", icon:"icon-192.png", badge:"badge-96.png", tag:d.tag, renotify:!!d.tag, vibrate:[80,40,80], timestamp:Date.now(), data:{url:d.url||"./"}
+    body:d.body||"", icon:"icon-192.png", badge:"badge-96.png", tag:d.tag, renotify:!!d.tag,
+    vibrate:d.alarm?[600,250,600,250,600,250,900]:[80,40,80], requireInteraction:!!d.alarm, timestamp:Date.now(), data:{url:d.url||"./"}
   }));
 });
 self.addEventListener("notificationclick",e=>{

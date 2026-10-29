@@ -50,7 +50,7 @@ export async function vapidHeader(endpoint, jwk, pubB64, subject) {
   const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, te.encode(head + "." + body));
   return "vapid t=" + head + "." + body + "." + b64u.enc(sig) + ", k=" + pubB64;
 }
-export async function sendPush(sub, payloadText, vapid) {
+export async function sendPush(sub, payloadText, vapid, urgency = "normal") {
   const body = await encryptPayload(sub.p256dh, sub.auth, payloadText);
   return fetch(sub.endpoint, {
     method: "POST",
@@ -58,7 +58,7 @@ export async function sendPush(sub, payloadText, vapid) {
       "Content-Type": "application/octet-stream",
       "Content-Encoding": "aes128gcm",
       "TTL": "86400",
-      "Urgency": "normal",
+      "Urgency": urgency,
       "Authorization": await vapidHeader(sub.endpoint, vapid.jwk, vapid.pub, vapid.subject),
     },
     body,
@@ -104,6 +104,7 @@ export async function handle(req, cfg) {
     if (t === "bait_reminders") return Response.json(await baitReminders(VAPID));
     if (t === "flood_watch") return Response.json(await floodWatch(VAPID));
     if (t === "checkins") return Response.json(await checkinNotify(Number(ev.id), VAPID));
+    if (t === "wake_alarms") return Response.json(await wakeAlarms(VAPID));
     let rec, group_id, author, recipients, msg;
     if (t === "memberships") {
       group_id = Number(ev.group_id); author = String(ev.user_id).replace(/[^0-9a-f-]/gi, "");
@@ -231,7 +232,7 @@ async function pushTo(user_id, msg, vapid) {
   const payload = JSON.stringify(msg);
   let ok = 0;
   await Promise.allSettled(subs.map(async (s) => {
-    const r = await sendPush(s, payload, vapid);
+    const r = await sendPush(s, payload, vapid, msg.alarm ? "high" : "normal");
     if (r.status === 404 || r.status === 410) await db("push_subs?endpoint=eq." + encodeURIComponent(s.endpoint), { method: "DELETE" });
     else if (r.ok) ok++;
   }));
@@ -410,6 +411,19 @@ async function checkinNotify(id, vapid) {
     sent += await pushTo(u, msg, vapid);
   }
   return { members: ids.length, near, sent };
+}
+
+// ---- Réveil pêche ----
+async function wakeAlarms(vapid) {
+  const rows = await db("wake_alarms?sent_at=is.null&fire_at=lte." + new Date().toISOString() + "&select=id,user_id,title,body,fire_at&limit=200");
+  let sent = 0;
+  for (const r of rows) {
+    // on marque d'abord, pour ne jamais sonner deux fois ; un réveil vieux de plus de 30 min n'est plus envoyé
+    await db("wake_alarms?id=eq." + r.id, { method: "PATCH", body: JSON.stringify({ sent_at: new Date().toISOString() }), headers: { Prefer: "return=minimal" } });
+    if (Date.now() - Date.parse(r.fire_at) > 30 * 6e4) continue;
+    sent += await pushTo(r.user_id, { title: r.title, body: r.body || "", url: "./#conseils", tag: "wake-" + r.id, alarm: true }, vapid);
+  }
+  return { due: rows.length, sent };
 }
 
 // ---- Rappel d'amorçage des sessions carpe en cours ----

@@ -370,6 +370,7 @@ const LW={"Brochet":[0.0045,3.1],"Sandre":[0.0055,3.12],"Perche":[0.0105,3.1],"B
 let wtTouched=false;
 function estWeight(sp,len){ const k=LW[sp]; if(!k||!(len>0)) return null; return k[0]*Math.pow(len,k[1])/1000; }
 const fmtKg=w=>w>=10?w.toFixed(1):w.toFixed(2);
+window.CDJ_WEIGHT={est:estWeight,fmt:fmtKg,species:Object.keys(LW)};
 function updateWeight(){
   const len=parseFloat($("#p-len").value), sp=$("#p-species").value, note=$("#p-wt-note");
   const w=estWeight(sp,len);

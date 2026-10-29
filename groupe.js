@@ -79,6 +79,14 @@ A.bilanFromTrack=d=>{
     showDraft(); $("#bilan").scrollIntoView({behavior:"smooth",block:"start"});
   },250);
 };
+// poids estimé d'après la taille (bilan sans pesée)
+function bilanWeight(){
+  let n=$("#b-wt-note"); if(!n){ n=el("p","note b-wt-note"); n.id="b-wt-note"; $("#b-len").closest(".q-row").after(n); }
+  const W=window.CDJ_WEIGHT, len=parseFloat($("#b-len").value), w=W&&pick.species?W.est(pick.species,len):null;
+  n.hidden=!w; if(w) const f=x=>W.fmt(x).replace(".",","); n.textContent="⚖️ Poids estimé : environ "+f(w)+" kg ("+f(w*0.85)+" à "+f(w*1.15)+" kg selon la corpulence)";
+}
+$("#b-len").addEventListener("input",bilanWeight);
+$("#b-species").addEventListener("click",()=>setTimeout(bilanWeight,0));
 $("#b-capot").addEventListener("change",()=>{ $("#b-len").disabled=$("#b-capot").checked; if($("#b-capot").checked) $("#b-len").value=""; });
 $("#bilan").addEventListener("submit",async e=>{
   e.preventDefault(); showErr($("#b-err"));

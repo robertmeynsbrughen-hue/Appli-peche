@@ -678,7 +678,37 @@ $("#apply").addEventListener("click",()=>{mode="manual";buildManual();});
 $("#locate").addEventListener("click",()=>locate(false));
 
 try{const w=localStorage.getItem("cdj-water"); if(w){waterType=w;document.querySelectorAll("#water-type button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.v===w)));}}catch(e){}
-window.CDJ_ADVICE={ loadAt:(lat,lon,name)=>loadLive(lat,lon,name), species:()=>SPECIES.map(s=>s.name||s.id),
+// prévisions jour par jour (jusqu'à 16 jours) : meilleur score et heure conseillée par espèce, pour un lieu donné
+const fcCache=new Map();
+async function forecastDays(lat,lon,n=16){
+  const key=lat.toFixed(2)+","+lon.toFixed(2)+","+n;
+  const c=fcCache.get(key); if(c&&Date.now()-c.ts<30*6e4) return c.v;
+  const url="https://api.open-meteo.com/v1/forecast?latitude="+lat.toFixed(3)+"&longitude="+lon.toFixed(3)+"&hourly=temperature_2m,surface_pressure,cloud_cover,wind_speed_10m,precipitation&past_days=5&forecast_days="+Math.min(16,n)+"&timezone=auto";
+  const r=await fetch(url); if(!r.ok) throw new Error("meteo"); const d=await r.json();
+  const H=d.hourly, days=[...new Set(H.time.map(t=>t.slice(0,10)))];
+  const today=new Date(); const todayKey=today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
+  const v=days.filter(k=>k>=todayKey).slice(0,n).map(k=>{
+    const i0=H.time.indexOf(k+"T00:00");
+    const past=H.temperature_2m.slice(Math.max(0,i0-120),i0+1).filter(x=>x!=null);
+    const water=Math.max(2,Math.min(30,0.85*past.reduce((a,b)=>a+b,0)/past.length+1.5));
+    const date=new Date(k+"T12:00:00"); const {rise,set}=sunTimes(date,lat,lon);
+    const per=SPECIES.map(sp=>{
+      let best=0, at=null, sc=[];
+      for(let h=4;h<=22;h++){ const i=i0+h; if(H.time[i]==null) break;
+        const c={phase:phase(h+.5,rise,set),water,air:H.temperature_2m[i],dp:(H.surface_pressure[i]??0)-(H.surface_pressure[i-3]??H.surface_pressure[i]),wind:H.wind_speed_10m[i],cloud:H.cloud_cover[i],rain:H.precipitation[i]||0};
+        const x=scoreHour(sp,c); sc.push([h,x]); if(x>best){ best=x; at=h; } }
+      // créneau : heures consécutives proches du meilleur score
+      let from=at, to=at; if(at!=null){ const ok=h=>{ const e=sc.find(z=>z[0]===h); return e&&e[1]>=best*0.85; }; while(ok(from-1)) from--; while(ok(to+1)) to++; to++; }
+      const closed=!!(sp.closed&&sp.closed(date.getMonth()+1));
+      return {id:sp.id,name:sp.name,best:closed?0:best,at,from,to,closed};
+    });
+    const rain=H.precipitation.slice(i0+5,i0+22).reduce((a,x)=>a+(x||0),0), wind=Math.max(...H.wind_speed_10m.slice(i0+5,i0+22).filter(x=>x!=null));
+    return {k,date,water,per,rain,wind,top:Math.max(...per.map(p=>p.best)),moon:moon(date)};
+  });
+  fcCache.set(key,{ts:Date.now(),v});
+  return v;
+}
+window.CDJ_ADVICE={ forecastDays, moon, defaultPos:()=>DEFAULT_POS, current:()=>current?.meta?{lat:current.meta.lat,lon:current.meta.lon}:null, loadAt:(lat,lon,name)=>loadLive(lat,lon,name), species:()=>SPECIES.map(s=>s.name||s.id),
   // conditions du moment, enregistrées avec les bilans et les prises (seulement si la météo est réelle)
   snapshot:()=>{ if(!current||mode!=="live") return null; const h=current.hours[0], m=current.meta; const tmv=measuredTemp(m);
     return {water:+(tmv??h.water).toFixed(1),water_measured:tmv!=null,air:Math.round(h.air),dp:+h.dp.toFixed(1),wind:Math.round(h.wind),cloud:Math.round(h.cloud),rain:+(h.rain||0).toFixed(1),phase:h.phase,hour:new Date().getHours(),lat:+m.lat.toFixed(3),lon:+m.lon.toFixed(3),water_type:waterType,flow:m.flow?.status||null}; },
