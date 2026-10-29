@@ -68,6 +68,10 @@ window.addEventListener("hashchange",route);
 // ---------- Affichage selon l'état ----------
 function refreshUI(){
   const logged=!!me, member=logged&&(groups.length>0);
+  const role=me?(me.is_admin?"admin":"user"):"";
+  if(role) document.documentElement.dataset.role=role; else delete document.documentElement.dataset.role;
+  const tc=document.querySelector('meta[name="theme-color"]');
+  if(tc) tc.content=role==="admin"?"#b8691c":role==="user"?"#2c5f8f":"#1f6f5c";
   $$("[data-setup]").forEach(e=>e.hidden=configured);
   $$("[data-need-login]").forEach(e=>{
     e.hidden=!configured||member;
@@ -226,13 +230,94 @@ async function compress(file){
 }
 $("#p-photo").addEventListener("change",()=>{
   const f=$("#p-photo").files[0], pv=$("#p-preview");
+  $("#p-measure").hidden=!f;
   if(!f){ pv.hidden=true; return; }
   pv.src=URL.createObjectURL(f); pv.hidden=false;
 });
+
+// ---------- Poids estimé (formules longueur-poids : poids en g = a × longueur en cm ^ b) ----------
+const LW={"Brochet":[0.0045,3.1],"Sandre":[0.0055,3.12],"Perche":[0.0105,3.1],"Black-bass":[0.011,3.08],"Silure":[0.0045,3.1],"Carpe":[0.019,3.0]};
+let wtTouched=false;
+function estWeight(sp,len){ const k=LW[sp]; if(!k||!(len>0)) return null; return k[0]*Math.pow(len,k[1])/1000; }
+const fmtKg=w=>w>=10?w.toFixed(1):w.toFixed(2);
+function updateWeight(){
+  const len=parseFloat($("#p-len").value), sp=$("#p-species").value, note=$("#p-wt-note");
+  const w=estWeight(sp,len);
+  if(wtTouched){ note.hidden=true; return; }
+  if(w==null){
+    $("#p-wt").value="";
+    note.hidden=!(len>0);
+    note.textContent=sp?"Pas de formule de poids pour cette espèce : saisis-le à la main.":"Choisis l'espèce pour estimer le poids.";
+    return;
+  }
+  $("#p-wt").value=fmtKg(w);
+  note.hidden=false;
+  note.textContent="Poids estimé d'après la longueur (entre "+fmtKg(w*0.85)+" et "+fmtKg(w*1.15)+" kg selon la corpulence). Corrige-le si tu as pesé le poisson.";
+}
+$("#p-len").addEventListener("input",updateWeight);
+$("#p-species").addEventListener("change",updateWeight);
+$("#p-wt").addEventListener("input",()=>{ wtTouched=$("#p-wt").value!==""; $("#p-wt-note").hidden=true; });
+
+// ---------- Mesure sur photo ----------
+const M={img:null,scale:1,pts:[]};
+const STEPS=["Touche une graduation du mètre (par ex. le 0). Plus les 2 graduations sont écartées, plus la mesure est précise.","Touche la 2e graduation, à l'écart indiqué en haut (ex. 50 cm).","Touche le bout du museau.","Touche le bout de la queue.","Mesure terminée. Valide, ou recommence pour affiner."];
+function mLength(){
+  if(M.pts.length<4) return null;
+  const d=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const ref=d(M.pts[0],M.pts[1]), cm=parseFloat($("#m-ref").value);
+  if(!(ref>0)||!(cm>0)) return null;
+  return d(M.pts[2],M.pts[3])/ref*cm;
+}
+function mDraw(){
+  const c=$("#m-canvas"), g=c.getContext("2d");
+  g.clearRect(0,0,c.width,c.height);
+  g.drawImage(M.img,0,0,c.width,c.height);
+  const css=getComputedStyle(document.documentElement);
+  const cols=[css.getPropertyValue("--amber").trim()||"#e3a24e",css.getPropertyValue("--accent").trim()||"#5cc2a3"];
+  const P=M.pts.map(p=>({x:p.x*M.scale,y:p.y*M.scale}));
+  [[0,1],[2,3]].forEach(([a,b],i)=>{
+    if(P[a]&&P[b]){ g.strokeStyle=cols[i]; g.lineWidth=3; g.beginPath(); g.moveTo(P[a].x,P[a].y); g.lineTo(P[b].x,P[b].y); g.stroke(); }
+  });
+  P.forEach((p,i)=>{
+    g.fillStyle=cols[i<2?0:1]; g.strokeStyle="#fff"; g.lineWidth=2;
+    g.beginPath(); g.arc(p.x,p.y,8,0,Math.PI*2); g.fill(); g.stroke();
+  });
+  $("#m-step").textContent=(Math.min(M.pts.length,4)+1)+"/5 · "+STEPS[Math.min(M.pts.length,4)];
+  const L=mLength();
+  $("#m-result").textContent=L?"Longueur : "+L.toFixed(1)+" cm":"";
+  $("#m-ok").disabled=!L;
+}
+function mLayout(){
+  const area=$("#m-area"), c=$("#m-canvas");
+  const s=Math.min(area.clientWidth/M.img.naturalWidth,area.clientHeight/M.img.naturalHeight);
+  M.scale=s; c.width=Math.round(M.img.naturalWidth*s); c.height=Math.round(M.img.naturalHeight*s);
+  mDraw();
+}
+$("#p-measure").addEventListener("click",()=>{
+  const f=$("#p-photo").files[0]; if(!f) return;
+  const img=new Image();
+  img.onload=()=>{ M.img=img; M.pts=[]; $("#measure").hidden=false; document.body.style.overflow="hidden"; requestAnimationFrame(mLayout); };
+  img.src=URL.createObjectURL(f);
+});
+$("#m-canvas").addEventListener("pointerdown",e=>{
+  if(M.pts.length>=4) return;
+  const r=e.target.getBoundingClientRect();
+  M.pts.push({x:(e.clientX-r.left)/M.scale,y:(e.clientY-r.top)/M.scale});
+  mDraw();
+});
+$("#m-ref").addEventListener("input",mDraw);
+$("#m-reset").addEventListener("click",()=>{ M.pts=[]; mDraw(); });
+function mClose(){ $("#measure").hidden=true; document.body.style.overflow=""; }
+$("#m-cancel").addEventListener("click",mClose);
+$("#m-ok").addEventListener("click",()=>{
+  const L=mLength(); if(!L) return;
+  $("#p-len").value=L.toFixed(1); mClose(); updateWeight();
+});
+window.addEventListener("resize",()=>{ if(!$("#measure").hidden&&M.img) mLayout(); });
 $("#composer").addEventListener("submit",async e=>{
   e.preventDefault(); if(!me||cur==="all"||cur==null) return;
   const f=$("#p-photo").files[0], cap=$("#p-caption").value.trim();
-  if(!f&&!cap) return showErr($("#p-err"),"Ajoute une photo ou une légende.");
+  if(!f&&!cap&&!$("#p-bait").value.trim()) return showErr($("#p-err"),"Ajoute une photo ou une légende.");
   const btn=$("#p-submit"); btn.disabled=true; btn.textContent="Envoi…"; showErr($("#p-err"));
   try{
     let path=null;
@@ -243,9 +328,11 @@ $("#composer").addEventListener("submit",async e=>{
       if(error) throw error;
     }
     const spot=$("#p-spot").value?Number($("#p-spot").value):null;
-    const {error}=await sb.from("posts").insert({group_id:cur,caption:cap||null,species:$("#p-species").value||null,photo_path:path,spot_id:spot});
+    const len=parseFloat($("#p-len").value), wt=parseFloat($("#p-wt").value);
+    const {error}=await sb.from("posts").insert({group_id:cur,caption:cap||null,species:$("#p-species").value||null,photo_path:path,spot_id:spot,
+      length_cm:len>0?Math.round(len*10)/10:null, weight_kg:wt>0?Math.round(wt*100)/100:null, bait:$("#p-bait").value.trim()||null});
     if(error) throw error;
-    $("#composer").reset(); $("#p-preview").hidden=true;
+    $("#composer").reset(); $("#p-preview").hidden=true; $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
     toast("Prise partagée"); loadFeed(); loadStats();
   }catch(err){ showErr($("#p-err"),frError(err)); }
   finally{ btn.disabled=false; btn.textContent="Publier"; }
@@ -256,7 +343,7 @@ async function loadFeed(){
   if(!me||!groups.length||cur==null) return;
   const feed=$("#feed");
   let q=sb.from("posts")
-    .select("id,group_id,caption,species,photo_path,created_at,user_id,profiles(username,is_admin),spots(id,name)")
+    .select("id,group_id,caption,species,photo_path,created_at,user_id,length_cm,weight_kg,bait,profiles(username,is_admin),spots(id,name)")
     .order("created_at",{ascending:false}).limit(60);
   if(cur!=="all") q=q.eq("group_id",cur);
   const {data,error}=await q;
@@ -281,7 +368,16 @@ async function loadFeed(){
       img.alt=p.species?("Prise : "+p.species):"Photo de prise"; a.append(img);
     }
     const body=el("div","post-body");
-    if(p.species) body.append(el("span","tag",p.species));
+    const tags=el("div","tags");
+    if(p.species) tags.append(el("span","tag",p.species));
+    const size=[p.length_cm?Number(p.length_cm).toLocaleString("fr-FR")+" cm":"",p.weight_kg?Number(p.weight_kg).toLocaleString("fr-FR")+" kg":""].filter(Boolean).join(" · ");
+    if(size) tags.append(el("span","size",size));
+    if(tags.childNodes.length) body.append(tags);
+    if(p.bait){
+      const bx=el("div","bait-box");
+      bx.append(el("div","label","Appât et amorçage"), el("p",null,p.bait));
+      body.append(bx);
+    }
     if(p.caption) body.append(el("p",null,p.caption));
     const foot=el("div","post-foot");
     if(p.spots){

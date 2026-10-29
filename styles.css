@@ -119,3 +119,27 @@ nav.tabs a[aria-current="page"]{color:var(--accent)}
 .mrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
 .mrow:last-child{border-bottom:none}
 #v-admin .list{gap:10px}
+.bait{border-left:3px solid var(--amber);padding-left:10px}
+/* ---- Mesure sur photo ---- */
+.measure{position:fixed;inset:0;z-index:3000;background:var(--bg);display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top,0px) max(12px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(12px,env(safe-area-inset-left,0px))}
+.m-top,.m-bottom{padding-block:10px;display:flex;flex-direction:column;gap:8px}
+.m-step{margin:0;font-weight:600}
+.m-ref{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--muted)}
+.m-ref input{width:5.5em;font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.m-area{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#m-canvas{touch-action:none;max-width:100%;max-height:100%;border-radius:6px}
+.m-result{margin:0;font-family:var(--f-mono);font-size:1.3rem;color:var(--accent);min-height:1.6em}
+/* ---- Posts : taille, appât ---- */
+.tags{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.size{font-family:var(--f-mono);font-size:.9rem;font-variant-numeric:tabular-nums}
+.bait-box{border:1px solid var(--amber);background:var(--amber-soft);border-radius:8px;padding:8px 12px;display:flex;flex-direction:column;gap:2px}
+.bait-box .label{color:var(--amber);font-size:.75rem}
+.bait-box p{margin:0}
+/* ---- Couleurs selon le rôle : orange pour les admins, bleu pour les membres ---- */
+:root[data-role="admin"]{--bg:#f6e2cc;--surface:#fff8f0;--line:#e8c8a5;--muted:#7a5d43}
+:root[data-role="user"]{--bg:#dde9f5;--surface:#f7fbff;--line:#bfd3e8;--muted:#4f6478}
+@media (prefers-color-scheme: dark){
+  :root[data-role="admin"]:not([data-theme="light"]){--bg:#2b1a0b;--surface:#3a2412;--line:#5a3a1f;--muted:#c4a283}
+  :root[data-role="user"]:not([data-theme="light"]){--bg:#0d1826;--surface:#152438;--line:#263c57;--muted:#93a9c2}
+}

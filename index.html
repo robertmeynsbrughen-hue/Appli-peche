@@ -112,8 +112,18 @@ body{margin:0}
         <label class="field">Spot
           <select id="p-spot"><option value="">Aucun</option></select></label>
       </div>
+      <button type="button" class="btn" id="p-measure" hidden>📏 Mesurer le poisson sur la photo</button>
+      <div class="row2">
+        <label class="field">Longueur (cm)
+          <input id="p-len" type="number" min="1" max="300" step="0.5" inputmode="decimal"></label>
+        <label class="field">Poids (kg)
+          <input id="p-wt" type="number" min="0" max="150" step="0.01" inputmode="decimal"></label>
+      </div>
+      <p class="note" id="p-wt-note" hidden></p>
+      <label class="field">Appât et amorçage
+        <textarea id="p-bait" maxlength="300" placeholder="Ex. : bouillette krill 20 mm, amorçage 2 kg de graines et pellets"></textarea></label>
       <label class="field">Légende
-        <textarea id="p-caption" maxlength="500" placeholder="Poids, taille, leurre, conditions…"></textarea></label>
+        <textarea id="p-caption" maxlength="500" placeholder="Conditions, poste, anecdote…"></textarea></label>
       <p class="err" id="p-err" hidden></p>
       <div class="actions"><button class="btn primary" type="submit" id="p-submit">Publier</button></div>
     </form>
@@ -229,6 +239,23 @@ body{margin:0}
     </div>
   </section>
   </main>
+</div>
+
+<div id="measure" class="measure" role="dialog" aria-modal="true" aria-label="Mesurer le poisson" hidden>
+  <div class="m-top">
+    <p class="m-step" id="m-step"></p>
+    <label class="m-ref">Écart entre les 2 graduations
+      <input id="m-ref" type="number" value="50" min="1" max="200" step="0.5" inputmode="decimal"> cm</label>
+  </div>
+  <div class="m-area" id="m-area"><canvas id="m-canvas"></canvas></div>
+  <div class="m-bottom">
+    <p class="m-result" id="m-result"></p>
+    <div class="actions">
+      <button type="button" class="btn" id="m-reset">Recommencer</button>
+      <button type="button" class="btn" id="m-cancel">Annuler</button>
+      <button type="button" class="btn primary" id="m-ok" disabled>Valider</button>
+    </div>
+  </div>
 </div>
 
 <nav class="tabs" aria-label="Navigation">

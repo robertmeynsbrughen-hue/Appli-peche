@@ -129,6 +129,25 @@ function reasons(sp,c){
 
 function band(t){return t<10?"froid":t<=19?"tempere":"chaud"}
 
+// ---------- Bouillettes (carpe) ----------
+function carpBait(c,month){
+  const t=c.water; let flav, size;
+  if(t<8){ flav="fruitées et sucrées, très solubles : ananas, scopex, tutti frutti, fraise"; size="petites (12 à 15 mm), un pop-up fluo jaune ou rose sur le montage, et très peu d'amorce : une poignée suffit"; }
+  else if(t<12){ flav="douces et crémeuses : scopex, crème vanille, ananas-banane, ou birdfood"; size="15 mm, en mélangeant appâts posés et pop-up, avec un amorçage léger"; }
+  else if(t<=18){
+    flav=(month>=9&&month<=11)
+      ?"riches en protéines, car les carpes se préparent pour l'hiver : krill, crabe, poisson-calamar"
+      :"poisson et fruité mélangés : krill-fraise, scopex-calamar, crabe";
+    size="18 à 20 mm, amorçage modéré (bouillettes entières et cassées, pellets)"; }
+  else { flav="farines de poisson et saveurs puissantes : calamar, halibut, crustacés, épicées (robin red)"; size="20 mm et plus pour éviter les petits poissons, amorçage plus copieux"; }
+  let color;
+  if(c.rain>=0.3) color="Eau teintée par la pluie : couleurs vives (jaune, orange, fluo) pour être repérée.";
+  else if(c.cloud<35) color="Eau claire et grand soleil : couleurs naturelles (marron, beige), plus discrètes.";
+  else color="Couleur : naturelle en amorce, avec un pop-up vif sur le montage pour attirer l'œil.";
+  const river=waterType==="riviere"?" En rivière, choisis des bouillettes dures, à dominante poisson ou épicée, qui tiennent dans le courant et diffusent loin.":"";
+  return "Bouillettes du moment : "+flav+". Taille : "+size+". "+color+river+" Ce sont des pistes générales : sur un plan d'eau très pêché, l'appât habituel du coin marche souvent mieux.";
+}
+
 // ---------- Rendu ----------
 function render(){
   if(!current) return;
@@ -204,6 +223,7 @@ function render(){
       const c=document.createElement("span"); c.className="chip "+cls; c.textContent=txt; ch.append(c);
     }
     el.querySelector(".how").textContent=r.sp.how[band(now.water)];
+    if(r.sp.id==="carpe"){ const bt=document.createElement("p"); bt.className="how bait"; bt.textContent=carpBait(now,m); el.append(bt); }
     if(r.sp.closed&&r.sp.closed(m)){
       const w=document.createElement("p"); w.className="warn";
       w.textContent="Période de fermeture probable en 2e catégorie : vérifie l'arrêté de ton département avant de le cibler.";
