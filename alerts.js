@@ -16,6 +16,8 @@ async function load(){
   const s=++seq;
   const {data,error}=await A.sb.from("alert_prefs").select("*").eq("user_id",A.me.id).maybeSingle();
   if(s!==seq) return;
+  // table pas encore créée côté serveur : on masque simplement le panneau
+  if(error&&/alert_prefs|PGRST205|42P01|does not exist/i.test((error.code||"")+" "+(error.message||""))){ box.hidden=true; return; }
   if(error){ box.innerHTML=""; box.append(el("p","err",frError(error))); return; }
   pref=data||{enabled:false,lat:null,lon:null,place:null,species:[],threshold:70,water:(()=>{ try{ return localStorage.getItem("cdj-water")||"etang"; }catch(e){ return "etang"; } })(),opening:true,_new:true};
   draw();
