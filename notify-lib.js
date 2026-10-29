@@ -110,12 +110,20 @@ export async function handle(req, cfg) {
         memos: "id,group_id,user_id,title",
         sessions: "id,group_id,user_id,species,caught,length_cm,lure,color,rating",
         messages: "id,group_id,user_id,body",
+        comments: "id,post_id,user_id,body",
+        challenges: "id,group_id,user_id,title,species,min_length",
       }[t];
       if (!cols) return new Response("bad table", { status: 400 });
       [rec] = await db(t + "?id=eq." + Number(ev.id) + "&select=" + cols);
       if (!rec) return Response.json({ sent: 0, reason: "introuvable" });
       group_id = rec.group_id; author = rec.user_id;
+      if (t === "comments") {
+        const [p] = await db("posts?id=eq." + Number(rec.post_id) + "&select=group_id,user_id,species");
+        if (!p) return Response.json({ sent: 0, reason: "introuvable" });
+        group_id = p.group_id; rec.post = p;
+      }
     }
+    let extra = null;
     const [groups, users] = await Promise.all([
       db("groups?id=eq." + group_id + "&select=name"),
       db("profiles?id=eq." + author + "&select=username"),
@@ -151,20 +159,47 @@ export async function handle(req, cfg) {
         const fish = rec.caught === false ? (rec.species ? rec.species + " ciblé, capot" : "capot") : [rec.species, rec.length_cm ? num(rec.length_cm) + " cm" : ""].filter(Boolean).join(" ");
         const combo = [rec.lure, rec.color].filter(Boolean).join(" ");
         msg = { title: "🧾 Bilan de session · " + group, body: who + " : " + [fish, combo, RATING[rec.rating]].filter(Boolean).join(" · "), url: "./#groupe", tag: "sess-" + rec.id };
-      } else msg = { title: "💬 " + group, body: who + " : " + cut(rec.body, 140), url: "./#chat", tag: "chat-" + group_id };
-    }
-    if (!recipients.length) return Response.json({ sent: 0, reason: "aucun destinataire" });
-    const subs = await db("push_subs?user_id=in.(" + recipients.map((m) => m.user_id).join(",") + ")&select=endpoint,p256dh,auth");
-    if (!subs.length) return Response.json({ sent: 0, reason: "aucun abonné" });
-    const payload = JSON.stringify(msg);
-    const results = await Promise.allSettled(subs.map(async (s) => {
-      const r = await sendPush(s, payload, VAPID);
-      if (r.status === 404 || r.status === 410) {
-        await db("push_subs?endpoint=eq." + encodeURIComponent(s.endpoint), { method: "DELETE" });
+      } else if (t === "challenges") {
+        msg = { title: "🏅 Nouveau défi · " + group, body: who + " lance : " + cut(rec.title, 110), url: "./#groupe", tag: "chal-" + rec.id };
+      } else if (t === "comments") {
+        const prev = await db("comments?post_id=eq." + Number(rec.post_id) + "&select=user_id");
+        const ids = new Set([rec.post.user_id, ...prev.map((c) => c.user_id)]);
+        ids.delete(author);
+        const active = new Set((await activeMembers(group_id)).map((m) => m.user_id));
+        recipients = [...ids].filter((id) => active.has(id)).map((user_id) => ({ user_id }));
+        msg = { title: "💬 Commentaire · " + group, body: who + " : " + cut(rec.body, 130), url: "./#fil", tag: "com-" + rec.post_id };
+      } else {
+        msg = { title: "💬 " + group, body: who + " : " + cut(rec.body, 140), url: "./#chat", tag: "chat-" + group_id };
+        const names = [...new Set((String(rec.body).match(/@([A-Za-z0-9_]{3,20})/g) || []).map((x) => x.slice(1).toLowerCase()))].slice(0, 10);
+        if (names.length) {
+          const cand = await db("profiles?select=id,username&or=(" + names.map((n) => "username.ilike." + n.replace(/[,()*%]/g, "")).join(",") + ")");
+          const found = cand.filter((p) => names.includes(String(p.username).toLowerCase()));
+          const hit = new Set(found.map((p) => p.id).filter((id) => id !== author && recipients.some((m) => m.user_id === id)));
+          if (hit.size) {
+            recipients = recipients.filter((m) => !hit.has(m.user_id));
+            extra = { recipients: [...hit].map((user_id) => ({ user_id })), msg: { title: "📣 " + who + " t'a mentionné · " + group, body: cut(rec.body, 140), url: "./#chat", tag: "ment-" + rec.id } };
+          }
+        }
       }
-      return r.status;
-    }));
-    return Response.json({ sent: subs.length, results: results.map((x) => x.status === "fulfilled" ? x.value : String(x.reason)) });
+    }
+    const batches = [{ recipients, msg }];
+    if (extra) batches.push(extra);
+    const out = [];
+    for (const b of batches) {
+      if (!b.recipients.length) continue;
+      const subs = await db("push_subs?user_id=in.(" + b.recipients.map((m) => m.user_id).join(",") + ")&select=endpoint,p256dh,auth");
+      const payload = JSON.stringify(b.msg);
+      const results = await Promise.allSettled(subs.map(async (s) => {
+        const r = await sendPush(s, payload, VAPID);
+        if (r.status === 404 || r.status === 410) {
+          await db("push_subs?endpoint=eq." + encodeURIComponent(s.endpoint), { method: "DELETE" });
+        }
+        return r.status;
+      }));
+      out.push(...results.map((x) => x.status === "fulfilled" ? x.value : String(x.reason)));
+    }
+    if (!out.length) return Response.json({ sent: 0, reason: "aucun destinataire ou abonné" });
+    return Response.json({ sent: out.length, results: out });
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 });
   }

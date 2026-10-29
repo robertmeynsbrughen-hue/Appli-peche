@@ -31,6 +31,7 @@ function frError(e){
   if(/Invalid login/i.test(m)) return "Nom d'utilisateur ou mot de passe incorrect.";
   if(/already registered|already exists/i.test(m)) return "Ce nom d'utilisateur est déjà pris.";
   if(/code invalide/i.test(m)) return "Code du groupe incorrect.";
+  if(/groupe complet/i.test(m)) return "Ce groupe est complet (20 membres maximum).";
   if(/duplicate key.*(profiles|username)/i.test(m)) return "Ce nom d'utilisateur est déjà pris.";
   if(/duplicate key.*invite_code/i.test(m)) return "Ce code est déjà utilisé par un autre groupe.";
   if(/Password should/i.test(m)) return "Mot de passe trop court (6 caractères minimum).";
@@ -87,6 +88,7 @@ function route(){
   if(v==="carte") openMap();
   if(v==="fil") loadFeed();
   if(v==="groupe") hooks.groupe?.();
+  if(v==="profil") hooks.profil?.();
   window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",route);
@@ -190,6 +192,7 @@ $("#auth-form").addEventListener("submit",async e=>{
     if(authMode==="signup"){
       const {data:g,error:ce}=await sb.rpc("check_invite",{p_code:code});
       if(ce) throw ce; if(!g||!g.length) throw new Error("code invalide");
+      if(g[0].full_group) throw new Error("groupe complet");
       if(g[0].require_approval) setTimeout(()=>toast("Demande envoyée à « "+g[0].name+" » : un modérateur doit la valider"),900);
       const {error}=await sb.auth.signUp({email:emailOf(u),password:p});
       if(error) throw error;
@@ -461,6 +464,7 @@ async function loadFeed(){
   }
   const items=[...data,...(sess||[]).map(x=>({...x,_kind:"session"}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   if(!items.length){ feed.append(el("div","empty","Rien pour l'instant. Partage ton premier bilan ou ta première prise !")); return; }
+  const social=[];
   for(const p of items){
     if(p._kind==="session"){ feed.append(sessionCard(p)); continue; }
     const a=el("article","post"+(p.status==="pending"?" is-pending":""));
@@ -540,7 +544,9 @@ async function loadFeed(){
       }));
     }
     body.append(foot); a.append(body); feed.append(a);
+    if(p.status!=="pending") social.push({post:p,body,foot});
   }
+  hooks.feedExtras?.(social);
 }
 
 // Bilan de session affiché dans le fil

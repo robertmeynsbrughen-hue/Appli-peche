@@ -431,3 +431,54 @@ body.chat-open{overflow:hidden}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .msg-who.is-mod{color:#8fa6ff}}
 :root[data-theme="dark"] .msg-who.is-mod{color:#8fa6ff}
 .app-version{font-family:var(--f-mono);font-size:.75rem}
+
+/* ---- Réactions et commentaires ---- */
+.social{display:flex;flex-direction:column;gap:8px}
+.react-bar{display:flex;flex-wrap:wrap;gap:6px}
+.react-btn{font:inherit;font-size:.9rem;font-weight:600;display:inline-flex;align-items:center;gap:5px;min-height:36px;padding:4px 12px;border-radius:99px;
+  border:1px solid var(--line);background:var(--surface-2);color:var(--fg);cursor:pointer}
+.react-btn[aria-pressed="true"]{background:var(--amber-soft);border-color:var(--amber);color:var(--fg)}
+.react-btn.com{margin-left:auto;color:var(--muted)}
+.react-n{font-family:var(--f-mono);font-size:.8rem}
+.react-btn:disabled{opacity:.6}
+.cmts{display:flex;flex-direction:column;gap:6px}
+.cmt{background:var(--surface-2);border-radius:12px;padding:7px 12px;display:flex;flex-direction:column;gap:2px}
+.cmt-t{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:.85rem}
+.cmt p{margin:0;overflow-wrap:anywhere}
+.cmt .linkbtn{align-self:flex-end;padding:0}
+.linkbtn.small{font-size:.8rem;align-self:flex-start}
+.cmt-form{display:flex;gap:8px}
+.cmt-form input{flex:1;min-width:0;font:inherit;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:8px 14px}
+
+/* ---- Mentions dans le chat ---- */
+.mention{font-weight:700;color:var(--accent)}
+.msg.mine .mention{color:inherit;text-decoration:underline}
+.bubble.mention-me{border-color:var(--amber);box-shadow:0 0 0 2px var(--amber-soft)}
+.mention-sugg{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 0;background:var(--surface)}
+.mention-sugg .chip{border:1px solid var(--line);font:inherit;font-size:.85rem;padding:5px 12px;cursor:pointer;color:var(--fg)}
+
+/* ---- Classements, défis ---- */
+.note.warn{color:var(--warn);font-weight:600}
+.rk-list{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:2px 12px}
+.rk-l{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+.rk-v{font-family:var(--f-mono);font-size:.85rem;white-space:nowrap}
+.rk-pos{width:24px;text-align:center;font-family:var(--f-mono)}
+.chal{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.chal.done{border-color:var(--amber);background:color-mix(in srgb,var(--amber-soft) 45%,var(--surface))}
+.chal-h{display:flex;gap:10px;align-items:flex-start}
+.chal-ico{font-size:1.6rem;line-height:1}
+.chal-t{font-weight:700}
+.chal .linkbtn{align-self:flex-start}
+
+/* ---- Carnet ---- */
+#carnet .g-sec-head h2{margin:0}
+.records{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.record{background:var(--surface-2);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column}
+.record-sp{font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:.8rem;color:var(--accent)}
+.record-v{font-family:var(--f-display);font-weight:700;font-size:2rem;line-height:1;color:var(--amber);font-variant-numeric:tabular-nums}
+.record-u{font-size:.8rem;color:var(--muted)}
+.record-d{font-size:.72rem;color:var(--muted);margin-top:4px}
+.year-nav{display:flex;align-items:center;gap:6px}
+.year-nav span{flex:1}
+.year-nav .btn{width:36px;padding:0}
+.chip.badge-medal{background:var(--amber-soft);color:var(--fg)}

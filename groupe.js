@@ -12,6 +12,7 @@ const store={ get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:J
               set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
 const waterType=()=>{ try{ const w=localStorage.getItem("cdj-water"); return ["etang","riviere","canal"].includes(w)?w:null; }catch(e){ return null; } };
 const fmtDate=iso=>new Date(iso).toLocaleString("fr-FR",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+const MAXM=20;   // limite de membres par groupe (appliquée aussi côté base)
 function section(title,extra){
   const s=el("section","g-sec"); const h=el("div","g-sec-head"); h.append(el("h2",null,title)); if(extra) h.append(extra);
   s.append(h); return s;
@@ -83,12 +84,13 @@ async function renderGroupe(){
   const g=A.curGroup; if(!g){ root.innerHTML=""; return; }
   const gid=g.id, mod=A.canModerate(gid), man=A.canManage(gid);
   const since=new Date(Date.now()-30*864e5).toISOString();
-  const [memos,polls,sess,mg,members]=await Promise.all([
+  const [memos,polls,sess,mg,members,cnt]=await Promise.all([
     A.sb.from("memos").select("id,user_id,title,body,link,photo_path,pinned,created_at,updated_at,profiles(username,is_admin)").eq("group_id",gid).order("pinned",{ascending:false}).order("updated_at",{ascending:false}).limit(30),
     A.sb.from("polls").select("id,user_id,question,place,event_at,created_at,profiles(username,is_admin)").eq("group_id",gid).order("created_at",{ascending:false}).limit(10),
     A.sb.from("sessions").select("species,caught,lure,color,rating,created_at").eq("group_id",gid).gte("created_at",since),
     mod?A.sb.rpc("manage_groups"):Promise.resolve({data:null}),
     mod?A.sb.rpc("manage_members",{p_group:gid}):Promise.resolve({data:null}),
+    A.sb.from("memberships").select("user_id",{count:"exact",head:true}).eq("group_id",gid).eq("status","active"),
   ]);
   const pollIds=(polls.data||[]).map(p=>p.id);
   const votes=pollIds.length?await A.sb.from("poll_votes").select("poll_id,user_id,choice,profiles(username)").in("poll_id",pollIds):{data:[]};
@@ -100,7 +102,10 @@ async function renderGroupe(){
   // En-tête du groupe
   const head=el("div","g-head");
   const t=el("div"); const h=el("h1",null,g.name); const rb=A.me.is_admin?el("span","badge","Admin"):roleBadge(A.myRoles.get(gid)); if(rb) h.append(rb);
-  t.append(h, el("div","note",[g.region,info?info.members+" membre"+(info.members>1?"s":""):""].filter(Boolean).join(" · ")));
+  const nb=info?Number(info.members):cnt.count, wait=info?Number(info.pending_members||0):0;
+  const full=nb+wait>=MAXM;
+  const cap=nb!=null?nb+"/"+MAXM+" membres"+(wait?" · "+wait+" en attente":"")+(full?" · complet":""):"";
+  t.append(h, el("div","note"+(full?" warn":""),[g.region,cap].filter(Boolean).join(" · ")));
   head.append(t);
   if(info){
     const code=el("div","g-code"); code.append(el("span","note","Code"),el("span","code",info.invite_code));
@@ -133,6 +138,7 @@ async function renderGroupe(){
   root.append(renderMemos(gid,memos.data||[],memoUrls,mod));
   root.append(renderPolls(gid,polls.data||[],votes.data||[],mod));
   root.append(renderStats(sess.data||[]));
+  const ex=el("div","g-extras"); root.append(ex); A.hooks.groupeExtras?.(ex,gid,mod);
   if(mod) root.append(renderManage(g,info,members.data||[],man));
 }
 A.hooks.groupe=renderGroupe;
@@ -322,7 +328,7 @@ function renderManage(g,info,members,man){
     if(canKick) act.append(confirmBtn("Retirer","Confirmer",async()=>{ const {error}=await A.sb.from("memberships").delete().eq("group_id",g.id).eq("user_id",m.user_id); if(error) return toast(frError(error)); toast("@"+m.username+" retiré du groupe"); renderGroupe(); }));
     r.append(act); list.append(r);
   });
-  s.append(el("h4","g-sub","Membres ("+active.length+")"), list);
+  s.append(el("h4","g-sub","Membres ("+active.length+"/"+MAXM+")"), list);
   if(man&&info){
     s.append(el("h4","g-sub","Réglages"));
     const opt=(label,hint,key)=>{
@@ -362,7 +368,7 @@ async function adminOverview(seq){
     const c=el("div","gcard");
     const h=el("div","gcard-head"); h.append(el("span","gcard-name",g.name+(g.region?" · "+g.region:"")));
     const pl=(n,w)=>n+" "+w+(n>1?"s":"");
-    h.append(el("span","gcard-meta",pl(g.members,"membre")+" · "+pl(g.posts,"post")+" · "+pl(g.spots,"spot"))); c.append(h);
+    h.append(el("span","gcard-meta",g.members+"/"+MAXM+" membres · "+" · "+pl(g.posts,"post")+" · "+pl(g.spots,"spot"))); c.append(h);
     const flags=el("div","chips");
     if(g.pending_members) flags.append(el("span","chip minus",g.pending_members+" demande"+(g.pending_members>1?"s":"")));
     if(g.pending_posts) flags.append(el("span","chip minus",g.pending_posts+" post"+(g.pending_posts>1?"s":"")+" à valider"));
@@ -474,11 +480,41 @@ function drawMsgs(scroll){
       if(isAdm||isResp||isMod) who.setAttribute("title",isAdm?"Admin":isResp?"Responsable du groupe":"Modérateur du groupe");
       row.append(who);
     }
-    const b=el("div","bubble"); b.append(el("span","msg-t",m.body),el("span","msg-h",d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})));
+    const b=el("div","bubble"+(mentionsMe(m.body)&&!mine?" mention-me":"")); b.append(withMentions(m.body),el("span","msg-h",d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})));
     row.append(b); box.append(row); lastUser=m.user_id;
   });
   if(scroll) requestAnimationFrame(()=>{ box.scrollTop=box.scrollHeight; });
 }
+// @mentions : surlignage et suggestions de pseudos
+const MENTION=/@([A-Za-z0-9_]{3,20})/g;
+function mentionsMe(t){ const u=A.me?.username?.toLowerCase(); return !!u&&[...String(t).matchAll(MENTION)].some(x=>x[1].toLowerCase()===u); }
+function withMentions(t){
+  const span=el("span","msg-t"); let last=0;
+  for(const x of String(t).matchAll(MENTION)){
+    span.append(t.slice(last,x.index)); span.append(el("b","mention","@"+x[1])); last=x.index+x[0].length;
+  }
+  span.append(t.slice(last)); return span;
+}
+const members=new Map();   // groupe -> pseudos actifs
+async function memberNames(gid){
+  if(members.has(gid)) return members.get(gid);
+  const {data}=await A.sb.from("memberships").select("profiles(username)").eq("group_id",gid).eq("status","active");
+  const v=(data||[]).map(r=>r.profiles?.username).filter(Boolean).sort((a,b)=>a.localeCompare(b,"fr"));
+  members.set(gid,v); return v;
+}
+const sugg=el("div","mention-sugg"); sugg.hidden=true; $("#chat-form").before(sugg);
+$("#chat-input").addEventListener("input",async()=>{
+  const inp=$("#chat-input"), pos=inp.selectionStart, before=inp.value.slice(0,pos);
+  const m=before.match(/@([A-Za-z0-9_]{0,20})$/);
+  if(!m||!chatGid){ sugg.hidden=true; return; }
+  const q=m[1].toLowerCase();
+  const list=(await memberNames(chatGid)).filter(n=>n!==A.me.username&&n.toLowerCase().startsWith(q)).slice(0,6);
+  sugg.innerHTML=""; sugg.hidden=!list.length;
+  list.forEach(n=>sugg.append(btn("@"+n,"chip",()=>{
+    inp.value=before.slice(0,before.length-m[0].length)+"@"+n+" "+inp.value.slice(pos);
+    sugg.hidden=true; inp.focus();
+  })));
+});
 function markSeen(){ if(chatGid){ store.set(seenKey(chatGid),new Date().toISOString()); unread.set(chatGid,0); renderFab(); renderTabs(); } }
 function headerText(){
   const gr=A.groups.find(x=>x.id===chatGid);
@@ -513,7 +549,7 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!panel.hidden) clo
 $("#chat-form").addEventListener("submit",async e=>{
   e.preventDefault();
   const inp=$("#chat-input"), body=inp.value.trim(); if(!body||!chatGid) return;
-  inp.value="";
+  inp.value=""; sugg.hidden=true;
   const {data,error}=await A.sb.from("messages").insert({group_id:chatGid,user_id:A.me.id,body}).select("id,user_id,group_id,body,created_at").single();
   if(error){ inp.value=body; return toast(frError(error)); }
   await addMsg({...data,profiles:{username:A.me.username,is_admin:A.me.is_admin}}); markSeen();

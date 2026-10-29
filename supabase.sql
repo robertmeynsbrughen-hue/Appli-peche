@@ -586,3 +586,115 @@ create policy messages_delete on public.messages for delete using (user_id = aut
 drop policy if exists messages_insert on public.messages;
 create policy messages_insert on public.messages for insert
   with check (user_id = auth.uid() and (public.is_member_of(group_id) or public.is_admin()));
+
+-- ========== Vague 1 : réactions, commentaires, défis, limite de 20 membres ==========
+
+-- ---------- Limite de 20 membres par groupe (demandes en attente comprises) ----------
+create or replace function public.group_is_full(g bigint) returns boolean
+language sql stable security definer set search_path = public as $$
+  select (select count(*) from public.memberships where group_id = g) >= 20;
+$$;
+
+create or replace function public.join_group(p_code text, p_username text default null)
+returns bigint
+language plpgsql security definer set search_path = public as $$
+declare g bigint; appr boolean;
+begin
+  if auth.uid() is null then raise exception 'non connecté'; end if;
+  select id, require_approval into g, appr from public.groups where invite_code = p_code;
+  if g is null then raise exception 'code invalide'; end if;
+  if exists (select 1 from public.memberships where group_id = g and user_id = auth.uid()) then return g; end if;
+  if public.group_is_full(g) and not public.is_admin() then raise exception 'groupe complet'; end if;
+  if not exists (select 1 from public.profiles where id = auth.uid()) then
+    if p_username is null then raise exception 'nom d''utilisateur manquant'; end if;
+    insert into public.profiles (id, username, is_admin)
+      values (auth.uid(), p_username,
+              lower(p_username) = lower((select admin_username from public.settings where id = 1)));
+  end if;
+  insert into public.memberships (group_id, user_id, status)
+    values (g, auth.uid(), case when appr and not public.is_admin() then 'pending' else 'active' end)
+    on conflict do nothing;
+  return g;
+end;
+$$;
+
+drop function if exists public.check_invite(text);
+create function public.check_invite(p_code text)
+returns table (name text, region text, require_approval boolean, full_group boolean)
+language sql stable security definer set search_path = public as $$
+  select g.name, g.region, g.require_approval, public.group_is_full(g.id) from public.groups g where g.invite_code = p_code;
+$$;
+grant execute on function public.check_invite(text) to anon, authenticated;
+
+-- ---------- Réactions et commentaires ----------
+create or replace function public.post_group(p bigint) returns bigint
+language sql stable security definer set search_path = public as $$
+  select group_id from public.posts where id = p;
+$$;
+
+create table if not exists public.reactions (
+  post_id bigint not null references public.posts (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  emoji text not null check (emoji in ('fire', 'clap', 'fish')),
+  created_at timestamptz not null default now(),
+  primary key (post_id, user_id, emoji)
+);
+alter table public.reactions enable row level security;
+drop policy if exists reactions_select on public.reactions;
+drop policy if exists reactions_insert on public.reactions;
+drop policy if exists reactions_delete on public.reactions;
+create policy reactions_select on public.reactions for select
+  using (public.is_admin() or public.is_member_of(public.post_group(post_id)));
+create policy reactions_insert on public.reactions for insert
+  with check (user_id = auth.uid() and (public.is_member_of(public.post_group(post_id)) or public.is_admin()));
+create policy reactions_delete on public.reactions for delete using (user_id = auth.uid());
+
+create table if not exists public.comments (
+  id bigint generated always as identity primary key,
+  post_id bigint not null references public.posts (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  body text not null check (char_length(body) between 1 and 500),
+  created_at timestamptz not null default now()
+);
+create index if not exists comments_post on public.comments (post_id, created_at);
+alter table public.comments enable row level security;
+drop policy if exists comments_select on public.comments;
+drop policy if exists comments_insert on public.comments;
+drop policy if exists comments_delete on public.comments;
+create policy comments_select on public.comments for select
+  using (public.is_admin() or public.is_member_of(public.post_group(post_id)));
+create policy comments_insert on public.comments for insert
+  with check (user_id = auth.uid() and (public.is_member_of(public.post_group(post_id)) or public.is_admin()));
+create policy comments_delete on public.comments for delete
+  using (user_id = auth.uid() or public.can_moderate(public.post_group(post_id)));
+
+-- ---------- Défis mensuels ----------
+create table if not exists public.challenges (
+  id bigint generated always as identity primary key,
+  group_id bigint not null references public.groups (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  title text not null check (char_length(title) between 3 and 80),
+  species text check (char_length(species) <= 30),
+  min_length numeric check (min_length > 0 and min_length <= 300),
+  month date not null default date_trunc('month', now())::date,
+  created_at timestamptz not null default now()
+);
+alter table public.challenges enable row level security;
+drop policy if exists challenges_select on public.challenges;
+drop policy if exists challenges_insert on public.challenges;
+drop policy if exists challenges_delete on public.challenges;
+create policy challenges_select on public.challenges for select using (public.is_admin() or public.is_member_of(group_id));
+create policy challenges_insert on public.challenges for insert
+  with check (user_id = auth.uid() and public.can_moderate(group_id));
+create policy challenges_delete on public.challenges for delete using (public.can_moderate(group_id));
+
+-- ---------- Notifications ----------
+drop trigger if exists comments_notify on public.comments;
+create trigger comments_notify after insert on public.comments
+  for each row execute function public.notify_new();
+drop trigger if exists challenges_notify on public.challenges;
+create trigger challenges_notify after insert on public.challenges
+  for each row execute function public.notify_new();
+
+revoke all on function public.group_is_full(bigint) from public, anon;
+grant execute on function public.group_is_full(bigint) to authenticated;
