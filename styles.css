@@ -53,14 +53,17 @@ footer{font-size:.78rem;color:var(--muted);line-height:1.45}
   -webkit-backdrop-filter:saturate(1.4) blur(12px);backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--line)}
 .app-head-in{max-width:720px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px}
-.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex-shrink:0}
 .logo{width:34px;height:34px;border-radius:10px;background:var(--accent);display:grid;place-items:center;flex-shrink:0}
 .logo svg{width:24px;height:24px;fill:var(--on-accent)}
 .logo circle{fill:var(--accent)}
-.app-head h1{font-family:var(--f-display);font-weight:700;font-size:1.55rem;line-height:1;margin:0;text-transform:uppercase;letter-spacing:.02em;white-space:nowrap}
+.app-head h1{font-family:var(--f-display);font-weight:700;font-size:clamp(1.2rem,5.4vw,1.55rem);line-height:1;margin:0;text-transform:uppercase;letter-spacing:.02em;white-space:nowrap}
 .who{font-family:var(--f-mono);font-size:.78rem;color:var(--fg);white-space:nowrap;display:flex;align-items:center;gap:6px;
   background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:4px 6px 4px 10px;min-width:0;overflow:hidden}
 .who:empty{display:none}
+.who{max-width:52%;flex-shrink:1}
+.who-name{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.who .badge{flex-shrink:0}
 .who .badge{margin-left:0}
 
 /* ---- Boutons et champs ---- */

@@ -224,12 +224,12 @@ function render(){
   const hero=$("#hero"); hero.innerHTML="";
   const big=mk("div","hero-temp"); big.append(mk("span","hero-num",now.water.toFixed(1).replace(".",",")),mk("span","hero-unit","°C"));
   const side=mk("div","hero-side");
-  side.append(mk("div","hero-k","Eau estimée"), mk("div","hero-v",sky+" · air "+Math.round(now.air)+" °C"), mk("div","hero-v2","Eau "+CLARITY_TXT[clar]+(($("#f-clarity")||{}).value==="auto"?" (estimée)":"")));
+  side.append(mk("div","hero-k","Eau estimée"), mk("div","hero-v",sky+" · air "+Math.round(now.air)+"\u00a0°C"), mk("div","hero-v2","Eau "+CLARITY_TXT[clar]+(($("#f-clarity")||{}).value==="auto"?" (estimée)":"")));
   hero.append(big,side);
 
   const g=$("#grid"); g.innerHTML="";
   const cells=[
-    ["Pression",(meta.pressure?Math.round(meta.pressure)+" hPa ":"")+trend],
+    ["Pression",(meta.pressure?Math.round(meta.pressure)+"\u00a0hPa · ":"")+trend.replace(" ","\u00a0")],
     ["Vent",Math.round(now.wind)+" km/h"],
     ["Soleil",fmtH(meta.rise)+" · "+fmtH(meta.set)],
     ["Lune",meta.moon]

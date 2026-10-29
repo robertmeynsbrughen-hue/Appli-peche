@@ -105,7 +105,7 @@ function refreshUI(){
   $("#tab-admin-label").textContent=me?.is_admin?"Admin":"Gestion";
   $("#create-group").hidden=!logged||!!me?.is_admin;
   const who=$("#who"); who.textContent="";
-  if(me){ who.append("@"+me.username); if(me.is_admin) who.append(el("span","badge","Admin")); }
+  if(me){ who.append(el("span","who-name","@"+me.username)); if(me.is_admin) who.append(el("span","badge","Admin")); else if(isManager()) who.append(el("span","badge owner","Resp.")); }
   if(me){ const h=$("#me-name"); h.textContent="@"+me.username; if(me.is_admin) h.append(el("span","badge","Admin")); }
   if(!member){ $("#feed").innerHTML=""; }
   renderGroupSelects();
