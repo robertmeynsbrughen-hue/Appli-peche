@@ -1,7 +1,7 @@
 /* Coup du Jour : service worker (fonctionnement hors ligne) */
-const VERSION="cdj-v17";
+const VERSION="cdj-v18";
 const SHELL=["./","index.html","styles.css","advice.js","social.js","groupe.js","card.js","extras.js","peche.js","alerts.js","offline.js","config.js","manifest.webmanifest",
-  "icon-192.png","icon-512.png"];
+  "icon-192.png","badge-96.png","icon-512.png"];
 const CDN=["unpkg.com","cdn.jsdelivr.net","fonts.googleapis.com","fonts.gstatic.com"];
 self.addEventListener("install",e=>{ e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())); });
 self.addEventListener("activate",e=>{
@@ -24,7 +24,7 @@ self.addEventListener("push",e=>{
   let d={};
   try{ d=e.data?e.data.json():{}; }catch(_){ d={body:e.data?e.data.text():""}; }
   e.waitUntil(self.registration.showNotification(d.title||"Coup du Jour",{
-    body:d.body||"", icon:"icon-192.png", badge:"icon-192.png", tag:d.tag, data:{url:d.url||"./"}
+    body:d.body||"", icon:"icon-192.png", badge:"badge-96.png", tag:d.tag, renotify:!!d.tag, vibrate:[80,40,80], timestamp:Date.now(), data:{url:d.url||"./"}
   }));
 });
 self.addEventListener("notificationclick",e=>{
