@@ -148,15 +148,12 @@ async function wake(pre){
     card.append(info); res.append(card);
     if(wakeAt<new Date()){ res.append(el("p","warn","Ce réveil serait déjà passé : choisis un autre jour ou réduis la marge.")); return; }
     const act=el("div","actions wake-act");
-    const android=/Android/i.test(navigator.userAgent);
-    if(android){
-      const a=el("a","btn primary","⏰ Mettre l'alarme du téléphone");
-      a.href="intent:#Intent;action=android.intent.action.SET_ALARM;i.android.intent.extra.alarm.HOUR="+wakeAt.getHours()+";i.android.intent.extra.alarm.MINUTES="+wakeAt.getMinutes()+";S.android.intent.extra.alarm.MESSAGE="+encodeURIComponent("🎣 "+best.name+" à "+p.name)+";B.android.intent.extra.alarm.SKIP_UI=false;end";
-      act.append(a);
-    }
-    act.append(btn("🔔 Me réveiller par notification",android?"btn":"btn primary",saveAlarm));
+    act.append(btn("🔔 Me réveiller par notification","btn primary",saveAlarm));
+    act.append(btn("📅 Ajouter à mon agenda (avec rappel)","btn",()=>ics(plan)));
+    const hm=pad(wakeAt.getHours())+":"+pad(wakeAt.getMinutes());
+    act.append(btn("📋 Copier l'heure ("+hm+") pour l'alarme de l'Horloge","btn",async()=>{ try{ await navigator.clipboard.writeText(hm); toast("Heure copiée : ouvre l'Horloge et règle l'alarme à "+hm); }catch(e){ toast("Règle l'alarme de l'Horloge à "+hm); } }));
     res.append(act);
-    res.append(el("p","note",android?"L'alarme du téléphone sonne même en silencieux : c'est la plus sûre. Elle s'ouvre dans l'appli Horloge pour confirmer. La notification sert de rappel en plus.":"Sur iPhone, l'appli ne peut pas régler l'horloge : la notification sonnera à l'heure dite, avec le son des notifications."));
+    res.append(el("p","note","La notification sonne et vibre à l'heure dite et reste affichée jusqu'à ce que tu la touches. Une page web ne peut pas régler toute seule l'alarme de l'Horloge : ce sera possible avec la version de l'appli sur le Play Store. En attendant, copie l'heure et règle-la dans l'Horloge, ou ajoute la sortie à ton agenda avec son rappel."));
   }
   async function saveAlarm(){
     if(!plan) return;
@@ -175,6 +172,23 @@ async function wake(pre){
   }
   [ds,ps,ss,ms,fs].forEach(x=>x.addEventListener("change",calc));
   calc(); list();
+}
+// sortie au format agenda (.ics) avec un rappel à l'heure du réveil
+function ics(pl){
+  if(!pl) return;
+  const z=d=>d.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+  const end=new Date(pl.slot.getTime()+Math.max(1,(pl.best.to-pl.best.from))*36e5);
+  const lead=Math.round((pl.slot-pl.wakeAt)/6e4);
+  const esc=t=>String(t).replace(/[,;\\]/g,m=>"\\"+m).replace(/\n/g,"\\n");
+  const txt=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Coup du Jour//FR","BEGIN:VEVENT",
+    "UID:cdj-"+Date.now()+"@coupdujour","DTSTAMP:"+z(new Date()),"DTSTART:"+z(pl.slot),"DTEND:"+z(end),
+    "SUMMARY:"+esc("🎣 "+pl.best.name+" à "+pl.p.name),
+    "DESCRIPTION:"+esc("Créneau conseillé par Coup du Jour. Réveil à "+pad(pl.wakeAt.getHours())+":"+pad(pl.wakeAt.getMinutes())+(pl.t.min?" · "+pl.t.min+" min de route":"")),
+    "GEO:"+pl.p.lat+";"+pl.p.lon,
+    "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+esc("⏰ Debout, c'est l'heure de partir pêcher !"),"TRIGGER:-PT"+lead+"M","END:VALARM",
+    "END:VEVENT","END:VCALENDAR"].join("\r\n");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([txt],{type:"text/calendar"})); a.download="sortie-peche.ics"; document.body.append(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
+  toast("Ouvre le fichier pour l'ajouter à ton agenda");
 }
 A.calendar=calendar; A.wake=wake;
 
