@@ -582,3 +582,7 @@ drop policy if exists messages_delete on public.messages;
 create policy messages_select on public.messages for select using (public.is_admin() or public.is_member_of(group_id));
 create policy messages_insert on public.messages for insert with check (user_id = auth.uid() and public.is_member_of(group_id));
 create policy messages_delete on public.messages for delete using (user_id = auth.uid() or public.can_moderate(group_id));
+
+drop policy if exists messages_insert on public.messages;
+create policy messages_insert on public.messages for insert
+  with check (user_id = auth.uid() and (public.is_member_of(group_id) or public.is_admin()));

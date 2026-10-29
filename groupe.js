@@ -6,6 +6,8 @@ const $=s=>document.querySelector(s);
 const root=$("#groupe-root");
 let lastGroup;
 const isMember=()=>!!A.me&&A.cur!=null&&A.cur!=="all"&&A.myRoles.has(A.cur);
+const canChat=()=>!!A.me&&A.cur!=null&&A.cur!=="all"&&(A.myRoles.has(A.cur)||A.me.is_admin);
+const chatVisible=()=>!!A.me&&A.groups.length>0&&(canChat()||(A.cur==="all"&&A.me.is_admin));
 const store={ get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } },
               set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
 const waterType=()=>{ try{ const w=localStorage.getItem("cdj-water"); return ["etang","riviere","canal"].includes(w)?w:null; }catch(e){ return null; } };
@@ -379,12 +381,12 @@ const fab=$("#chat-fab"), panel=$("#chat-panel"), box=$("#chat-msgs"), badge=$("
 let chatGid=null, channel=null, msgs=[], names=new Map(), unread=0, poll=null;
 const seenKey=g=>"cdj-chat-seen-"+g;
 function renderFab(){
-  fab.hidden=!isMember()||!panel.hidden;
+  fab.hidden=!chatVisible()||!panel.hidden;
   badge.hidden=!unread; badge.textContent=unread>9?"9+":String(unread);
 }
 async function onGroupChanged(){
   if(channel){ A.sb?.removeChannel(channel); channel=null; }
-  msgs=[]; unread=0; box.innerHTML=""; chatGid=isMember()?A.cur:null;
+  msgs=[]; unread=0; box.innerHTML=""; chatGid=canChat()?A.cur:null;
   if(!chatGid){ closeChat(); renderFab(); return; }
   if(!panel.hidden) loadChat();
   const seen=store.get(seenKey(chatGid),new Date(Date.now()-7*864e5).toISOString());
@@ -431,9 +433,9 @@ function drawMsgs(scroll){
 }
 function markSeen(){ if(chatGid){ store.set(seenKey(chatGid),new Date().toISOString()); unread=0; renderFab(); } }
 function openChat(){
-  if(!isMember()){ toast("Choisis un de tes groupes pour ouvrir le chat"); return; }
+  if(!canChat()){ toast("Choisis le groupe dont tu veux ouvrir le chat"); document.querySelector("#grp-switch")?.click(); return; }
   $("#chat-title").textContent="Chat · "+(A.curGroup?.name||"");
-  $("#chat-sub").textContent="Visible par les membres du groupe";
+  $("#chat-sub").textContent=A.myRoles.has(chatGid)?"Visible par les membres du groupe":"Tu lis ce chat en tant qu'admin (tu n'es pas membre du groupe)";
   panel.hidden=false; document.body.classList.add("chat-open"); renderFab();
   loadChat();
   clearInterval(poll); poll=setInterval(()=>{ if(!panel.hidden) loadChat(); },20000);

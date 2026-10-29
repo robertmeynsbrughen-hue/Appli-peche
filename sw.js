@@ -1,5 +1,5 @@
 /* Coup du Jour : service worker (fonctionnement hors ligne) */
-const VERSION="cdj-v8";
+const VERSION="cdj-v9";
 const SHELL=["./","index.html","styles.css","advice.js","social.js","groupe.js","config.js","manifest.webmanifest",
   "icon-192.png","icon-512.png"];
 const CDN=["unpkg.com","cdn.jsdelivr.net","fonts.googleapis.com","fonts.gstatic.com"];
