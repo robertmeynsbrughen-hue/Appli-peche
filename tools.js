@@ -39,6 +39,7 @@ const SLIDES=[
 function tour(force){
   if(document.querySelector(".tour-back")) return;
   if(!force&&(get("cdj-tour-done","")==="1"||!A.me)) return;
+  if(!force&&A.onbPending){ setTimeout(()=>tour(false),1500); return; }
   let i=0;
   const back=el("div","tour-back"); const card=el("div","tour"); card.setAttribute("role","dialog"); card.setAttribute("aria-modal","true"); card.setAttribute("aria-label","Visite guidée");
   back.append(card); document.body.append(back);

@@ -151,7 +151,7 @@ function announce(ids){
   try{ localStorage.setItem(key,JSON.stringify(ids)); }catch(e){}
   if(!seen) return;                    // première fois : pas d'avalanche d'annonces
   const fresh=ids.filter(i=>!seen.includes(i));
-  fresh.forEach((i,k)=>{ const t=TROPHIES.find(x=>x.id===i); setTimeout(()=>toast("🏆 Nouveau trophée : "+t.e+" "+t.name),600+k*3000); });
+  fresh.forEach((i,k)=>{ const t=TROPHIES.find(x=>x.id===i); setTimeout(()=>{ if(A.celebrate) A.celebrate(t.e,"Nouveau trophée",t.name); else toast("🏆 Nouveau trophée : "+t.e+" "+t.name); },600+k*3000); });
 }
 
 /* ---------- Mon Fishdex (Profil) ---------- */
@@ -171,10 +171,12 @@ async function myDex(){
   const found=collect(rows);
   const troph=trophiesOf(rows,cs||[],se||[],found);
   announce(troph);
+  try{ const rec=rows.reduce((b,r)=>Number(r.length_cm||0)>Number(b?.length_cm||0)?r:b,null); A.dex.mine={found,troph,count:(p||[]).length+(se||[]).filter(x=>x.caught!==false).length,record:rec}; window.dispatchEvent(new Event("cdj-dex")); }catch(e){}
   box.innerHTML="";
   const h=el("div","g-sec-head"); h.append(el("h2",null,"Mon Fishdex")); box.append(h);
   box.append(progress(found));
-  box.append(el("p","note",found.size?"Chaque nouvelle espèce publiée dans le fil ou notée dans un bilan se débloque ici.":"Ta collection est vide : publie ta première prise pour débloquer une espèce."));
+  if(found.size) box.append(el("p","note","Chaque nouvelle espèce publiée dans le fil ou notée dans un bilan se débloque ici."));
+  else { const e=el("div","empty-state"); e.append(el("div","es-ico","\ud83d\udc1f"),el("b",null,"0 esp\u00e8ce sur 18"),el("p",null,"Chaque esp\u00e8ce que tu prends se d\u00e9bloque ici, avec sa fiche. Publie ta premi\u00e8re prise pour lancer ta collection !")); const a=el("div","actions"); const b0=el("button","btn primary","\ud83d\udcf8 Publier une prise"); b0.type="button"; b0.addEventListener("click",()=>{ location.hash="#fil"; setTimeout(()=>document.querySelector('#post-mode [data-m="post"]')?.getAttribute("aria-pressed")!=="true"&&document.querySelector('#post-mode [data-m="post"]')?.click(),250); }); a.append(b0); e.append(a); box.append(e); }
   box.append(grid(found));
   const th=el("div","g-sec-head"); th.append(el("h2",null,"Mes trophées"), el("span","note",troph.length+"/"+TROPHIES.length)); box.append(th);
   box.append(trophyGrid(troph));

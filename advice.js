@@ -287,6 +287,13 @@ function render(){
     return {sp,series,peak,best,a,b,exp};
   }).sort((x,y)=>y.peak-x.peak);
 
+  // résumé pour l'écran « Aujourd'hui »
+  try{
+    const hr=k=>new Date(start.getTime()+k*36e5).getHours()+"h";
+    window.CDJ_TODAY={live:mode==="live",place:meta.place,when:meta.when,water:now.water,water_measured:tm!=null,air:now.air,sky,wind:now.wind,trend,
+      top:results.filter(r=>!(r.sp.closed&&r.sp.closed(m))).slice(0,3).map(r=>({name:r.sp.name,pct:Math.round(r.peak*100),from:r.a>=0?hr(r.a):null,to:r.a>=0?hr(r.b+1):null}))};
+    window.dispatchEvent(new Event("cdj-today"));
+  }catch(e){}
   const list=$("#list"); list.innerHTML="";
   results.forEach((r,i)=>{
     const card=mk("article","sp"+(i===0?" top":""));

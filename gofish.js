@@ -41,7 +41,7 @@ async function quiet(kind,p){
 /* ---------- Bandeaux : moi au bord de l'eau, potes au bord de l'eau ---------- */
 function slots(){
   const mk=(id,before)=>{ let s=document.getElementById(id); if(!s&&before){ s=el("div","gofish-slot"); s.id=id; before.before(s); } return s; };
-  return [mk("gofish-conseils",$("#permit-quick")||$("#regl")),mk("gofish-fil",$("#post-mode")),mk("gofish-carte",$("#carte-sub"))].filter(Boolean);
+  return [mk("gofish-conseils",$("#permit-quick")||$("#regl")),mk("gofish-fil",$("#post-mode")),mk("gofish-carte",$("#map-below"))].filter(Boolean);
 }
 function render(){
   const list=slots();
@@ -65,7 +65,7 @@ function render(){
         const r=el("div","gofish-o");
         const sp=A.spots.find(x=>x.id===o.spot_id);
         const l=el("div");
-        l.append(el("b",null,"@"+(o.profiles?.username||"?")+" pêche"+(sp?" à "+sp.name:o.place?" · "+o.place:"")));
+        const nb=el("b",null); const un=el("span","user-link","@"+(o.profiles?.username||"?")); if(o.profiles?.username) un.dataset.user=o.profiles.username; nb.append(un," pêche"+(sp?" à "+sp.name:o.place?" · "+o.place:"")); l.append(nb);
         const d=window.CDJ_POS?km(window.CDJ_POS.lat,window.CDJ_POS.lon,Number(o.lat),Number(o.lon)):null;
         l.append(el("div","note","depuis "+hhmm(o.started_at)+" · jusqu'à "+hhmm(o.ends_at)+(d!=null?" · à "+fmtKm(d)+" de toi":"")+(o.note?" · "+o.note:"")));
         const a=el("div","actions");

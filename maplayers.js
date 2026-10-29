@@ -25,23 +25,40 @@ function bar(){
   const seg=el("div","seg base-seg"); seg.setAttribute("aria-label","Fond de carte");
   Object.entries(BASES).forEach(([k,b])=>{ const x=btn(b.t,null,()=>{ setBase(k); bar(); }); x.setAttribute("aria-pressed",String(k===baseKey)); seg.append(x); });
   box.append(seg);
-  const row=el("div","map-row");
+  const row=el("div","map-row lp-row");
   const pb=btn("🅿️🚻 Parkings & WC","btn small"+(poiOn?" on":""),()=>{ poiOn=!poiOn; set("cdj-poi",poiOn?"1":"0"); poi(); bar(); });
   const rb=btn("🌧️ Radar pluie","btn small"+(radarOn?" on":""),()=>{ radarOn=!radarOn; rain(); bar(); });
-  const ob=btn("⬇️ Hors ligne","btn small",offline);
-  const tb=btn(track.on?"⏹️ Fin de la trace":"🛶 Tracer ma sortie","btn small"+(track.on?" live":""),()=>track.on?stopTrack():startTrack());
-  const mb=btn(ruler.on?"📏 Fin de la mesure":"📏 Mesurer","btn small"+(ruler.on?" on":""),()=>ruler.on?stopRuler():startRuler());
+  const ob=btn("⬇️ Carte hors ligne","btn small",offline);
   const wb=btn("💨 Vent","btn small"+(wind.on?" on":""),()=>{ wind.on=!wind.on; loadWind(); bar(); });
   const zb=btn("🚧 Zones","btn small"+(zones.on?" on":""),()=>{ zones.on=!zones.on; set("cdj-zones",zones.on?"1":"0"); loadZones(); bar(); });
-  row.append(mb,wb,zb,pb,rb,tb,ob); box.append(row);
-  if(ruler.on) box.append(rulerBar());
-  if(wind.on) box.append(windBar());
-  if(zones.on) box.append(zoneBar());
+  row.append(wb,zb,pb,rb,ob); box.append(row);
+  // boutons flottants sur la carte : mesurer, tracer, spot ici
+  const fabs=$("#map-fabs");
+  if(fabs){
+    fabs.hidden=box.hidden;
+    const sh=$("#spot-here");
+    [...fabs.children].forEach(c=>{ if(c!==sh) c.remove(); });
+    const fab=(ic,label,on,fn)=>{ const b=btn(ic,"map-fab"+(on?" on":""),fn); b.setAttribute("aria-label",label); b.title=label; return b; };
+    fabs.prepend(fab(ruler.on?"✕📏":"📏",ruler.on?"Fin de la mesure":"Mesurer une distance",ruler.on,()=>ruler.on?stopRuler():startRuler()),
+      fab(track.on?"⏹️":"🛶",track.on?"Fin de la trace":"Tracer ma sortie",track.on,()=>track.on?stopTrack():startTrack()));
+    if(sh&&sh.parentNode!==fabs){ sh.className="map-fab spot-fab"; sh.textContent="📍"; sh.setAttribute("aria-label","Spot à ma position"); sh.title="Spot à ma position"; fabs.append(sh); }
+    if(sh) sh.hidden=mode==="fond";
+  }
+  // bandeaux d'état par-dessus la carte
+  const st=$("#map-status")||box;
+  if(st!==box) st.innerHTML="";
+  if(ruler.on) st.append(rulerBar());
+  if(wind.on) st.append(windBar());
+  if(zones.on&&(zones.draw||st===box)) st.append(zoneBar());
+  if(zones.on&&!zones.draw&&st!==box) box.append(zoneBar());
+  if(st!==box&&mode!=="fond"&&!ruler.on&&!zones.draw&&!track.on&&typeof A.cur==="number"&&!A.spots.some(x=>x.group_id===A.cur)){
+    const h=el("div","map-hint"); h.append(el("b",null,"📍 Aucun spot pour l'instant"),el("span",null,"Touche la carte à l'endroit voulu, ou le bouton 📍 pour créer un spot à ta position.")); st.append(h);
+  }
   if(track.on){
     const t=el("div","track-live");
     t.append(el("span",null,"● Trace en cours · "+fmtDist(track.dist)+" · "+track.bites.length+" touche"+(track.bites.length>1?"s":"")));
     t.append(btn("🎣 Touche ici !","btn primary small",addBite));
-    box.append(t);
+    st.append(t);
   }
   // sous la carte : légende du radar et liste des traces (la carte reste visible en haut)
   const below=$("#map-below");
@@ -563,6 +580,14 @@ const prevChange=A.hooks.change;
 let lastCur;
 A.hooks.change=()=>{ prevChange?.(); if(A.cur!==lastCur){ lastCur=A.cur; myTracks=null; if(zones.on&&map) loadZones(); if(mode==="fond"&&map) setMode("fond"); } bar(); };
 window.CDJ_MAPMODE=mode;
+// panneau « Calques »
+(function(){
+  const pb=$("#layers-btn"), pn=$("#layers-panel");
+  if(!pb||!pn) return;
+  const setP=v=>{ pn.hidden=!v; pb.setAttribute("aria-expanded",String(v)); pb.classList.toggle("on",v); };
+  pb.addEventListener("click",()=>setP(pn.hidden));
+  $("#layers-close")?.addEventListener("click",()=>setP(false));
+})();
 A.track={start:o=>{ startTrack(false,o); }, stop:()=>stopTrack(), get on(){ return track.on; }};
 if(A.map) init(A.map);
 document.querySelectorAll("#carte-sub [data-s]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.s===mode)));
