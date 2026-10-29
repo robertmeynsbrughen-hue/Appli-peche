@@ -151,7 +151,7 @@ function announce(ids){
   try{ localStorage.setItem(key,JSON.stringify(ids)); }catch(e){}
   if(!seen) return;                    // première fois : pas d'avalanche d'annonces
   const fresh=ids.filter(i=>!seen.includes(i));
-  fresh.forEach((i,k)=>{ const t=TROPHIES.find(x=>x.id===i); setTimeout(()=>toast("🏆 Nouveau trophée : "+t.e+" "+t.name),600+k*3000); });
+  fresh.forEach((i,k)=>{ const t=TROPHIES.find(x=>x.id===i); setTimeout(()=>{ if(A.celebrate) A.celebrate(t.e,"Nouveau trophée",t.name); else toast("🏆 Nouveau trophée : "+t.e+" "+t.name); },600+k*3000); });
 }
 
 /* ---------- Mon Fishdex (Profil) ---------- */
@@ -171,6 +171,7 @@ async function myDex(){
   const found=collect(rows);
   const troph=trophiesOf(rows,cs||[],se||[],found);
   announce(troph);
+  try{ const rec=rows.reduce((b,r)=>Number(r.length_cm||0)>Number(b?.length_cm||0)?r:b,null); A.dex.mine={found,troph,count:(p||[]).length+(se||[]).filter(x=>x.caught!==false).length,record:rec}; window.dispatchEvent(new Event("cdj-dex")); }catch(e){}
   box.innerHTML="";
   const h=el("div","g-sec-head"); h.append(el("h2",null,"Mon Fishdex")); box.append(h);
   box.append(progress(found));

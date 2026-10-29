@@ -483,7 +483,8 @@ $("#composer").addEventListener("submit",async e=>{
     if(error){ if(paths.length) await sb.storage.from("photos").remove(paths); throw error; }
     pics.forEach(f=>URL.revokeObjectURL(f.url)); pics=[]; renderThumbs();
     $("#composer").reset(); $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
-    toast(curGroup()?.post_approval&&!canModerate(cur)?"Prise envoyée : elle sera visible après validation":"Prise partagée"); loadFeed(); loadStats();
+    if(curGroup()?.post_approval&&!canModerate(cur)) toast("Prise envoyée : elle sera visible après validation"); else if(window.CDJ?.celebrate) window.CDJ.celebrate("🎣","Prise partagée","Le groupe est prévenu"); else toast("Prise partagée");
+    loadFeed(); loadStats();
     // une belle prise avec photo : on propose tout de suite la carte d'identité
     if(cardData.photoUrl&&(cardData.species||cardData.length)) setTimeout(()=>window.CDJ.openCard?.(cardData),500);
   }catch(err){

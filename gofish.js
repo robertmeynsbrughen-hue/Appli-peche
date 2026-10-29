@@ -41,7 +41,7 @@ async function quiet(kind,p){
 /* ---------- Bandeaux : moi au bord de l'eau, potes au bord de l'eau ---------- */
 function slots(){
   const mk=(id,before)=>{ let s=document.getElementById(id); if(!s&&before){ s=el("div","gofish-slot"); s.id=id; before.before(s); } return s; };
-  return [mk("gofish-conseils",$("#permit-quick")||$("#regl")),mk("gofish-fil",$("#post-mode")),mk("gofish-carte",$("#carte-sub"))].filter(Boolean);
+  return [mk("gofish-conseils",$("#permit-quick")||$("#regl")),mk("gofish-fil",$("#post-mode")),mk("gofish-carte",$("#map-below"))].filter(Boolean);
 }
 function render(){
   const list=slots();

@@ -6,7 +6,7 @@
   "start_url": "./#conseils",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0f1715",
+  "background_color": "#0b3229",
   "theme_color": "#1f6f5c",
   "icons": [
     {
