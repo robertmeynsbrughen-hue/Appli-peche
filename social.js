@@ -71,6 +71,9 @@ function avatar(name){
   return a;
 }
 const roleOf=(gid,uid)=>roles.get(gid)?.get(uid);
+// vue membre : un admin, contrôleur ou modo voit l'appli comme un simple membre (affichage seulement)
+let userView=false; try{ userView=localStorage.getItem("cdj-userview")==="1"; }catch(e){}
+let canSwitchView=false;
 const isStaff=()=>!!me&&(me.is_admin||me.is_controller);
 const canManage=gid=>!!me&&(me.is_admin||myRoles.get(gid)==="owner");
 const canModerate=gid=>!!me&&(isStaff()||myRoles.get(gid)==="owner"||myRoles.get(gid)==="moderator");
@@ -249,6 +252,8 @@ async function loadMe(){
   const {data}=await sb.from("profiles").select("id,username,is_admin,is_controller").eq("id",session.user.id).maybeSingle();
   me=data||null;
   if(me){
+    me.real={is_admin:!!me.is_admin,is_controller:!!me.is_controller};
+    if(userView){ me.is_admin=false; me.is_controller=false; }
     sb.rpc("list_controllers").then(({data})=>{ window.CDJ_CTRL=new Set((data||[]).map(x=>x.username)); });
     await loadGroups(); loadSpots(); loadStats(); syncPush();
   }
@@ -261,6 +266,9 @@ async function loadGroups(){
     sb.from("memberships").select("group_id,role,status").eq("user_id",me.id)]);
   const mm=new Map((mine||[]).map(m=>[m.group_id,m]));
   myRoles=new Map((mine||[]).filter(m=>m.status==="active").map(m=>[m.group_id,m.role]));
+  canSwitchView=!!(me.real?.is_admin||me.real?.is_controller||[...myRoles.values()].some(r=>r!=="member"));
+  if(userView) myRoles=new Map([...myRoles].map(([g])=>[g,"member"]));
+  viewToggle();
   const all=gs||[];
   pendingGroups=all.filter(g=>mm.get(g.id)?.status==="pending");
   groups=isStaff()?all:all.filter(g=>mm.get(g.id)?.status==="active");
@@ -274,6 +282,22 @@ async function loadGroups(){
   cur=saved&&valid(saved)?(saved==="all"?"all":Number(saved)):(isStaff()?"all":(groups[0]?.id??null));
   refreshUI();
 }
+
+function viewToggle(){
+  const b=$("#view-toggle"); if(!b) return;
+  b.hidden=!canSwitchView;
+  const realLabel=me?.real?.is_admin?"Admin":me?.real?.is_controller?"Contrôle":"Modo";
+  b.innerHTML=""; b.classList.toggle("on",userView);
+  b.append(el("span","vt-eye",userView?"👤":"🛡️"),el("span","vt-t",userView?"Membre":realLabel));
+  b.title=userView?"Tu vois l'appli comme un membre. Touche pour revenir en vue "+realLabel.toLowerCase():"Voir l'appli comme un simple membre";
+  b.setAttribute("aria-label",b.title);
+}
+$("#view-toggle")?.addEventListener("click",()=>{
+  userView=!userView;
+  try{ localStorage.setItem("cdj-userview",userView?"1":"0"); if(userView&&localStorage.getItem("cdj-grp")==="all") localStorage.removeItem("cdj-grp"); }catch(e){}
+  toast(userView?"Vue membre : tu vois l'appli comme un simple membre":"Retour en vue complète");
+  setTimeout(()=>location.reload(),350);
+});
 
 async function loadStats(){
   const [{count:pc},{count:sc}]=await Promise.all([

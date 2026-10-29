@@ -974,3 +974,12 @@ nav.tabs a{position:relative}
 @keyframes vpulse{50%{opacity:.75}}
 .voice-res{background:var(--accent-soft);border-radius:12px;padding:8px 10px;font-size:.9rem;display:flex;flex-direction:column;gap:4px}
 .voice-res[hidden]{display:none}
+
+/* ---------- Bascule vue admin / vue membre ---------- */
+.view-toggle{margin-left:auto;display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;font:inherit;font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  padding:6px 9px;border-radius:999px;border:1.5px solid #b8691c;background:color-mix(in srgb,#b8691c 14%,transparent);color:#b8691c;cursor:pointer;min-height:34px}
+.view-toggle[hidden]{display:none}
+.view-toggle.on{border-color:#2c5f8f;background:color-mix(in srgb,#2c5f8f 14%,transparent);color:#2c5f8f}
+.view-toggle .vt-eye{font-size:.95rem}
+.view-toggle + .grp-switch{margin-left:0}
+@media (max-width:480px){ .view-toggle{padding:6px;width:36px;justify-content:center} .view-toggle .vt-t{display:none} }
