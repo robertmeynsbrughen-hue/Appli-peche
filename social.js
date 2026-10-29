@@ -678,7 +678,8 @@ function startSpot(lat,lon){
   pending={lat,lon};
   $("#spot-coords").textContent="Groupe : "+groupName(cur)+" · "+lat.toFixed(5)+", "+lon.toFixed(5);
   $("#spot-form").hidden=false; showErr($("#s-err"));
-  $("#s-name").focus();
+  $("#spot-form").scrollIntoView({behavior:"smooth",block:"center"});
+  setTimeout(()=>$("#s-name").focus({preventScroll:true}),350);
 }
 $("#spot-here").addEventListener("click",()=>{
   if(!navigator.geolocation) return toast("Localisation indisponible");

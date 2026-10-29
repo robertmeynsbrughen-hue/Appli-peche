@@ -37,8 +37,13 @@ function bar(){
     t.append(btn("🎣 Touche ici !","btn primary small",addBite));
     box.append(t);
   }
-  if(radarOn&&radar?._cdjTime) box.append(el("p","note","Radar pluie : image de "+radar._cdjTime+" (RainViewer), le bleu clair est faible, le jaune et le rouge sont forts."));
-  box.append(tracksList());
+  // sous la carte : légende du radar et liste des traces (la carte reste visible en haut)
+  const below=$("#map-below");
+  if(below){
+    below.hidden=box.hidden||mode==="fond"; below.innerHTML="";
+    if(radarOn&&radar?._cdjTime) below.append(el("p","note","Radar pluie : image de "+radar._cdjTime+" (RainViewer), le bleu clair est faible, le jaune et le rouge sont forts."));
+    below.append(tracksList());
+  }
 }
 function setBase(k){
   if(!map||!BASES[k]) return;
@@ -210,7 +215,7 @@ function toggleTrack(t){
 /* ---------- Mode « Fond » : profondeurs et nature du fond ---------- */
 const BOTTOMS=[["Vase","#7a5c3a"],["Sable","#e2c27a"],["Gravier","#a8a29a"],["Argile","#b36a4a"],["Herbiers","#4e9a3a"],["Rocheux","#6b6f7a"],["Encombré","#3a3a3a"],["Coquillages","#e8e2d0"]];
 const BCOL=Object.fromEntries(BOTTOMS);
-let mode=get("cdj-carte-mode","carte"), depth={layer:null,overlay:null,pts:[],adding:null};
+let mode="carte", depth={layer:null,overlay:null,pts:[],adding:null};
 function depthColor(d,max){ const t=Math.min(1,d/Math.max(3,max)); const a=[178,235,242], b=[8,48,107]; return "rgb("+a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(",")+")"; }
 async function loadDepth(){
   if(!A.me) return;
@@ -294,11 +299,12 @@ function addDepthAt(ll){
   setTimeout(()=>di.focus(),100);
 }
 function setMode(m){
-  mode=m; set("cdj-carte-mode",m);
+  mode=m;
   window.CDJ_MAPMODE=m;
   document.querySelectorAll("#carte-sub [data-s]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.s===m)));
   $("#map-bar")?.classList.toggle("dim",m==="fond"); bar();
   fondPanel();
+  if(m==="fond") toast("Mode Fond : touche la carte pour ajouter une profondeur. Repasse sur Surface pour créer un spot.");
   if(m==="fond") loadDepth().then(()=>{ drawDepth(); fondPanel(); }); else drawDepth();
 }
 document.querySelectorAll("#carte-sub [data-s]").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.s)));

@@ -891,3 +891,9 @@ nav.tabs a{position:relative}
 .pv-imgs{display:flex;flex-direction:column;gap:10px;touch-action:pinch-zoom}
 .pv-imgs img{width:100%;height:auto;border-radius:8px;border:1px solid #ddd}
 .pv-tip{text-align:center;color:#555;font-size:.85rem;margin:0}
+.map-below{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.map-below[hidden]{display:none}
+.map-layers .seg button{min-height:34px;font-size:.82rem}
+.map-layers{gap:6px}
+/* la bulle du chat (en haut à gauche par défaut) ne doit pas cacher « Spot à ma position » */
+#map-bar{padding-left:64px}
