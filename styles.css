@@ -430,3 +430,4 @@ body.chat-open{overflow:hidden}
 .msg-who.is-mod{color:#3f5fbf}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .msg-who.is-mod{color:#8fa6ff}}
 :root[data-theme="dark"] .msg-who.is-mod{color:#8fa6ff}
+.app-version{font-family:var(--f-mono);font-size:.75rem}
