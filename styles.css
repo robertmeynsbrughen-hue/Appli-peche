@@ -943,3 +943,34 @@ nav.tabs a{position:relative}
 .aappma a.btn{text-decoration:none}
 .aappma a:not(.btn){color:var(--accent);font-weight:600}
 .aappma .actions .btn{min-height:38px;display:inline-flex;align-items:center}
+
+/* ---------- Lot 8 : Je pars pêcher, potes proches, dictée ---------- */
+.gofish-slot{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.gofish-slot[hidden]{display:none}
+.gofish-btn{width:100%;min-height:52px;font-size:1.05rem;font-weight:800;letter-spacing:.02em}
+.gofish-me{display:flex;align-items:center;justify-content:space-between;gap:8px;background:color-mix(in srgb,var(--accent) 16%,var(--surface));border:1px solid var(--accent);border-radius:14px;padding:10px 12px;font-weight:700}
+.gofish-others{display:flex;flex-direction:column;gap:6px}
+.gofish-o{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:14px;padding:8px 10px}
+.gofish-o .note{margin:2px 0 0}
+.gofish-o .actions,.gofish-me .actions{display:flex;gap:6px;flex-wrap:wrap}
+.gofish-o a.btn{text-decoration:none;display:inline-flex;align-items:center}
+.gofish-form{display:flex;flex-direction:column;gap:8px}
+.gofish-form select,.gofish-form input[type=text],.gofish-form input:not([type]){font:inherit;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.gofish-check{display:flex;flex-direction:column;gap:2px;margin-top:12px}
+.gofish-check h3{margin:0 0 4px;font-size:1rem}
+.ck-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--line);font-size:.9rem}
+.ck-row .ck-t{flex:1}
+.ck-row.ok .ck-t{color:var(--accent)}
+.ck-row.warn .ck-t{color:#b5651d}
+.ck-row.bad .ck-t{color:#b3261e;font-weight:700}
+.ck-row.soft .ck-t{color:var(--muted)}
+.gofish-go{width:100%;min-height:50px;margin-top:12px;font-size:1.05rem}
+.fish-pin{display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))}
+.fish-pin span{width:30px;height:30px;border-radius:50%;background:var(--amber,#e7a650);display:grid;place-items:center;font-size:16px;border:2px solid #fff}
+.fish-pin b{font:700 10px/1 system-ui,sans-serif;background:#13221d;color:#fff;padding:2px 5px;border-radius:6px;margin-top:2px;white-space:nowrap}
+.voice-box{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.voice-btn{width:100%;min-height:48px;font-weight:700}
+.voice-btn.rec{background:#b3261e;color:#fff;border-color:#b3261e;animation:vpulse 1.2s infinite}
+@keyframes vpulse{50%{opacity:.75}}
+.voice-res{background:var(--accent-soft);border-radius:12px;padding:8px 10px;font-size:.9rem;display:flex;flex-direction:column;gap:4px}
+.voice-res[hidden]{display:none}

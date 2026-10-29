@@ -1277,3 +1277,51 @@ create policy stock_own on public.bait_stock for all using (user_id = auth.uid()
 -- vérification des stations toutes les heures
 do $$ begin perform cron.unschedule('cdj-crue'); exception when others then null; end $$;
 select cron.schedule('cdj-crue', '20 * * * *', $c$ select public.call_notify('{"table":"flood_watch"}'::jsonb) where exists (select 1 from public.alert_prefs where flood and lat is not null) $c$);
+
+
+-- ===== Lot 8 (v32) =====
+-- Coup du Jour lot 8 : « Je pars pêcher », potes à proximité
+
+create table if not exists public.checkins (
+  id bigint generated always as identity primary key,
+  group_id bigint references public.groups (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  kind text not null default 'session' check (kind in ('session', 'trace', 'live')),
+  announce boolean not null default false,
+  spot_id bigint references public.spots (id) on delete set null,
+  place text check (char_length(place) <= 80),
+  lat numeric not null check (lat between -90 and 90),
+  lon numeric not null check (lon between -180 and 180),
+  note text check (char_length(note) <= 140),
+  started_at timestamptz not null default now(),
+  ends_at timestamptz not null default now() + interval '4 hours',
+  ended_at timestamptz,
+  check (ends_at > started_at and ends_at <= started_at + interval '3 days')
+);
+create index if not exists checkins_active on public.checkins (group_id, ends_at) where ended_at is null;
+create index if not exists checkins_user on public.checkins (user_id, started_at desc);
+alter table public.checkins enable row level security;
+drop policy if exists checkins_select on public.checkins;
+drop policy if exists checkins_insert on public.checkins;
+drop policy if exists checkins_update on public.checkins;
+drop policy if exists checkins_delete on public.checkins;
+-- visible par les membres du groupe ; un signalement discret (sans groupe) seulement par son auteur
+create policy checkins_select on public.checkins for select
+  using (user_id = auth.uid() or (group_id is not null and announce and (public.is_member_of(group_id) or public.is_staff())));
+create policy checkins_insert on public.checkins for insert
+  with check (user_id = auth.uid() and (group_id is null or public.is_member_of(group_id)));
+create policy checkins_update on public.checkins for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy checkins_delete on public.checkins for delete using (user_id = auth.uid());
+
+drop trigger if exists checkins_notify on public.checkins;
+create trigger checkins_notify after insert on public.checkins for each row execute function public.notify_new();
+
+-- préférences « potes à proximité » : rayon de réception (0 = jamais) et partage de mes sorties discrètes
+alter table public.profiles add column if not exists nearby_km int not null default 15 check (nearby_km between 0 and 60);
+alter table public.profiles add column if not exists nearby_share boolean not null default true;
+create or replace function public.set_nearby(p_km int, p_share boolean) returns void
+language sql security definer set search_path = public as $$
+  update public.profiles set nearby_km = greatest(0, least(60, p_km)), nearby_share = coalesce(p_share, true) where id = auth.uid();
+$$;
+revoke all on function public.set_nearby(int, boolean) from public, anon;
+grant execute on function public.set_nearby(int, boolean) to authenticated;

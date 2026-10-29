@@ -150,9 +150,9 @@ function drawLive(){
   if(track.pts.length>1) L.polyline(track.pts.map(p=>[p[0],p[1]]),{color:"#d93a2b",weight:4}).addTo(track.layer);
   track.bites.forEach(b=>L.marker([b[0],b[1]],{icon:L.divIcon({className:"",html:'<div class="bite-pin">🎣</div>',iconSize:[26,26],iconAnchor:[13,13]})}).addTo(track.layer));
 }
-function startTrack(resume){
+function startTrack(resume,opts){
   if(!("geolocation" in navigator)) return toast("Localisation indisponible");
-  if(!resume){ track.pts=[]; track.bites=[]; track.dist=0; track.start=Date.now(); }
+  if(!resume){ track.pts=[]; track.bites=[]; track.dist=0; track.start=Date.now(); track.quiet=!!opts?.quiet; }
   track.on=true;
   track.watch=navigator.geolocation.watchPosition(p=>{
     const pt=[+p.coords.latitude.toFixed(6),+p.coords.longitude.toFixed(6),Math.round((Date.now()-track.start)/1000)];
@@ -160,6 +160,8 @@ function startTrack(resume){
     if(p.coords.accuracy>60) return;
     if(last){ const d=hav(last,pt); if(d<12) return; track.dist+=d; }
     track.pts.push(pt); save(); drawLive(); if(!$("#v-carte").hidden) updateLive();
+    // premier point : les potes proches sont prévenus (distance seulement), sauf si la sortie est déjà annoncée
+    if(track.pts.length===1&&!track.quiet&&!resume) A.checkin?.quiet("trace",{lat:pt[0],lon:pt[1]});
   },e=>{ if(e.code===1){ toast("Autorise la localisation pour tracer ta sortie"); stopTrack(true); } },{enableHighAccuracy:true,maximumAge:5000,timeout:30000});
   if(!resume) toast("Trace démarrée : garde l'appli ouverte pendant la sortie");
   bar(); drawLive();
@@ -173,6 +175,7 @@ function addBite(){
 async function stopTrack(discard){
   if(track.watch!=null) navigator.geolocation.clearWatch(track.watch);
   track.watch=null; track.on=false;
+  A.hooks.trackStopped?.();
   const data={pts:track.pts,bites:track.bites,dist:track.dist,start:track.start};
   try{ localStorage.removeItem(TKEY); }catch(e){}
   if(track.layer) track.layer.clearLayers();
@@ -560,6 +563,7 @@ const prevChange=A.hooks.change;
 let lastCur;
 A.hooks.change=()=>{ prevChange?.(); if(A.cur!==lastCur){ lastCur=A.cur; myTracks=null; if(zones.on&&map) loadZones(); if(mode==="fond"&&map) setMode("fond"); } bar(); };
 window.CDJ_MAPMODE=mode;
+A.track={start:o=>{ startTrack(false,o); }, stop:()=>stopTrack(), get on(){ return track.on; }};
 if(A.map) init(A.map);
 document.querySelectorAll("#carte-sub [data-s]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.s===mode)));
 bar();

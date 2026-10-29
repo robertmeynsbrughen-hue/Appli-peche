@@ -81,6 +81,7 @@ async function push(pos){
   const p={lat:+pos.coords.latitude.toFixed(5),lon:+pos.coords.longitude.toFixed(5)};
   const now=Date.now();
   if(live.last&&now-live.lastSent<20000&&dist(live.last,p)<25) return;
+  if(!live.last&&!live.resumed) A.checkin?.quiet("live",p);
   live.last=p; live.lastSent=now;
   const {error}=await A.sb.from("live_positions").upsert({user_id:A.me.id,group_id:gid,lat:p.lat,lon:p.lon,accuracy:Math.round(pos.coords.accuracy||0),updated_at:new Date().toISOString(),expires_at:new Date(live.until).toISOString()},{onConflict:"user_id"});
   if(error&&!A.offline?.isNetErr(error)) toast(frError(error));
@@ -90,7 +91,7 @@ function startLive(resume){
   if(typeof A.cur!=="number") return toast("Choisis un groupe précis pour partager ta position");
   live.until=resume||Date.now()+2*36e5;
   try{ localStorage.setItem(LIVE_KEY,String(live.until)); }catch(e){}
-  live.on=true; live.last=null; live.lastSent=0;
+  live.on=true; live.last=null; live.lastSent=0; live.resumed=!!resume;
   live.watch=navigator.geolocation.watchPosition(push,err=>{ if(err.code===1){ toast("Autorise la localisation pour partager ta position"); stopLive(false); } },{enableHighAccuracy:true,maximumAge:15000,timeout:30000});
   clearTimeout(live.timer); live.timer=setTimeout(()=>stopLive(true),Math.max(0,live.until-Date.now()));
   if(!resume) toast("Position partagée avec le groupe pendant 2 h");

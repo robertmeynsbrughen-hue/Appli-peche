@@ -103,6 +103,7 @@ export async function handle(req, cfg) {
     if (t === "outing_reminders") return Response.json(await outingReminders(VAPID));
     if (t === "bait_reminders") return Response.json(await baitReminders(VAPID));
     if (t === "flood_watch") return Response.json(await floodWatch(VAPID));
+    if (t === "checkins") return Response.json(await checkinNotify(Number(ev.id), VAPID));
     let rec, group_id, author, recipients, msg;
     if (t === "memberships") {
       group_id = Number(ev.group_id); author = String(ev.user_id).replace(/[^0-9a-f-]/gi, "");
@@ -358,6 +359,57 @@ async function floodWatch(vapid) {
     await db("alert_prefs?user_id=eq." + p.user_id, { method: "PATCH", body: JSON.stringify({ flood_sent_at: new Date().toISOString() }), headers: { Prefer: "return=minimal" } });
   }
   return { prefs: prefs.length, checked, sent };
+}
+
+// ---- « Je pars pêcher » et potes à proximité ----
+async function checkinNotify(id, vapid) {
+  const [c] = await db("checkins?id=eq." + id + "&select=id,group_id,user_id,kind,announce,spot_id,place,lat,lon,note,started_at,ends_at");
+  if (!c) return { sent: 0, reason: "introuvable" };
+  const [author] = await db("profiles?id=eq." + c.user_id + "&select=username,nearby_share");
+  const who = "@" + (author?.username || "quelqu'un");
+  if (!c.announce && author?.nearby_share === false) return { sent: 0, reason: "partage désactivé" };
+  // destinataires : membres actifs du groupe (ou de tous les groupes de l'auteur pour un signalement sans groupe)
+  let gids = c.group_id ? [c.group_id] : (await db("memberships?user_id=eq." + c.user_id + "&status=eq.active&select=group_id")).map((m) => m.group_id);
+  if (!gids.length) return { sent: 0, reason: "aucun groupe" };
+  const mem = await db("memberships?group_id=in.(" + gids.join(",") + ")&status=eq.active&user_id=neq." + c.user_id + "&select=user_id,group_id");
+  const ids = [...new Set(mem.map((m) => m.user_id))];
+  if (!ids.length) return { sent: 0, reason: "aucun membre" };
+  // position des destinataires : position partagée récente, sinon dernière sortie signalée, sinon lieu de l'alerte du matin
+  const since = new Date(Date.now() - 2 * 36e5).toISOString();
+  const [profs, lives, prefs, recent] = await Promise.all([
+    db("profiles?id=in.(" + ids.join(",") + ")&select=id,nearby_km"),
+    db("live_positions?user_id=in.(" + ids.join(",") + ")&updated_at=gte." + since + "&select=user_id,lat,lon"),
+    db("alert_prefs?user_id=in.(" + ids.join(",") + ")&lat=not.is.null&select=user_id,lat,lon"),
+    db("checkins?user_id=in.(" + ids.join(",") + ")&started_at=gte." + new Date(Date.now() - 12 * 36e5).toISOString() + "&select=user_id,lat,lon,started_at&order=started_at.desc"),
+  ]);
+  const posOf = (u) => lives.find((x) => x.user_id === u) || recent.find((x) => x.user_id === u) || prefs.find((x) => x.user_id === u) || null;
+  // pas de doublon « près de toi » : une seule fois par auteur toutes les 6 h
+  const prev = await db("checkins?user_id=eq." + c.user_id + "&id=neq." + c.id + "&started_at=gte." + new Date(Date.now() - 6 * 36e5).toISOString() + "&select=id&limit=1");
+  const groups = c.group_id ? await db("groups?id=eq." + c.group_id + "&select=name") : [];
+  const spot = c.spot_id ? (await db("spots?id=eq." + c.spot_id + "&select=name"))[0]?.name : null;
+  const where = spot || c.place || null;
+  const until = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" }).format(new Date(c.ends_at)).replace(":", "h");
+  let sent = 0, near = 0;
+  for (const u of ids) {
+    const prof = profs.find((p) => p.id === u), km = prof ? prof.nearby_km : 15;
+    const pos = posOf(u);
+    const d = pos ? kmBetween(Number(c.lat), Number(c.lon), Number(pos.lat), Number(pos.lon)) : null;
+    const isNear = km > 0 && d != null && d <= km;
+    let msg = null;
+    if (c.announce) {
+      msg = {
+        title: (isNear ? "📍 " + who + " pêche à " + num(d < 1 ? "moins de 1" : Math.round(d)) + " km de toi" : "🎣 " + who + " est au bord de l'eau") + (groups[0] ? " · " + groups[0].name : ""),
+        body: [where, "jusqu'à " + until, c.note].filter(Boolean).join(" · ") + ". Rejoins-le !",
+        url: "./#fil", tag: "chk-" + c.user_id,
+      };
+    } else if (isNear && !prev.length) {
+      msg = { title: "📍 " + who + " pêche à " + num(d < 1 ? "moins de 1" : Math.round(d)) + " km de toi", body: (c.kind === "live" ? "Il partage sa position avec le groupe." : "Il vient de lancer une trace de sortie.") + " Ouvre la carte pour le retrouver.", url: "./#carte", tag: "chk-" + c.user_id };
+    }
+    if (!msg) continue;
+    if (isNear) near++;
+    sent += await pushTo(u, msg, vapid);
+  }
+  return { members: ids.length, near, sent };
 }
 
 // ---- Rappel d'amorçage des sessions carpe en cours ----
