@@ -800,3 +800,52 @@ revoke all on function public.carp_group(bigint) from public, anon;
 revoke all on function public.carp_owner(bigint) from public, anon;
 grant execute on function public.carp_group(bigint) to authenticated;
 grant execute on function public.carp_owner(bigint) to authenticated;
+
+-- ========== Vague 3 : alerte du matin (remplace <CLE_ANON> et <SECRET>) ==========
+create table if not exists public.alert_prefs (
+  user_id uuid primary key default auth.uid() references public.profiles (id) on delete cascade,
+  enabled boolean not null default true,
+  lat numeric check (lat between -90 and 90),
+  lon numeric check (lon between -180 and 180),
+  place text check (char_length(place) <= 60),
+  species text[] not null default '{}',
+  threshold int not null default 70 check (threshold between 40 and 95),
+  water text not null default 'etang' check (water in ('etang', 'riviere', 'canal')),
+  opening boolean not null default true,
+  last_sent date,
+  updated_at timestamptz not null default now()
+);
+alter table public.alert_prefs enable row level security;
+drop policy if exists alert_prefs_all on public.alert_prefs;
+create policy alert_prefs_all on public.alert_prefs for all
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- appel interne de la fonction notify (contient le secret, réservé au serveur)
+create or replace function public.call_notify(payload jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  perform net.http_post(
+    url := 'https://gnamfqwbzmwivjagwogy.supabase.co/functions/v1/notify',
+    body := payload,
+    headers := jsonb_build_object('Content-Type', 'application/json',
+      'Authorization', 'Bearer <CLE_ANON>', 'x-hook-secret', '<SECRET>'),
+    timeout_milliseconds := 60000);
+end;
+$$;
+revoke all on function public.call_notify(jsonb) from public, anon, authenticated;
+
+create or replace function public.test_morning_alert() returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or not exists (select 1 from public.alert_prefs where user_id = auth.uid()) then
+    raise exception 'alerte non configurée';
+  end if;
+  perform public.call_notify(jsonb_build_object('table', 'morning', 'test', true, 'user_id', auth.uid()));
+end;
+$$;
+revoke all on function public.test_morning_alert() from public, anon;
+grant execute on function public.test_morning_alert() to authenticated;
+
+create extension if not exists pg_cron;
+select cron.unschedule('cdj-alerte-matin') where exists (select 1 from cron.job where jobname = 'cdj-alerte-matin');
+select cron.schedule('cdj-alerte-matin', '30 4 * * *', $c$ select public.call_notify('{"table":"morning"}'::jsonb) $c$);
