@@ -144,3 +144,4 @@ nav.tabs a[aria-current="page"]{color:var(--accent)}
   :root[data-role="user"]:not([data-theme="light"]){--bg:#0d1826;--surface:#152438;--line:#263c57;--muted:#93a9c2}
 }
 .lure{border-left:3px solid var(--accent);padding-left:10px}
+.badge.owner{background:var(--accent)}

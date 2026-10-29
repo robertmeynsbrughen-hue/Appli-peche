@@ -7,6 +7,7 @@ const configured=typeof C.SUPABASE_URL==="string"&&C.SUPABASE_URL.startsWith("ht
 const DOMAIN=C.EMAIL_DOMAIN||"coupdujour.app";
 let sb=null, me=null, hasSession=false;
 let groups=[], cur=null;            // cur : id de groupe ou "all" (admin)
+let owners=new Map();               // id de groupe -> ensemble des responsables
 let spots=[], map=null, layer=null, pending=null;
 const markers={};
 
@@ -32,6 +33,9 @@ function frError(e){
   if(/Password should/i.test(m)) return "Mot de passe trop court (6 caractères minimum).";
   if(/Email not confirmed/i.test(m)) return "La confirmation d'e-mail est encore activée dans Supabase : désactive-la (voir le guide).";
   if(/row-level security/i.test(m)) return "Action non autorisée dans ce groupe.";
+  if(/limite de groupes/i.test(m)) return "Tu es déjà responsable de 3 groupes, c'est le maximum.";
+  if(/non autoris/i.test(m)) return "Tu n'es pas responsable de ce groupe.";
+  if(/Email signups are disabled/i.test(m)) return "Les inscriptions sont désactivées dans Supabase (fournisseur Email).";
   if(/Failed to fetch|NetworkError/i.test(m)) return "Pas de connexion réseau.";
   return m;
 }
@@ -44,18 +48,22 @@ function confirmBtn(label,confirmLabel,action,cls="linkbtn danger"){
   });
   return b;
 }
-function userLabel(name,isAdmin){
+function userLabel(name,isAdmin,isOwner){
   const s=el("span","post-user","@"+(name||"?"));
   if(isAdmin) s.append(el("span","badge","Admin"));
+  else if(isOwner) s.append(el("span","badge owner","Resp."));
   return s;
 }
+const isOwner=(gid,uid)=>!!owners.get(gid)?.has(uid);
+const canManage=gid=>!!me&&(me.is_admin||isOwner(gid,me.id));
+const isManager=()=>!!me&&(me.is_admin||[...owners.values()].some(set=>set.has(me.id)));
 const groupName=id=>{ const g=groups.find(x=>x.id===id); return g?g.name:"?"; };
 
 // ---------- Navigation ----------
 const VIEWS=["conseils","fil","carte","profil","admin"];
 function route(){
   let v=VIEWS.includes(location.hash.slice(1))?location.hash.slice(1):"conseils";
-  if(v==="admin"&&!me?.is_admin) v="profil";
+  if(v==="admin"&&!isManager()) v="profil";
   VIEWS.forEach(n=>{ $("#v-"+n).hidden=n!==v; });
   $$("nav.tabs a").forEach(a=>a.setAttribute("aria-current",a.dataset.v===v?"page":"false"));
   if(v==="carte") openMap();
@@ -88,7 +96,9 @@ function refreshUI(){
   $("#join").hidden=!(configured&&hasSession&&!me);
   $("#me").hidden=!logged;
   $("#my-groups").hidden=!logged;
-  $("#tab-admin").hidden=!me?.is_admin;
+  $("#tab-admin").hidden=!isManager();
+  $("#tab-admin-label").textContent=me?.is_admin?"Admin":"Gestion";
+  $("#create-group").hidden=!logged||!!me?.is_admin;
   const who=$("#who"); who.textContent="";
   if(me){ who.append("@"+me.username); if(me.is_admin) who.append(el("span","badge","Admin")); }
   if(me){ const h=$("#me-name"); h.textContent="@"+me.username; if(me.is_admin) h.append(el("span","badge","Admin")); }
@@ -189,6 +199,11 @@ async function loadGroups(){
     const {data}=await sb.from("groups").select("id,name,region").order("name"); rows=data||[];
   }
   groups=rows;
+  owners=new Map();
+  if(groups.length){
+    const {data:os}=await sb.from("memberships").select("group_id,user_id").eq("role","owner").in("group_id",groups.map(g=>g.id));
+    (os||[]).forEach(o=>{ if(!owners.has(o.group_id)) owners.set(o.group_id,new Set()); owners.get(o.group_id).add(o.user_id); });
+  }
   let saved=null; try{ saved=localStorage.getItem("cdj-grp"); }catch(e){}
   const valid=v=>v==="all"?me.is_admin:groups.some(g=>String(g.id)===v);
   cur=saved&&valid(saved)?(saved==="all"?"all":Number(saved)):(me.is_admin?"all":(groups[0]?.id??null));
@@ -210,7 +225,9 @@ function renderMyGroups(){
   if(!mine.length){ box.append(el("p","note","Aucun groupe pour l'instant.")); return; }
   mine.forEach(g=>{
     const r=el("div","mrow");
-    r.append(el("span",null,g.name+(g.region?" · "+g.region:"")));
+    const nm=el("span",null,g.name+(g.region?" · "+g.region:""));
+    if(isOwner(g.id,me.id)) nm.append(el("span","badge owner","Resp."));
+    r.append(nm);
     r.append(confirmBtn("Quitter","Confirmer",async()=>{
       await sb.from("memberships").delete().eq("group_id",g.id).eq("user_id",me.id);
       await loadGroups(); loadSpots(); loadFeed();
@@ -359,7 +376,7 @@ async function loadFeed(){
   for(const p of data){
     const a=el("article","post");
     const head=el("div","post-head");
-    const left=el("div"); left.append(userLabel(p.profiles?.username,p.profiles?.is_admin));
+    const left=el("div"); left.append(userLabel(p.profiles?.username,p.profiles?.is_admin,isOwner(p.group_id,p.user_id)));
     if(cur==="all") left.append(el("div","post-group",groupName(p.group_id)));
     head.append(left, el("span","post-date",ago(p.created_at)));
     a.append(head);
@@ -385,7 +402,7 @@ async function loadFeed(){
       b.addEventListener("click",()=>{ location.hash="#carte"; setTimeout(()=>focusSpot(p.spots.id),300); });
       foot.append(b);
     }else foot.append(el("span"));
-    if(p.user_id===me.id||me.is_admin){
+    if(p.user_id===me.id||canManage(p.group_id)){
       const lbl=p.user_id===me.id?"Supprimer":"Supprimer (modération)";
       foot.append(confirmBtn(lbl,"Confirmer la suppression",async()=>{
         if(p.photo_path) await sb.storage.from("photos").remove([p.photo_path]);
@@ -435,13 +452,13 @@ function drawSpots(){
     const box=el("div");
     box.append(el("b",null,s.name));
     const by=el("div"); by.style.color="var(--muted)";
-    by.append(userLabel(s.profiles?.username,s.profiles?.is_admin)," · "+ago(s.created_at));
+    by.append(userLabel(s.profiles?.username,s.profiles?.is_admin,isOwner(s.group_id,s.user_id))," · "+ago(s.created_at));
     box.append(by);
     if(cur==="all") box.append(el("div","post-group",groupName(s.group_id)));
     if(s.note){ const n=el("p",null,s.note); n.style.margin="6px 0"; n.style.whiteSpace="pre-wrap"; box.append(n); }
     const go=el("a",null,"Itinéraire"); go.href="https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon; go.target="_blank"; go.rel="noopener";
     box.append(go);
-    if(s.user_id===me?.id||me?.is_admin){
+    if(s.user_id===me?.id||canManage(s.group_id)){
       const del=confirmBtn(s.user_id===me.id?"Supprimer":"Supprimer (modération)","Confirmer",async()=>{
         const {error}=await sb.from("spots").delete().eq("id",s.id);
         if(error) return toast(frError(error));
@@ -481,13 +498,17 @@ $("#spot-form").addEventListener("submit",async e=>{
 
 // ---------- Administration ----------
 async function loadAdmin(){
-  if(!me?.is_admin) return;
-  const {data,error}=await sb.rpc("admin_groups");
+  if(!isManager()) return;
+  $("#adm-intro").textContent=me.is_admin
+    ?"Vue d'ensemble de tous les groupes. Tu peux modérer posts et spots directement depuis le Fil et la Carte en choisissant « Tous les groupes »."
+    :"Les groupes dont tu es responsable. Tu peux y supprimer posts, photos et spots depuis le Fil et la Carte, retirer un membre et changer le code.";
+  const {data,error}=await sb.rpc("manage_groups");
   const box=$("#adm-groups"); box.innerHTML="";
   if(error){ box.append(el("p","err",frError(error))); return; }
-  groups=data||[]; renderGroupSelects();
-  box.append(el("div","label","Groupes ("+groups.length+")"));
-  groups.forEach(g=>{
+  const list=data||[];
+  if(me.is_admin){ groups=list; renderGroupSelects(); }
+  box.append(el("div","label",(me.is_admin?"Groupes":"Mes groupes")+" ("+list.length+")"));
+  list.forEach(g=>{
     const c=el("div","gcard");
     const h=el("div","gcard-head");
     h.append(el("span","gcard-name",g.name+(g.region?" · "+g.region:"")));
@@ -521,21 +542,34 @@ $("#g-cancel").addEventListener("click",resetGroupForm);
 $("#adm-form").addEventListener("submit",async e=>{
   e.preventDefault(); showErr($("#g-err"));
   const id=$("#g-id").value?Number($("#g-id").value):null;
-  const {error}=await sb.rpc("admin_save_group",{p_id:id,p_name:$("#g-name").value.trim(),p_region:$("#g-region").value.trim(),p_code:$("#g-code").value.trim()});
+  const {error}=await sb.rpc("manage_save_group",{p_id:id,p_name:$("#g-name").value.trim(),p_region:$("#g-region").value.trim(),p_code:$("#g-code").value.trim()});
   if(error) return showErr($("#g-err"),frError(error));
-  toast(id?"Groupe modifié":"Groupe créé"); resetGroupForm(); loadAdmin();
+  toast(id?"Groupe modifié":"Groupe créé"); resetGroupForm();
+  if(!id) await loadGroups();
+  loadAdmin();
+});
+
+// Création d'un groupe par un membre (il en devient responsable)
+$("#create-group").addEventListener("submit",async e=>{
+  e.preventDefault(); showErr($("#cg-err"));
+  const {data:gid,error}=await sb.rpc("manage_save_group",{p_id:null,p_name:$("#cg-name").value.trim(),p_region:$("#cg-region").value.trim(),p_code:$("#cg-code").value.trim()});
+  if(error) return showErr($("#cg-err"),frError(error));
+  $("#create-group").reset();
+  await loadGroups(); setGroup(gid);
+  toast("Groupe créé : tu en es responsable");
+  location.hash="#admin";
 });
 async function loadMembers(g){
   const panel=$("#adm-members"), list=$("#adm-members-list");
   panel.hidden=false; $("#adm-members-title").textContent="Membres de « "+g.name+" »"; list.innerHTML="";
-  const {data,error}=await sb.rpc("admin_members",{p_group:g.id});
+  const {data,error}=await sb.rpc("manage_members",{p_group:g.id});
   if(error){ list.append(el("p","err",frError(error))); return; }
   if(!data.length) list.append(el("p","note","Aucun membre."));
   data.forEach(m=>{
     const r=el("div","mrow");
-    const left=el("div"); left.append(userLabel(m.username,m.is_admin)); left.append(el("div","post-date","depuis le "+new Date(m.joined_at).toLocaleDateString("fr-FR")));
+    const left=el("div"); left.append(userLabel(m.username,m.is_admin,m.role==="owner")); left.append(el("div","post-date","depuis le "+new Date(m.joined_at).toLocaleDateString("fr-FR")));
     r.append(left);
-    if(m.user_id!==me.id){
+    if(m.user_id!==me.id&&(me.is_admin||(!m.is_admin&&m.role!=="owner"))){
       r.append(confirmBtn("Retirer du groupe","Confirmer",async()=>{
         const {error}=await sb.from("memberships").delete().eq("group_id",g.id).eq("user_id",m.user_id);
         if(error) return toast(frError(error));
