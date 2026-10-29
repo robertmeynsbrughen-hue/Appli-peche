@@ -48,6 +48,7 @@ function bar(){
   if(below){
     below.hidden=box.hidden||mode==="fond"; below.innerHTML="";
     if(radarOn&&radar?._cdjTime) below.append(el("p","note","Radar pluie : image de "+radar._cdjTime+" (RainViewer), le bleu clair est faible, le jaune et le rouge sont forts."));
+    below.append(aappmaCard());
     below.append(tracksList());
   }
 }
@@ -459,6 +460,57 @@ function finishZone(){
   setTimeout(()=>ni.focus(),100);
 }
 
+/* ---------- AAPPMA la plus proche (OpenStreetMap) + fédération du département ---------- */
+const aap={box:null,key:null,busy:false};
+function aappmaCard(){
+  if(!aap.box){ aap.box=el("div","panel aappma"); aap.box.append(el("h3",null,"🏛️ AAPPMA la plus proche"),el("p","note","Ouvre la carte pour chercher l'association de pêche du secteur.")); }
+  return aap.box;
+}
+async function loadAappma(){
+  if(!map||aap.busy) return;
+  const c=map.getCenter(), lat=c.lat, lon=c.lng;
+  const key=lat.toFixed(2)+","+lon.toFixed(2);
+  if(key===aap.key) return;
+  if(map.getZoom()<8){ const b=aappmaCard(); b.innerHTML=""; b.append(el("h3",null,"🏛️ AAPPMA la plus proche"),el("p","note","Zoome sur ton secteur pour trouver l'AAPPMA la plus proche.")); return; }
+  aap.key=key; aap.busy=true;
+  const box=aappmaCard();
+  try{
+    const q='[out:json][timeout:20];(nwr["name"~"AAPPMA|A\\.A\\.P\\.P\\.M\\.A|Association agréée.*pêche",i](around:40000,'+lat.toFixed(4)+','+lon.toFixed(4)+');nwr["club"="fishing"]["name"](around:40000,'+lat.toFixed(4)+','+lon.toFixed(4)+'););out center tags 40;';
+    const [osm,geo]=await Promise.all([
+      fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}}).then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch("https://geo.api.gouv.fr/communes?lat="+lat.toFixed(5)+"&lon="+lon.toFixed(5)+"&fields=nom,codeDepartement,departement&format=json").then(r=>r.ok?r.json():null).catch(()=>null),
+    ]);
+    if(key!==aap.key) return;
+    const list=(osm?.elements||[]).map(x=>{ const la=x.lat??x.center?.lat, lo=x.lon??x.center?.lon; return la==null?null:{t:x.tags||{},la,lo,d:hav([lat,lon],[la,lo])}; }).filter(Boolean).sort((a,b)=>a.d-b.d);
+    const commune=geo?.[0];
+    box.innerHTML="";
+    box.append(el("h3",null,"🏛️ AAPPMA la plus proche"));
+    const best=list.find(x=>/aappma|a\.a\.p\.p\.m\.a|agr[ée]{2}/i.test(x.t.name||""))||list[0];
+    if(best){
+      const t=best.t;
+      box.append(el("b",null,t.name));
+      const addr=[[t["addr:housenumber"],t["addr:street"]].filter(Boolean).join(" "),[t["addr:postcode"],t["addr:city"]].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+      box.append(el("div","note","à "+fmtDist(best.d)+" du centre de la carte"+(addr?" · "+addr:"")));
+      const a=el("div","actions");
+      const go=el("a","btn small","🧭 Itinéraire"); go.href="https://www.google.com/maps/dir/?api=1&destination="+best.la+","+best.lo; go.target="_blank"; go.rel="noopener"; a.append(go);
+      const tel=t.phone||t["contact:phone"]; if(tel){ const x=el("a","btn small","📞 Appeler"); x.href="tel:"+tel.replace(/\s/g,""); a.append(x); }
+      const web=t.website||t["contact:website"]; if(web){ const x=el("a","btn small","🌐 Site"); x.href=/^https?:/.test(web)?web:"https://"+web; x.target="_blank"; x.rel="noopener"; a.append(x); }
+      const mail=t.email||t["contact:email"]; if(mail){ const x=el("a","btn small","✉️ Écrire"); x.href="mailto:"+mail; a.append(x); }
+      a.append(btn("📍 Voir","btn small",()=>{ map.setView([best.la,best.lo],15); }));
+      box.append(a);
+      if(list.length>1) box.append(el("p","note","Autres associations à proximité : "+list.filter(x=>x!==best).slice(0,3).map(x=>x.t.name+" ("+fmtDist(x.d)+")").join(", ")));
+    }else box.append(el("p","note","Aucune AAPPMA n'est encore référencée sur OpenStreetMap dans un rayon de 40 km."));
+    if(commune){
+      const s=el("p","note");
+      const look=el("a",null,"chercher les AAPPMA près de "+commune.nom); look.href="https://www.google.com/search?q="+encodeURIComponent("AAPPMA "+commune.nom+" "+(commune.departement?.nom||"")); look.target="_blank"; look.rel="noopener";
+      s.append("Secteur : "+commune.nom+" ("+(commune.departement?.nom||commune.codeDepartement)+"). Les AAPPMA dépendent de la fédération de pêche du département : ",look,".");
+      box.append(s);
+    }
+    box.append(el("p","note","Source : OpenStreetMap, la liste peut être incomplète. Carte de pêche : cartedepeche.fr, en choisissant l'AAPPMA du secteur."));
+  }catch(e){ aap.key=null; }
+  finally{ aap.busy=false; }
+}
+
 /* ---------- Mètre : tracer un trait et lire la distance ---------- */
 const ruler={on:false,pts:[],layer:null};
 const WRAP=3.66; // un tour de bâton à spod (12 pieds)
@@ -496,9 +548,9 @@ const prevReady=A.hooks.mapReady;
 function init(m){
   if(map===m) return; map=m;
   if(baseKey!=="plan") setBase(baseKey);
-  let wt=null; map.on("moveend",()=>{ if(poiOn) poi(); if(wind.on){ clearTimeout(wt); wt=setTimeout(loadWind,700); } });
+  let wt=null, at=null; map.on("moveend",()=>{ clearTimeout(at); at=setTimeout(loadAappma,900); if(poiOn) poi(); if(wind.on){ clearTimeout(wt); wt=setTimeout(loadWind,700); } });
   if(zones.on) loadZones();
-  poi(); bar(); setMode(mode);
+  poi(); bar(); setTimeout(loadAappma,1200); setMode(mode);
   try{ const t=JSON.parse(localStorage.getItem(TKEY)||"null"); if(t&&t.pts&&!track.on){ Object.assign(track,t); startTrack(true); toast("Trace reprise"); } }catch(e){}
 }
 A.hooks.mapReady=m=>{ prevReady?.(m); init(m); };

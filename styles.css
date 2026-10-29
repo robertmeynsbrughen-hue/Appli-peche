@@ -936,3 +936,10 @@ nav.tabs a{position:relative}
 .stock-usage{display:flex;flex-direction:column;gap:8px}
 .stock-urow{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .stock-urow input{width:90px;font:inherit;padding:6px 8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.aappma{display:flex;flex-direction:column;gap:6px}
+.aappma h3{margin:0;font-size:1rem}
+.aappma .actions{display:flex;flex-wrap:wrap;gap:6px}
+.aappma .note{margin:0}
+.aappma a.btn{text-decoration:none}
+.aappma a:not(.btn){color:var(--accent);font-weight:600}
+.aappma .actions .btn{min-height:38px;display:inline-flex;align-items:center}
