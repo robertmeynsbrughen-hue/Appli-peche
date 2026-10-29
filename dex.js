@@ -175,7 +175,8 @@ async function myDex(){
   box.innerHTML="";
   const h=el("div","g-sec-head"); h.append(el("h2",null,"Mon Fishdex")); box.append(h);
   box.append(progress(found));
-  box.append(el("p","note",found.size?"Chaque nouvelle espèce publiée dans le fil ou notée dans un bilan se débloque ici.":"Ta collection est vide : publie ta première prise pour débloquer une espèce."));
+  if(found.size) box.append(el("p","note","Chaque nouvelle espèce publiée dans le fil ou notée dans un bilan se débloque ici."));
+  else { const e=el("div","empty-state"); e.append(el("div","es-ico","\ud83d\udc1f"),el("b",null,"0 esp\u00e8ce sur 18"),el("p",null,"Chaque esp\u00e8ce que tu prends se d\u00e9bloque ici, avec sa fiche. Publie ta premi\u00e8re prise pour lancer ta collection !")); const a=el("div","actions"); const b0=el("button","btn primary","\ud83d\udcf8 Publier une prise"); b0.type="button"; b0.addEventListener("click",()=>{ location.hash="#fil"; setTimeout(()=>document.querySelector('#post-mode [data-m="post"]')?.getAttribute("aria-pressed")!=="true"&&document.querySelector('#post-mode [data-m="post"]')?.click(),250); }); a.append(b0); e.append(a); box.append(e); }
   box.append(grid(found));
   const th=el("div","g-sec-head"); th.append(el("h2",null,"Mes trophées"), el("span","note",troph.length+"/"+TROPHIES.length)); box.append(th);
   box.append(trophyGrid(troph));

@@ -498,6 +498,8 @@ $("#feed-refresh").addEventListener("click",()=>loadFeed());
 async function loadFeed(){
   if(!me||!groups.length||cur==null) return;
   const feed=$("#feed");
+  // silhouettes grisées pendant le premier chargement
+  if(!feed.querySelector("article.post,article.sess")){ feed.innerHTML=""; for(let i=0;i<3;i++){ const k=el("div","skel-card"); k.append(el("div","skel skel-head"),el("div","skel skel-photo"),el("div","skel skel-line"),el("div","skel skel-line short")); feed.append(k); } }
   let q=sb.from("posts")
     .select("id,group_id,caption,species,photo_path,photo_paths,created_at,user_id,status,length_cm,weight_kg,bait,profiles(username,is_admin),spots(id,name)")
     .order("created_at",{ascending:false}).limit(60);
@@ -515,7 +517,9 @@ async function loadFeed(){
     (signed||[]).forEach(s=>{ if(s.signedUrl) urls[s.path]=s.signedUrl; });
   }
   const items=[...data,...(sess||[]).map(x=>({...x,_kind:"session"}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-  if(!items.length){ feed.append(el("div","empty","Rien pour l'instant. Partage ton premier bilan ou ta première prise !")); return; }
+  if(!items.length){ const e=el("div","empty-state"); e.append(el("div","es-ico","🎣"),el("b",null,"Le fil est encore vide"),el("p",null,"Sois le premier : partage une prise avec sa photo, ou un bilan rapide de ta dernière sortie."));
+    const a=el("div","actions"); const b1=el("button","btn primary","📸 Partager une prise"); b1.type="button"; b1.addEventListener("click",()=>document.querySelector('#post-mode [data-m="post"]')?.click());
+    const b2=el("button","btn","🧾 Faire un bilan"); b2.type="button"; b2.addEventListener("click",()=>document.querySelector('#post-mode [data-m="bilan"]')?.click()); a.append(b1,b2); e.append(a); feed.append(e); return; }
   const social=[];
   for(const p of items){
     if(p._kind==="session"){ feed.append(sessionCard(p)); continue; }

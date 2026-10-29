@@ -75,7 +75,7 @@ async function updatePill(){
   const off=!navigator.onLine;
   pill.hidden=!n&&!off;
   pill.classList.toggle("off",off);
-  pill.textContent=(off?"📴 Hors ligne":"⏳ Envoi en attente")+(n?" · "+n:"");
+  pill.textContent=off?"📴 Hors ligne"+(n?" · "+n+" élément"+(n>1?"s":"")+" en attente d'envoi":" · tes prises partiront au retour du réseau"):"⏳ "+n+" envoi"+(n>1?"s":"")+" en attente · touche pour réessayer";
   pill.setAttribute("aria-label",(off?"Hors ligne. ":"")+(n?n+" envoi"+(n>1?"s":"")+" en attente":""));
 }
 

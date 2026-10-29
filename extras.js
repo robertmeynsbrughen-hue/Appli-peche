@@ -228,7 +228,7 @@ function drawCarnet(box,{posts,sess,chal}){
   const pdf=el("button","btn small","📄 Exporter en PDF"); pdf.type="button"; pdf.addEventListener("click",()=>exportPdf(cache)); h.append(pdf);
   box.append(h);
   const catches=[...posts.filter(p=>p.species||p.length_cm).map(p=>({...p,kind:"post"})),...sess.filter(s=>s.caught!==false&&(s.species||s.length_cm)).map(s=>({...s,kind:"sess"}))];
-  if(!posts.length&&!sess.length){ box.append(el("p","empty small","Ton carnet se remplit tout seul avec tes prises et tes bilans de session.")); return; }
+  if(!posts.length&&!sess.length){ { const e=el("div","empty-state"); e.append(el("div","es-ico","\ud83d\udcd2"),el("b",null,"Ton carnet est vide"),el("p",null,"Il se remplit tout seul : records par esp\u00e8ce, bilan de l'ann\u00e9e et historique de tes sorties, d\u00e8s ta premi\u00e8re prise ou ton premier bilan.")); const a=el("div","actions"); const b0=el("button","btn primary","\ud83d\udcf8 Ma premi\u00e8re prise"); b0.type="button"; b0.addEventListener("click",()=>{ location.hash="#fil"; setTimeout(()=>document.querySelector('#post-mode [data-m="post"]')?.getAttribute("aria-pressed")!=="true"&&document.querySelector('#post-mode [data-m="post"]')?.click(),250); }); a.append(b0);const b1=el("button","btn","\ud83e\uddfe Un bilan rapide"); b1.type="button"; b1.addEventListener("click",()=>{ location.hash="#fil"; setTimeout(()=>document.querySelector('#post-mode [data-m="bilan"]')?.getAttribute("aria-pressed")!=="true"&&document.querySelector('#post-mode [data-m="bilan"]')?.click(),250); }); a.append(b1); e.append(a); box.append(e); } return; }
 
   // Records par espèce
   const rec=new Map();

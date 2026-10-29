@@ -51,6 +51,9 @@ function bar(){
   if(wind.on) st.append(windBar());
   if(zones.on&&(zones.draw||st===box)) st.append(zoneBar());
   if(zones.on&&!zones.draw&&st!==box) box.append(zoneBar());
+  if(st!==box&&mode!=="fond"&&!ruler.on&&!zones.draw&&!track.on&&typeof A.cur==="number"&&!A.spots.some(x=>x.group_id===A.cur)){
+    const h=el("div","map-hint"); h.append(el("b",null,"📍 Aucun spot pour l'instant"),el("span",null,"Touche la carte à l'endroit voulu, ou le bouton 📍 pour créer un spot à ta position.")); st.append(h);
+  }
   if(track.on){
     const t=el("div","track-live");
     t.append(el("span",null,"● Trace en cours · "+fmtDist(track.dist)+" · "+track.bites.length+" touche"+(track.bites.length>1?"s":"")));
