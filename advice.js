@@ -148,6 +148,62 @@ function carpBait(c,month){
   return "Bouillettes du moment : "+flav+". Taille : "+size+". "+color+river+" Ce sont des pistes générales : sur un plan d'eau très pêché, l'appât habituel du coin marche souvent mieux.";
 }
 
+// ---------- Clarté de l'eau, débit et leurres ----------
+const CLARITY_TXT={claire:"claire",teintee:"teintée",trouble:"trouble"};
+const FLOW_TXT={basse:"basses eaux",normale:"niveau normal",haute:"eau haute",crue:"en crue"};
+function getFlow(meta){
+  const v=$("#f-flow")?$("#f-flow").value:"auto";
+  if(v!=="auto") return {status:v,trend:"stable",manual:true};
+  return meta.flow||null;
+}
+function getClarity(c,meta){
+  const v=$("#f-clarity")?$("#f-clarity").value:"auto";
+  if(v!=="auto") return v;
+  let s=0;
+  const r48=meta.rain48!=null?meta.rain48:(c.rain>=5?20:c.rain>=1?8:0);
+  if(r48>=20) s+=2; else if(r48>=6) s+=1;
+  const f=waterType!=="etang"?getFlow(meta):null;
+  if(f){ if(f.status==="crue") s+=2; else if(f.status==="haute") s+=1; if(f.trend==="hausse") s+=1; if(f.status==="basse") s-=1; }
+  return s>=3?"trouble":s>=1?"teintee":"claire";
+}
+function lureAdvice(sp,c,meta){
+  const cl=getClarity(c,meta);
+  const low=c.phase!=="jour";
+  const sunny=c.phase==="jour"&&c.cloud<35&&c.rain<0.3;
+  const t=c.water;
+  const flow=waterType==="riviere"?getFlow(meta):null;
+  const strong=flow&&(flow.status==="haute"||flow.status==="crue");
+  // coloris
+  let col;
+  if(c.phase==="nuit") col="noir ou très sombre (la silhouette se voit mieux de nuit), ou blanc";
+  else if(cl==="trouble") col="fluo chartreuse, orange ou firetiger, ou noir pour la silhouette";
+  else if(cl==="teintee") col=low?"blanc nacré, chartreuse ou dos sombre et ventre orange":"contrastés : chartreuse, blanc, firetiger";
+  else col=sunny?"naturels et discrets : ablette, gardon, vairon, finition argentée ou translucide":(low?"naturels avec du contraste : perche, blanc nacré":"naturels : ablette, gardon, perche");
+  // leurre selon espèce
+  let lure="";
+  if(sp.id==="brochet"){
+    if(t<10) lure="jerkbait suspending ou shad 12 à 15 cm animé lentement près du fond";
+    else if(t>20) lure=low?"leurre de surface (stickbait, frog) au ras des herbiers":"swimbait lent ou shad en bordure, à l'ombre";
+    else lure=cl==="claire"?"poisson nageur 10 à 14 cm ou swimbait":"spinnerbait ou shad à grosse palette, qui vibre fort";
+  }else if(sp.id==="sandre"){
+    lure=t<10?"shad 7 à 10 cm en verticale ou traîné lentement au fond":"shad 8 à 12 cm sautillé sur le fond, ou drop-shot";
+    if(c.phase==="nuit") lure="shad ou poisson nageur en récupération lente, dans les zones peu profondes";
+  }else if(sp.id==="perche"){
+    lure=t<10?"drop-shot ou micro-jig au ras du fond":(t>20&&low?"petit popper ou micro-leurre sur les chasses":"cuillère n°1 à 3 ou micro shad 5 à 7 cm");
+    if(cl==="claire"&&sunny) col+=" ; cuillère argentée"; else col+=" ; cuillère cuivre ou dorée";
+  }else if(sp.id==="bass"){
+    lure=t<12?"jig ou texan très lent dans les structures":(t>20&&low?"popper, stickbait ou frog en surface":"texan, wacky ou chatterbait dans les herbiers");
+    col=cl==="claire"?"green pumpkin, watermelon (naturels)":(c.phase==="nuit"||cl==="trouble"?"noir et bleu, junebug":"noir et bleu ou chartreuse");
+  }else if(sp.id==="silure"){
+    lure=t<12?"gros shad 15 à 20 cm en verticale dans les fosses":"gros shad 20 à 25 cm, leurre à forte vibration, ou clonk";
+    col="la couleur compte peu, mise sur la vibration ; noir ou blanc pour la silhouette";
+  }else return null;
+  let txt="Leurre : "+lure+". Coloris : "+col+".";
+  if(strong) txt+=" Courant fort : alourdis la tête plombée (5 à 10 g de plus) et cherche les contre-courants près des berges.";
+  else if(flow&&flow.status==="basse") txt+=" Basses eaux : allège les têtes et vise les fosses et zones plus profondes.";
+  return txt;
+}
+
 // ---------- Rendu ----------
 function render(){
   if(!current) return;
@@ -175,6 +231,12 @@ function render(){
     ["Soleil",fmtH(meta.rise)+" · "+fmtH(meta.set)],
     ["Lune",meta.moon]
   ];
+  cells.push(["Clarté de l'eau",CLARITY_TXT[getClarity(now,meta)]+(($("#f-clarity")||{}).value==="auto"?" (estimée)":"")]);
+  if(waterType!=="etang"){
+    const f=getFlow(meta);
+    if(f) cells.push(["Débit rivière",(f.q!=null?Math.round(f.q)+" m³/s, ":"")+FLOW_TXT[f.status]+(f.trend==="hausse"?" ↑":f.trend==="baisse"?" ↓":"")]);
+    else cells.push(["Débit rivière","indisponible"]);
+  }
   for(const [k,v] of cells){
     const d=document.createElement("div"); d.className="cell";
     d.innerHTML='<div class="k"></div><div class="v"></div>';
@@ -223,6 +285,9 @@ function render(){
       const c=document.createElement("span"); c.className="chip "+cls; c.textContent=txt; ch.append(c);
     }
     el.querySelector(".how").textContent=r.sp.how[band(now.water)];
+    const lh=hours[r.a>=0?r.a:0];
+    const la=lureAdvice(r.sp,lh,meta);
+    if(la){ const lt=document.createElement("p"); lt.className="how lure"; lt.textContent=(r.a>0?"Pour "+lh.label+" : ":"")+la; el.append(lt); }
     if(r.sp.id==="carpe"){ const bt=document.createElement("p"); bt.className="how bait"; bt.textContent=carpBait(now,m); el.append(bt); }
     if(r.sp.closed&&r.sp.closed(m)){
       const w=document.createElement("p"); w.className="warn";
@@ -257,7 +322,8 @@ function buildManual(){
   }
   current={hours,meta:{place:pos.name||DEFAULT_POS.name,lat:pos.lat,lon:pos.lon,
     when:now.getDate()+" "+MONTHS[now.getMonth()]+" "+String(now.getHours()).padStart(2,"0")+"h",
-    rise,set,moon:moon(now),month:now.getMonth()+1,pressure:null}};
+    rise,set,moon:moon(now),month:now.getMonth()+1,pressure:null,
+    flow:current&&current.meta?current.meta.flow:null, rain48:null}};
   render();
 }
 
@@ -288,6 +354,31 @@ async function fetchWeather(lat,lon){
     const c=readCache(); if(c) return c; throw e;
   }
 }
+// Débit de la rivière la plus proche (prévisions GloFAS via Open-Meteo, maille d'environ 5 km)
+async function fetchFlow(lat,lon){
+  const key="cdj-flow";
+  try{
+    const url="https://flood-api.open-meteo.com/v1/flood?latitude="+lat.toFixed(3)+"&longitude="+lon.toFixed(3)+"&daily=river_discharge&past_days=92&forecast_days=7";
+    const res=await fetch(url); if(!res.ok) throw new Error("flood");
+    const d=await res.json(); const t=d.daily.time, q=d.daily.river_discharge;
+    const today=new Date().toISOString().slice(0,10);
+    let i=t.indexOf(today); if(i<0) i=Math.max(0,t.length-8);
+    const past=q.slice(0,i).filter(v=>v!=null).sort((a,b)=>a-b);
+    const qi=q[i];
+    if(qi==null||!past.length) return null;
+    const med=past[Math.floor(past.length/2)];
+    if(!(med>0.5)) return null; // pas de vraie rivière à cet endroit
+    const r=qi/med, q2=q[Math.min(q.length-1,i+2)];
+    const status=r>=2.5?"crue":r>=1.4?"haute":r<=0.6?"basse":"normale";
+    const trend=q2>qi*1.15?"hausse":q2<qi*0.85?"baisse":"stable";
+    const f={q:qi,status,trend};
+    try{localStorage.setItem(key,JSON.stringify({ts:Date.now(),f}))}catch(e){}
+    return f;
+  }catch(e){
+    try{const c=JSON.parse(localStorage.getItem(key)||"null"); if(c&&Date.now()-c.ts<48*36e5) return c.f;}catch(_){}
+    return null;
+  }
+}
 function readCache(){
   try{const c=JSON.parse(localStorage.getItem("cdj-meteo")||"null");
     if(c&&Date.now()-c.ts<48*36e5) return {d:c.d,lat:c.lat,lon:c.lon,ts:c.ts};}catch(e){}
@@ -316,11 +407,13 @@ async function loadLive(lat,lon){
     hours.push({label:String(hh).padStart(2,"0")+"h",phase:phase(hh+.5,sd.rise,sd.set),water,
       air:H.temperature_2m[i],dp,wind:H.wind_speed_10m[i],cloud:H.cloud_cover[i],rain:H.precipitation[i]||0});
   }
+  const rain48=H.precipitation.slice(Math.max(0,i0-48),i0+1).reduce((a,v)=>a+(v||0),0);
+  const flow=await fetchFlow(lat,lon);
   const today=sun[H.time[i0].slice(0,10)]||Object.values(sun)[0];
   const now=new Date();
   current={hours,meta:{place:lat.toFixed(3)+", "+lon.toFixed(3),lat,lon,
     when:now.getDate()+" "+MONTHS[now.getMonth()]+" "+String(now.getHours()).padStart(2,"0")+"h",
-    rise:today.rise,set:today.set,moon:moon(now),month:now.getMonth()+1,pressure:H.surface_pressure[i0]}};
+    rise:today.rise,set:today.set,moon:moon(now),month:now.getMonth()+1,pressure:H.surface_pressure[i0],rain48,flow}};
   mode="live";
   // reporter dans le formulaire pour ajuster ensuite
   const h0=hours[0];

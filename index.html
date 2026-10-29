@@ -70,6 +70,21 @@ body{margin:0}
               <option value="1">Faible</option>
               <option value="5">Forte</option>
             </select></label>
+          <label>Clarté de l'eau
+            <select id="f-clarity">
+              <option value="auto">Automatique</option>
+              <option value="claire">Claire</option>
+              <option value="teintee">Teintée</option>
+              <option value="trouble">Trouble</option>
+            </select></label>
+          <label>Courant (rivière)
+            <select id="f-flow">
+              <option value="auto">Automatique</option>
+              <option value="basse">Basses eaux</option>
+              <option value="normale">Normal</option>
+              <option value="haute">Eau haute</option>
+              <option value="crue">Crue</option>
+            </select></label>
         </div>
         <div class="actions" style="margin-top:12px">
           <button type="button" class="btn primary" id="apply">Mettre à jour les conseils</button>
@@ -85,7 +100,7 @@ body{margin:0}
       <div class="label" id="r-title">Espèces du moment</div>
       <div class="list" id="list"></div>
     </section>
-    <footer>Conseils tirés de règles générales de pêche. Température de l'eau estimée d'après l'air des 5 derniers jours. Dates d'ouverture : vérifie l'arrêté de ton département. Météo : Open-Meteo.</footer>
+    <footer>Conseils tirés de règles générales de pêche. Température de l'eau estimée d'après l'air des 5 derniers jours. Dates d'ouverture : vérifie l'arrêté de ton département. Météo et débits (modèle GloFAS, maille de 5 km) : Open-Meteo.</footer>
   </section>
 
   <!-- ========== FIL ========== -->
