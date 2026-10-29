@@ -424,12 +424,17 @@ $("#composer").addEventListener("submit",async e=>{
     const path=paths[0]||null;
     const spot=$("#p-spot").value?Number($("#p-spot").value):null;
     const len=parseFloat($("#p-len").value), wt=parseFloat($("#p-wt").value);
+    const cardData={species:$("#p-species").value||null,length:len>0?Math.round(len*10)/10:null,weight:wt>0?Math.round(wt*100)/100:null,
+      bait:$("#p-bait").value.trim()||null,date:new Date().toISOString(),username:me.username,group:curGroup()?.name||"",
+      spot:spot?($("#p-spot").selectedOptions[0]?.textContent||null):null,photoUrl:pics[0]?URL.createObjectURL(pics[0].file):null};
     const {error}=await sb.from("posts").insert({group_id:cur,caption:cap||null,species:$("#p-species").value||null,photo_path:path,photo_paths:paths.length?paths:null,spot_id:spot,
       length_cm:len>0?Math.round(len*10)/10:null, weight_kg:wt>0?Math.round(wt*100)/100:null, bait:$("#p-bait").value.trim()||null});
     if(error){ if(paths.length) await sb.storage.from("photos").remove(paths); throw error; }
     pics.forEach(f=>URL.revokeObjectURL(f.url)); pics=[]; renderThumbs();
     $("#composer").reset(); $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
     toast(curGroup()?.post_approval&&!canModerate(cur)?"Prise envoyée : elle sera visible après validation":"Prise partagée"); loadFeed(); loadStats();
+    // une belle prise avec photo : on propose tout de suite la carte d'identité
+    if(cardData.photoUrl&&(cardData.species||cardData.length)) setTimeout(()=>window.CDJ.openCard?.(cardData),500);
   }catch(err){ showErr($("#p-err"),frError(err)); }
   finally{ btn.disabled=false; btn.textContent="Publier"; }
 });
@@ -517,9 +522,17 @@ async function loadFeed(){
       b.addEventListener("click",()=>{ location.hash="#carte"; setTimeout(()=>focusSpot(p.spots.id),300); });
       foot.append(b);
     }else foot.append(el("span"));
+    const footR=el("div","actions");
+    if(shown.length&&p.status!=="pending"){
+      const cb=el("button","linkbtn","🪪 Carte"); cb.type="button"; cb.setAttribute("aria-label","Créer la carte d'identité de cette prise");
+      cb.addEventListener("click",()=>window.CDJ.openCard?.({species:p.species,length:p.length_cm,weight:p.weight_kg,bait:p.bait,date:p.created_at,
+        username:p.profiles?.username||"?",group:groupName(p.group_id),spot:p.spots?.name||null,photoUrl:urls[shown[0]]}));
+      footR.append(cb);
+    }
+    foot.append(footR);
     if(p.user_id===me.id||canModerate(p.group_id)){
       const lbl=p.user_id===me.id?(p.status==="pending"?"Refuser / retirer":"Supprimer"):(p.status==="pending"?"Refuser":"Supprimer (modération)");
-      foot.append(confirmBtn(lbl,"Confirmer la suppression",async()=>{
+      footR.append(confirmBtn(lbl,"Confirmer la suppression",async()=>{
         const ph=allPaths(p); if(ph.length) await sb.storage.from("photos").remove(ph);
         const {error}=await sb.from("posts").delete().eq("id",p.id);
         if(error) return toast(frError(error));

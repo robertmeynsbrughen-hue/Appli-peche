@@ -325,6 +325,36 @@ body{margin:0}
   </div>
 </div>
 
+<!-- Carte d'identité de la prise -->
+<div class="sheet-back" id="card-sheet" hidden>
+  <div class="sheet card-sheet" role="dialog" aria-modal="true" aria-labelledby="card-title">
+    <div class="sheet-head"><h2 id="card-title">Carte de la prise</h2><button type="button" class="icon-btn" data-close aria-label="Fermer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="card-prev"><img id="card-img" alt="Aperçu de la carte de la prise"><p class="note" id="card-wait">Préparation de la carte…</p></div>
+    <div class="seg" id="card-format" aria-label="Format">
+      <button type="button" data-v="story" aria-pressed="true">Story 9:16</button>
+      <button type="button" data-v="carre" aria-pressed="false">Carré</button>
+      <button type="button" data-v="portrait" aria-pressed="false">Portrait 4:5</button>
+    </div>
+    <div class="card-row">
+      <span class="label">Style</span>
+      <div class="card-styles" id="card-style">
+        <button type="button" data-v="nuit" class="sw sw-nuit" aria-label="Style Nuit" aria-pressed="true"></button>
+        <button type="button" data-v="lac" class="sw sw-lac" aria-label="Style Lac" aria-pressed="false"></button>
+        <button type="button" data-v="ivoire" class="sw sw-ivoire" aria-label="Style Ivoire" aria-pressed="false"></button>
+      </div>
+    </div>
+    <div class="card-opts">
+      <label class="switch"><input type="checkbox" id="card-weight" checked><span class="switch-ui"></span><span class="switch-t"><b>Afficher le poids</b></span></label>
+      <label class="switch"><input type="checkbox" id="card-spot"><span class="switch-ui"></span><span class="switch-t"><b>Afficher le spot</b><span class="note">Masqué par défaut pour protéger vos coins</span></span></label>
+    </div>
+    <div class="card-actions">
+      <button type="button" class="btn primary" id="card-save"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Enregistrer</button>
+      <button type="button" class="btn" id="card-share"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.3 10.8l7.4-4.4M8.3 13.2l7.4 4.4"/></svg>Partager</button>
+    </div>
+    <p class="note card-hint">Partager ouvre le menu du téléphone : WhatsApp, Instagram, Messages…</p>
+  </div>
+</div>
+
 <!-- Chat du groupe -->
 <button type="button" class="chat-fab" id="chat-fab" aria-label="Ouvrir le chat du groupe" hidden>
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>
@@ -349,6 +379,7 @@ body{margin:0}
 <script src="advice.js"></script>
 <script src="social.js"></script>
 <script src="groupe.js"></script>
+<script src="card.js"></script>
 <script>
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
 </script>

@@ -409,3 +409,21 @@ body.chat-open{overflow:hidden}
 .msg-who.is-admin{color:var(--amber)}
 .msg-who.is-owner{color:var(--accent)}
 .msg-ico{font-size:.85rem;line-height:1}
+/* ---- Carte de la prise ---- */
+.card-sheet{gap:14px}
+.card-prev{display:flex;justify-content:center;align-items:center;min-height:200px;background:var(--surface-2);border-radius:16px;padding:10px}
+.card-prev img{max-width:100%;max-height:44vh;border-radius:12px;box-shadow:0 10px 28px -8px rgba(0,0,0,.4);display:block}
+.card-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.card-styles{display:flex;gap:10px}
+.sw{width:38px;height:38px;border-radius:50%;border:3px solid var(--surface);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
+.sw[aria-pressed="true"]{box-shadow:0 0 0 2px var(--accent)}
+.sw-nuit{background:#0f1a17}.sw-lac{background:#123a31}.sw-ivoire{background:#f4efe3}
+.card-opts{display:flex;flex-direction:column;background:var(--surface-2);border-radius:14px;padding:4px 12px}
+.card-opts .switch input:disabled+.switch-ui{opacity:.4}
+.card-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.card-actions .btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px}
+.card-actions svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.card-hint{text-align:center}
+.card-sheet{max-height:94vh}
+.card-sheet>*{flex-shrink:0}
+.card-prev img{max-height:40vh;width:auto}
