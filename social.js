@@ -7,7 +7,10 @@ const configured=typeof C.SUPABASE_URL==="string"&&C.SUPABASE_URL.startsWith("ht
 const DOMAIN=C.EMAIL_DOMAIN||"coupdujour.app";
 let sb=null, me=null, hasSession=false;
 let groups=[], cur=null;            // cur : id de groupe ou "all" (admin)
-let owners=new Map();               // id de groupe -> ensemble des responsables
+let pendingGroups=[];               // groupes où ma demande attend une validation
+let roles=new Map();                // id de groupe -> Map(utilisateur -> "owner" | "moderator")
+let myRoles=new Map();              // id de groupe -> mon rôle actif
+let postMode="bilan";
 let spots=[], map=null, layer=null, pending=null;
 const markers={};
 
@@ -34,7 +37,9 @@ function frError(e){
   if(/Email not confirmed/i.test(m)) return "La confirmation d'e-mail est encore activée dans Supabase : désactive-la (voir le guide).";
   if(/row-level security/i.test(m)) return "Action non autorisée dans ce groupe.";
   if(/limite de groupes/i.test(m)) return "Tu es déjà responsable de 3 groupes, c'est le maximum.";
-  if(/non autoris/i.test(m)) return "Tu n'es pas responsable de ce groupe.";
+  if(/seul l'admin peut changer le responsable/i.test(m)) return "Seul l'admin peut changer le responsable du groupe.";
+  if(/seuls les modérateurs peuvent épingler/i.test(m)) return "Seuls les modérateurs peuvent épingler un mémo.";
+  if(/non autoris/i.test(m)) return "Tu n'as pas les droits pour faire ça dans ce groupe.";
   if(/Email signups are disabled/i.test(m)) return "Les inscriptions sont désactivées dans Supabase (fournisseur Email).";
   if(/Failed to fetch|NetworkError/i.test(m)) return "Pas de connexion réseau.";
   return m;
@@ -48,10 +53,13 @@ function confirmBtn(label,confirmLabel,action,cls="linkbtn danger"){
   });
   return b;
 }
-function userLabel(name,isAdmin,isOwner){
+const ROLE_LABEL={owner:"Resp.",moderator:"Modo"};
+function roleBadge(role){ return ROLE_LABEL[role]?el("span","badge "+role,ROLE_LABEL[role]):null; }
+function userLabel(name,isAdmin,role){
   const s=el("span","post-user","@"+(name||"?"));
   if(isAdmin) s.append(el("span","badge","Admin"));
-  else if(isOwner) s.append(el("span","badge owner","Resp."));
+  else if(role===true||role==="owner") s.append(roleBadge("owner"));
+  else if(role==="moderator") s.append(roleBadge("moderator"));
   return s;
 }
 function avatar(name){
@@ -59,21 +67,26 @@ function avatar(name){
   const a=el("span","avatar",n.charAt(0)); a.style.background="hsl("+h+" 42% 42%)"; a.setAttribute("aria-hidden","true");
   return a;
 }
-const isOwner=(gid,uid)=>!!owners.get(gid)?.has(uid);
-const canManage=gid=>!!me&&(me.is_admin||isOwner(gid,me.id));
-const isManager=()=>!!me&&(me.is_admin||[...owners.values()].some(set=>set.has(me.id)));
+const roleOf=(gid,uid)=>roles.get(gid)?.get(uid);
+const canManage=gid=>!!me&&(me.is_admin||myRoles.get(gid)==="owner");
+const canModerate=gid=>!!me&&(me.is_admin||myRoles.get(gid)==="owner"||myRoles.get(gid)==="moderator");
+const isManager=()=>!!me&&(me.is_admin||[...myRoles.values()].some(r=>r!=="member"));
+const curGroup=()=>groups.find(g=>g.id===cur);
+const hooks={};   // points d'accroche pour groupe.js
 const groupName=id=>{ const g=groups.find(x=>x.id===id); return g?g.name:"?"; };
 
 // ---------- Navigation ----------
-const VIEWS=["conseils","fil","carte","profil","admin"];
+const VIEWS=["conseils","fil","carte","groupe","profil"];
 function route(){
-  let v=VIEWS.includes(location.hash.slice(1))?location.hash.slice(1):"conseils";
-  if(v==="admin"&&!isManager()) v="profil";
+  let h=location.hash.slice(1);
+  if(h==="admin") h="groupe";
+  if(h==="chat"){ h="fil"; setTimeout(()=>hooks.openChat?.(),300); }
+  let v=VIEWS.includes(h)?h:"conseils";
   VIEWS.forEach(n=>{ $("#v-"+n).hidden=n!==v; });
   $$("nav.tabs a").forEach(a=>a.setAttribute("aria-current",a.dataset.v===v?"page":"false"));
   if(v==="carte") openMap();
   if(v==="fil") loadFeed();
-  if(v==="admin") loadAdmin();
+  if(v==="groupe") hooks.groupe?.();
   window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",route);
@@ -88,11 +101,15 @@ function refreshUI(){
   $$("[data-setup]").forEach(e=>e.hidden=configured);
   $$("[data-need-login]").forEach(e=>{
     e.hidden=!configured||member;
-    e.textContent=logged?"Tu n'es dans aucun groupe pour l'instant. Rejoins-en un avec son code dans l'onglet Profil."
-      :"Connecte-toi dans l'onglet Profil pour voir le contenu de ton groupe.";
+    e.textContent=!logged?"Connecte-toi dans l'onglet Profil pour voir le contenu de ton groupe."
+      :pendingGroups.length?"Ta demande pour rejoindre « "+pendingGroups.map(g=>g.name).join(" », « ")+" » attend la validation d'un modérateur. Tu seras prévenu dès qu'elle sera acceptée."
+      :"Tu n'es dans aucun groupe pour l'instant. Rejoins-en un avec son code, ou crée le tien, dans l'onglet Profil.";
   });
   $$("[data-need-member]").forEach(e=>e.hidden=!member);
-  $("#composer").hidden=!member||cur==="all";
+  const canPost=member&&cur!=="all";
+  $("#post-mode").hidden=!canPost;
+  $("#composer").hidden=!canPost||postMode!=="post";
+  $("#bilan").hidden=!canPost||postMode!=="bilan";
   $("#composer-all").hidden=!(member&&cur==="all");
   $("#feed-bar").hidden=!member;
   $("#map-bar").hidden=!member;
@@ -101,34 +118,56 @@ function refreshUI(){
   $("#join").hidden=!(configured&&hasSession&&!me);
   $("#me").hidden=!logged;
   $("#my-groups").hidden=!logged;
-  $("#tab-admin").hidden=!isManager();
-  $("#tab-admin-label").textContent=me?.is_admin?"Admin":"Gestion";
-  $("#create-group").hidden=!logged||!!me?.is_admin;
-  const who=$("#who"); who.textContent="";
-  if(me){ who.append(el("span","who-name","@"+me.username)); if(me.is_admin) who.append(el("span","badge","Admin")); else if(isManager()) who.append(el("span","badge owner","Resp.")); }
+  $("#tab-groupe").hidden=!member;
+  $("#create-group").hidden=!logged;
   if(me){ const h=$("#me-name"); h.textContent="@"+me.username; if(me.is_admin) h.append(el("span","badge","Admin")); }
   if(!member){ $("#feed").innerHTML=""; }
-  renderGroupSelects();
+  renderSwitcher();
   renderMyGroups();
   renderPush();
+  hooks.change?.();
 }
 
-function renderGroupSelects(){
-  $$(".grp-select").forEach(sel=>{
-    sel.innerHTML="";
-    if(me?.is_admin) sel.append(new Option("Tous les groupes","all"));
-    groups.forEach(g=>sel.append(new Option(g.name+(g.region?" · "+g.region:""),String(g.id))));
-    sel.value=String(cur);
-  });
+// ---------- Bascule rapide entre groupes (en-tête) ----------
+function renderSwitcher(){
+  const btn=$("#grp-switch"), name=$("#gs-name");
+  btn.hidden=!me||!groups.length;
+  name.textContent="";
+  if(!me||!groups.length) return;
+  if(cur==="all") name.append("Tous les groupes");
+  else{ name.append(curGroup()?.name||"Groupe"); const b=me.is_admin?el("span","badge","Admin"):roleBadge(myRoles.get(cur)); if(b) name.append(b); }
 }
-$$(".grp-select").forEach(sel=>sel.addEventListener("change",()=>{
-  setGroup(sel.value==="all"?"all":Number(sel.value));
-}));
+function openSwitcher(){
+  const list=$("#gs-list"); list.innerHTML="";
+  const item=(label,sub,val,badge,disabled)=>{
+    const b=el("button","gs-item"+(val===cur?" on":"")); b.type="button"; b.disabled=!!disabled;
+    const t=el("span","gs-t",label); if(badge) t.append(badge);
+    b.append(t); if(sub) b.append(el("span","gs-s",sub));
+    if(!disabled) b.addEventListener("click",()=>{ closeSheet(); setGroup(val); });
+    list.append(b);
+  };
+  if(me.is_admin) item("Tous les groupes","Vue d'ensemble admin","all");
+  groups.forEach(g=>item(g.name,g.region||"",g.id,me.is_admin?null:roleBadge(myRoles.get(g.id))));
+  pendingGroups.forEach(g=>item(g.name,"Demande en attente de validation",null,null,true));
+  $("#gs-sheet").hidden=false;
+}
+function closeSheet(){ $("#gs-sheet").hidden=true; }
+$("#grp-switch").addEventListener("click",openSwitcher);
+$("#gs-sheet").addEventListener("click",e=>{ if(e.target.id==="gs-sheet"||e.target.closest("[data-close]")) closeSheet(); });
 function setGroup(v){
   cur=v;
   try{ localStorage.setItem("cdj-grp",String(v)); }catch(e){}
   refreshUI(); loadSpots(); loadFeed();
+  if(!$("#v-groupe").hidden) hooks.groupe?.();
 }
+// Bilan rapide ou post photo
+$$("#post-mode button").forEach(b=>b.addEventListener("click",()=>{
+  postMode=b.dataset.m;
+  $$("#post-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
+  try{ localStorage.setItem("cdj-mode",postMode); }catch(e){}
+  refreshUI();
+}));
+try{ const m=localStorage.getItem("cdj-mode"); if(m==="post"||m==="bilan"){ postMode=m; $$("#post-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.m===m))); } }catch(e){}
 
 // ---------- Comptes ----------
 let authMode="login";
@@ -151,6 +190,7 @@ $("#auth-form").addEventListener("submit",async e=>{
     if(authMode==="signup"){
       const {data:g,error:ce}=await sb.rpc("check_invite",{p_code:code});
       if(ce) throw ce; if(!g||!g.length) throw new Error("code invalide");
+      if(g[0].require_approval) setTimeout(()=>toast("Demande envoyée à « "+g[0].name+" » : un modérateur doit la valider"),900);
       const {error}=await sb.auth.signUp({email:emailOf(u),password:p});
       if(error) throw error;
       const {error:je}=await sb.rpc("join_group",{p_code:code,p_username:u});
@@ -178,13 +218,16 @@ $("#join-more").addEventListener("submit",async e=>{
   const {data:gid,error}=await sb.rpc("join_group",{p_code:$("#jm-code").value.trim()});
   if(error) return showErr($("#jm-err"),frError(error));
   $("#jm-code").value="";
-  await loadGroups(); setGroup(gid); toast("Groupe rejoint : "+groupName(gid));
+  await loadGroups();
+  if(pendingGroups.some(g=>g.id===gid)){ toast("Demande envoyée : un modérateur doit la valider"); refreshUI(); }
+  else{ setGroup(gid); toast("Groupe rejoint : "+groupName(gid)); }
 });
 
 $("#logout").addEventListener("click",async()=>{
   try{ const sub=pushSupported()?await currentSub():null; if(sub) await sb.rpc("delete_push_sub",{p_endpoint:sub.endpoint}); }catch(e){}
   await sb.auth.signOut();
-  me=null; hasSession=false; groups=[]; spots=[]; cur=null; if(layer) layer.clearLayers();
+  me=null; hasSession=false; groups=[]; pendingGroups=[]; myRoles=new Map(); roles=new Map(); spots=[]; cur=null; if(layer) layer.clearLayers();
+  hooks.groupChanged?.();
   refreshUI(); route();
 });
 
@@ -199,17 +242,18 @@ async function loadMe(){
 }
 
 async function loadGroups(){
-  let rows=[];
-  if(me.is_admin){
-    const {data}=await sb.rpc("admin_groups"); rows=data||[];
-  }else{
-    const {data}=await sb.from("groups").select("id,name,region").order("name"); rows=data||[];
-  }
-  groups=rows;
-  owners=new Map();
+  const [{data:gs},{data:mine}]=await Promise.all([
+    sb.from("groups").select("id,name,region,require_approval,post_approval").order("name"),
+    sb.from("memberships").select("group_id,role,status").eq("user_id",me.id)]);
+  const mm=new Map((mine||[]).map(m=>[m.group_id,m]));
+  myRoles=new Map((mine||[]).filter(m=>m.status==="active").map(m=>[m.group_id,m.role]));
+  const all=gs||[];
+  pendingGroups=all.filter(g=>mm.get(g.id)?.status==="pending");
+  groups=me.is_admin?all:all.filter(g=>mm.get(g.id)?.status==="active");
+  roles=new Map();
   if(groups.length){
-    const {data:os}=await sb.from("memberships").select("group_id,user_id").eq("role","owner").in("group_id",groups.map(g=>g.id));
-    (os||[]).forEach(o=>{ if(!owners.has(o.group_id)) owners.set(o.group_id,new Set()); owners.get(o.group_id).add(o.user_id); });
+    const {data:rs}=await sb.from("memberships").select("group_id,user_id,role").in("role",["owner","moderator"]).eq("status","active").in("group_id",groups.map(g=>g.id));
+    (rs||[]).forEach(o=>{ if(!roles.has(o.group_id)) roles.set(o.group_id,new Map()); roles.get(o.group_id).set(o.user_id,o.role); });
   }
   let saved=null; try{ saved=localStorage.getItem("cdj-grp"); }catch(e){}
   const valid=v=>v==="all"?me.is_admin:groups.some(g=>String(g.id)===v);
@@ -227,18 +271,25 @@ async function loadStats(){
 function renderMyGroups(){
   const box=$("#my-groups-list"); if(!box) return; box.innerHTML="";
   if(!me) return;
-  const mine=me.is_admin?null:groups;
-  if(me.is_admin){ box.append(el("p","note","En tant qu'admin tu vois tous les groupes. Gère-les depuis l'onglet Admin.")); return; }
-  if(!mine.length){ box.append(el("p","note","Aucun groupe pour l'instant.")); return; }
+  if(me.is_admin) box.append(el("p","note","En tant qu'admin tu vois tous les groupes, même sans en être membre. Bascule de l'un à l'autre depuis l'en-tête."));
+  const mine=groups.filter(g=>myRoles.has(g.id));
+  if(!mine.length&&!pendingGroups.length&&!me.is_admin){ box.append(el("p","note","Aucun groupe pour l'instant.")); return; }
+  const leave=(g,label)=>confirmBtn(label,"Confirmer",async()=>{
+    await sb.from("memberships").delete().eq("group_id",g.id).eq("user_id",me.id);
+    await loadGroups(); loadSpots(); loadFeed(); hooks.groupChanged?.();
+  });
   mine.forEach(g=>{
     const r=el("div","mrow");
-    const nm=el("span",null,g.name+(g.region?" · "+g.region:""));
-    if(isOwner(g.id,me.id)) nm.append(el("span","badge owner","Resp."));
-    r.append(nm);
-    r.append(confirmBtn("Quitter","Confirmer",async()=>{
-      await sb.from("memberships").delete().eq("group_id",g.id).eq("user_id",me.id);
-      await loadGroups(); loadSpots(); loadFeed();
-    }));
+    const nm=el("button","linkbtn plain",g.name+(g.region?" · "+g.region:"")); nm.type="button";
+    nm.addEventListener("click",()=>{ setGroup(g.id); location.hash="#fil"; });
+    const b=roleBadge(myRoles.get(g.id)); if(b) nm.append(b);
+    r.append(nm, leave(g,"Quitter"));
+    box.append(r);
+  });
+  pendingGroups.forEach(g=>{
+    const r=el("div","mrow");
+    const nm=el("span",null,g.name); nm.append(el("span","badge wait","En attente"));
+    r.append(nm, leave(g,"Annuler"));
     box.append(r);
   });
 }
@@ -378,7 +429,7 @@ $("#composer").addEventListener("submit",async e=>{
     if(error){ if(paths.length) await sb.storage.from("photos").remove(paths); throw error; }
     pics.forEach(f=>URL.revokeObjectURL(f.url)); pics=[]; renderThumbs();
     $("#composer").reset(); $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
-    toast("Prise partagée"); loadFeed(); loadStats();
+    toast(curGroup()?.post_approval&&!canModerate(cur)?"Prise envoyée : elle sera visible après validation":"Prise partagée"); loadFeed(); loadStats();
   }catch(err){ showErr($("#p-err"),frError(err)); }
   finally{ btn.disabled=false; btn.textContent="Publier"; }
 });
@@ -388,10 +439,12 @@ async function loadFeed(){
   if(!me||!groups.length||cur==null) return;
   const feed=$("#feed");
   let q=sb.from("posts")
-    .select("id,group_id,caption,species,photo_path,photo_paths,created_at,user_id,length_cm,weight_kg,bait,profiles(username,is_admin),spots(id,name)")
+    .select("id,group_id,caption,species,photo_path,photo_paths,created_at,user_id,status,length_cm,weight_kg,bait,profiles(username,is_admin),spots(id,name)")
     .order("created_at",{ascending:false}).limit(60);
-  if(cur!=="all") q=q.eq("group_id",cur);
-  const {data,error}=await q;
+  let qs=sb.from("sessions").select("id,group_id,user_id,species,caught,length_cm,lure,color,rating,created_at,profiles(username,is_admin)")
+    .order("created_at",{ascending:false}).limit(40);
+  if(cur!=="all"){ q=q.eq("group_id",cur); qs=qs.eq("group_id",cur); }
+  const [{data,error},{data:sess}]=await Promise.all([q,qs]);
   feed.innerHTML="";
   if(error){ feed.append(el("p","err",frError(error))); return; }
   const allPaths=p=>(p.photo_paths&&p.photo_paths.length)?p.photo_paths:(p.photo_path?[p.photo_path]:[]);
@@ -401,13 +454,24 @@ async function loadFeed(){
     const {data:signed}=await sb.storage.from("photos").createSignedUrls(paths,3600);
     (signed||[]).forEach(s=>{ if(s.signedUrl) urls[s.path]=s.signedUrl; });
   }
-  if(!data.length){ feed.append(el("div","empty","Aucune prise pour l'instant. Partage la première !")); return; }
-  for(const p of data){
-    const a=el("article","post");
+  const items=[...data,...(sess||[]).map(x=>({...x,_kind:"session"}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  if(!items.length){ feed.append(el("div","empty","Rien pour l'instant. Partage ton premier bilan ou ta première prise !")); return; }
+  for(const p of items){
+    if(p._kind==="session"){ feed.append(sessionCard(p)); continue; }
+    const a=el("article","post"+(p.status==="pending"?" is-pending":""));
+    if(p.status==="pending"){
+      const bar=el("div","pending-bar"); bar.append(el("span",null,"En attente de validation"));
+      if(canModerate(p.group_id)){
+        const ok=el("button","btn primary small","Valider"); ok.type="button";
+        ok.addEventListener("click",async()=>{ ok.disabled=true; const {error}=await sb.rpc("approve_post",{p_id:p.id}); if(error){ ok.disabled=false; return toast(frError(error)); } toast("Publication validée"); loadFeed(); });
+        bar.append(ok);
+      }
+      a.append(bar);
+    }
     const head=el("div","post-head");
     const who=el("div","post-who");
     who.append(avatar(p.profiles?.username));
-    const left=el("div"); left.append(userLabel(p.profiles?.username,p.profiles?.is_admin,isOwner(p.group_id,p.user_id)));
+    const left=el("div"); left.append(userLabel(p.profiles?.username,p.profiles?.is_admin,roleOf(p.group_id,p.user_id)));
     if(cur==="all") left.append(el("div","post-group",groupName(p.group_id)));
     who.append(left);
     head.append(who, el("span","post-date",ago(p.created_at)));
@@ -453,8 +517,8 @@ async function loadFeed(){
       b.addEventListener("click",()=>{ location.hash="#carte"; setTimeout(()=>focusSpot(p.spots.id),300); });
       foot.append(b);
     }else foot.append(el("span"));
-    if(p.user_id===me.id||canManage(p.group_id)){
-      const lbl=p.user_id===me.id?"Supprimer":"Supprimer (modération)";
+    if(p.user_id===me.id||canModerate(p.group_id)){
+      const lbl=p.user_id===me.id?(p.status==="pending"?"Refuser / retirer":"Supprimer"):(p.status==="pending"?"Refuser":"Supprimer (modération)");
       foot.append(confirmBtn(lbl,"Confirmer la suppression",async()=>{
         const ph=allPaths(p); if(ph.length) await sb.storage.from("photos").remove(ph);
         const {error}=await sb.from("posts").delete().eq("id",p.id);
@@ -464,6 +528,35 @@ async function loadFeed(){
     }
     body.append(foot); a.append(body); feed.append(a);
   }
+}
+
+// Bilan de session affiché dans le fil
+const RATING=[null,{e:"🏜️",t:"C'était désert"},{e:"😐",t:"Journée moyenne"},{e:"👍",t:"Belle journée"},{e:"🔥",t:"Journée de fou"}];
+function sessionCard(x){
+  const a=el("article","post session r"+x.rating);
+  const head=el("div","post-head");
+  const who=el("div","post-who"); who.append(avatar(x.profiles?.username));
+  const left=el("div"); left.append(userLabel(x.profiles?.username,x.profiles?.is_admin,roleOf(x.group_id,x.user_id)));
+  left.append(el("div","post-group","Bilan de session"+(cur==="all"?" · "+groupName(x.group_id):"")));
+  who.append(left); head.append(who, el("span","post-date",ago(x.created_at)));
+  const body=el("div","post-body");
+  const r=RATING[x.rating]||RATING[2];
+  const big=el("div","sess-rating"); big.append(el("span","sess-emoji",r.e),el("span",null,r.t)); body.append(big);
+  const tags=el("div","tags");
+  if(x.species) tags.append(el("span","tag",x.species));
+  if(x.caught===false) tags.append(el("span","tag muted","Capot"));
+  else if(x.length_cm) tags.append(el("span","size",Number(x.length_cm).toLocaleString("fr-FR")+" cm"));
+  if(tags.childNodes.length) body.append(tags);
+  if(x.lure||x.color){ const c=el("div","combo"); c.append(el("span","label","Combo"),el("span",null,[x.lure,x.color].filter(Boolean).join(" · "))); body.append(c); }
+  if(x.user_id===me.id||canModerate(x.group_id)){
+    const foot=el("div","post-foot"); foot.append(el("span"));
+    foot.append(confirmBtn("Supprimer","Confirmer la suppression",async()=>{
+      const {error}=await sb.from("sessions").delete().eq("id",x.id);
+      if(error) return toast(frError(error)); toast("Bilan supprimé"); loadFeed(); hooks.groupe?.();
+    }));
+    body.append(foot);
+  }
+  a.append(head,body); return a;
 }
 
 // ---------- Carte ----------
@@ -503,13 +596,13 @@ function drawSpots(){
     const box=el("div");
     box.append(el("b",null,s.name));
     const by=el("div"); by.style.color="var(--muted)";
-    by.append(userLabel(s.profiles?.username,s.profiles?.is_admin,isOwner(s.group_id,s.user_id))," · "+ago(s.created_at));
+    by.append(userLabel(s.profiles?.username,s.profiles?.is_admin,roleOf(s.group_id,s.user_id))," · "+ago(s.created_at));
     box.append(by);
     if(cur==="all") box.append(el("div","post-group",groupName(s.group_id)));
     if(s.note){ const n=el("p",null,s.note); n.style.margin="6px 0"; n.style.whiteSpace="pre-wrap"; box.append(n); }
     const go=el("a",null,"Itinéraire"); go.href="https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon; go.target="_blank"; go.rel="noopener";
     box.append(go);
-    if(s.user_id===me?.id||canManage(s.group_id)){
+    if(s.user_id===me?.id||canModerate(s.group_id)){
       const del=confirmBtn(s.user_id===me.id?"Supprimer":"Supprimer (modération)","Confirmer",async()=>{
         const {error}=await sb.from("spots").delete().eq("id",s.id);
         if(error) return toast(frError(error));
@@ -547,59 +640,6 @@ $("#spot-form").addEventListener("submit",async e=>{
   toast("Spot enregistré"); loadSpots(); loadStats();
 });
 
-// ---------- Administration ----------
-async function loadAdmin(){
-  if(!isManager()) return;
-  $("#adm-intro").textContent=me.is_admin
-    ?"Vue d'ensemble de tous les groupes. Tu peux modérer posts et spots directement depuis le Fil et la Carte en choisissant « Tous les groupes »."
-    :"Les groupes dont tu es responsable. Tu peux y supprimer posts, photos et spots depuis le Fil et la Carte, retirer un membre et changer le code.";
-  const {data,error}=await sb.rpc("manage_groups");
-  const box=$("#adm-groups"); box.innerHTML="";
-  if(error){ box.append(el("p","err",frError(error))); return; }
-  const list=data||[];
-  if(me.is_admin){ groups=list; renderGroupSelects(); }
-  box.append(el("div","label",(me.is_admin?"Groupes":"Mes groupes")+" ("+list.length+")"));
-  list.forEach(g=>{
-    const c=el("div","gcard");
-    const h=el("div","gcard-head");
-    h.append(el("span","gcard-name",g.name+(g.region?" · "+g.region:"")));
-    const pl=(n,w)=>n+" "+w+(n>1?"s":"");
-    h.append(el("span","gcard-meta",pl(g.members,"membre")+" · "+pl(g.posts,"post")+" · "+pl(g.spots,"spot")));
-    c.append(h);
-    const code=el("div","note","Code : "); code.append(el("span","code",g.invite_code)); c.append(code);
-    const act=el("div","actions");
-    const bFeed=el("button","linkbtn","Voir le fil"); bFeed.type="button";
-    bFeed.addEventListener("click",()=>{ setGroup(g.id); location.hash="#fil"; });
-    const bMap=el("button","linkbtn","Voir la carte"); bMap.type="button";
-    bMap.addEventListener("click",()=>{ setGroup(g.id); location.hash="#carte"; });
-    const bMem=el("button","linkbtn","Membres"); bMem.type="button";
-    bMem.addEventListener("click",()=>loadMembers(g));
-    const bEdit=el("button","linkbtn","Modifier"); bEdit.type="button";
-    bEdit.addEventListener("click",()=>{
-      $("#g-id").value=g.id; $("#g-name").value=g.name; $("#g-region").value=g.region||""; $("#g-code").value=g.invite_code;
-      $("#adm-form-title").textContent="Modifier « "+g.name+" »"; $("#g-submit").textContent="Enregistrer"; $("#g-cancel").hidden=false;
-      $("#adm-form").scrollIntoView({behavior:"smooth"});
-    });
-    act.append(bFeed,bMap,bMem,bEdit); c.append(act);
-    box.append(c);
-  });
-}
-function resetGroupForm(){
-  $("#adm-form").reset(); $("#g-id").value="";
-  $("#adm-form-title").textContent="Nouveau groupe"; $("#g-submit").textContent="Créer le groupe"; $("#g-cancel").hidden=true;
-  showErr($("#g-err"));
-}
-$("#g-cancel").addEventListener("click",resetGroupForm);
-$("#adm-form").addEventListener("submit",async e=>{
-  e.preventDefault(); showErr($("#g-err"));
-  const id=$("#g-id").value?Number($("#g-id").value):null;
-  const {error}=await sb.rpc("manage_save_group",{p_id:id,p_name:$("#g-name").value.trim(),p_region:$("#g-region").value.trim(),p_code:$("#g-code").value.trim()});
-  if(error) return showErr($("#g-err"),frError(error));
-  toast(id?"Groupe modifié":"Groupe créé"); resetGroupForm();
-  if(!id) await loadGroups();
-  loadAdmin();
-});
-
 // Création d'un groupe par un membre (il en devient responsable)
 $("#create-group").addEventListener("submit",async e=>{
   e.preventDefault(); showErr($("#cg-err"));
@@ -608,30 +648,8 @@ $("#create-group").addEventListener("submit",async e=>{
   $("#create-group").reset();
   await loadGroups(); setGroup(gid);
   toast("Groupe créé : tu en es responsable");
-  location.hash="#admin";
+  location.hash="#groupe";
 });
-async function loadMembers(g){
-  const panel=$("#adm-members"), list=$("#adm-members-list");
-  panel.hidden=false; $("#adm-members-title").textContent="Membres de « "+g.name+" »"; list.innerHTML="";
-  const {data,error}=await sb.rpc("manage_members",{p_group:g.id});
-  if(error){ list.append(el("p","err",frError(error))); return; }
-  if(!data.length) list.append(el("p","note","Aucun membre."));
-  data.forEach(m=>{
-    const r=el("div","mrow");
-    const left=el("div"); left.append(userLabel(m.username,m.is_admin,m.role==="owner")); left.append(el("div","post-date","depuis le "+new Date(m.joined_at).toLocaleDateString("fr-FR")));
-    r.append(left);
-    if(m.user_id!==me.id&&(me.is_admin||(!m.is_admin&&m.role!=="owner"))){
-      r.append(confirmBtn("Retirer du groupe","Confirmer",async()=>{
-        const {error}=await sb.from("memberships").delete().eq("group_id",g.id).eq("user_id",m.user_id);
-        if(error) return toast(frError(error));
-        toast("@"+m.username+" retiré"); loadMembers(g); loadAdmin();
-      }));
-    }
-    list.append(r);
-  });
-  panel.scrollIntoView({behavior:"smooth"});
-}
-
 // ---------- Notifications push ----------
 const VAPID_PUBLIC="BKA6wk-qXV331-Vep9m6SkC-4Kz4i-T3_Vm2ifrAHI35-h0Vd7xNNLmQo0v_HyIX0i46CkVcDnR6oVtppS_EdlM";
 const pushSupported=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
@@ -691,6 +709,14 @@ async function syncPush(){
   if(!me||!pushSupported()||Notification.permission!=="granted") return;
   const sub=await currentSub(); if(sub){ try{ await saveSub(sub); }catch(e){} }
 }
+
+// ---------- Accès partagé pour groupe.js ----------
+window.CDJ={
+  get sb(){ return sb; }, get me(){ return me; }, get cur(){ return cur; }, get groups(){ return groups; },
+  get curGroup(){ return curGroup(); }, get myRoles(){ return myRoles; },
+  el, toast, showErr, ago, frError, confirmBtn, userLabel, roleBadge, avatar, compress,
+  roleOf, canManage, canModerate, isManager, groupName, setGroup, loadGroups, loadFeed, refreshUI, hooks, RATING,
+};
 
 // ---------- Démarrage ----------
 async function init(){

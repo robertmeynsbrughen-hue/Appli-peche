@@ -75,37 +75,87 @@ async function db(path, init = {}) {
 }
 const num = (x) => String(x).replace(".", ",");
 
+const RATING = { 1: "c'était désert", 2: "journée moyenne", 3: "belle journée", 4: "journée de fou" };
+const cut = (t, n) => (t || "").length > n ? t.slice(0, n - 1) + "…" : (t || "");
+
+async function activeMembers(g, exclude) {
+  return db("memberships?group_id=eq." + g + "&status=eq.active" + (exclude ? "&user_id=neq." + exclude : "") + "&select=user_id");
+}
+async function moderators(g, exclude) {
+  const [mods, admins] = await Promise.all([
+    db("memberships?group_id=eq." + g + "&status=eq.active&role=in.(owner,moderator)&select=user_id"),
+    db("profiles?is_admin=eq.true&select=id"),
+  ]);
+  const ids = new Set([...mods.map((m) => m.user_id), ...admins.map((a) => a.id)]);
+  if (exclude) ids.delete(exclude);
+  return [...ids].map((user_id) => ({ user_id }));
+}
+
 export async function handle(req, cfg) {
   SB_URL = cfg.url; SB_KEY = cfg.key;
   const HOOK_SECRET = cfg.secret, VAPID = cfg.vapid;
   if (req.headers.get("x-hook-secret") !== HOOK_SECRET) return new Response("forbidden", { status: 403 });
   try {
-    const { table, id } = await req.json();
-    if (table !== "posts" && table !== "spots") return new Response("bad table", { status: 400 });
-    const cols = table === "posts"
-      ? "id,group_id,user_id,species,length_cm,weight_kg,caption,photo_path,photo_paths"
-      : "id,group_id,user_id,name";
-    const [rec] = await db(table + "?id=eq." + Number(id) + "&select=" + cols);
-    if (!rec) return Response.json({ sent: 0, reason: "introuvable" });
-    const [groups, users, members] = await Promise.all([
-      db("groups?id=eq." + rec.group_id + "&select=name"),
-      db("profiles?id=eq." + rec.user_id + "&select=username"),
-      db("memberships?group_id=eq." + rec.group_id + "&user_id=neq." + rec.user_id + "&select=user_id"),
+    const ev = await req.json();
+    const t = ev.table;
+    let rec, group_id, author, recipients, msg;
+    if (t === "memberships") {
+      group_id = Number(ev.group_id); author = String(ev.user_id).replace(/[^0-9a-f-]/gi, "");
+      rec = { user_id: author };
+    } else {
+      const cols = {
+        posts: "id,group_id,user_id,status,species,length_cm,weight_kg,caption,photo_path,photo_paths",
+        spots: "id,group_id,user_id,name",
+        polls: "id,group_id,user_id,question,place",
+        memos: "id,group_id,user_id,title",
+        sessions: "id,group_id,user_id,species,caught,length_cm,lure,color,rating",
+        messages: "id,group_id,user_id,body",
+      }[t];
+      if (!cols) return new Response("bad table", { status: 400 });
+      [rec] = await db(t + "?id=eq." + Number(ev.id) + "&select=" + cols);
+      if (!rec) return Response.json({ sent: 0, reason: "introuvable" });
+      group_id = rec.group_id; author = rec.user_id;
+    }
+    const [groups, users] = await Promise.all([
+      db("groups?id=eq." + group_id + "&select=name"),
+      db("profiles?id=eq." + author + "&select=username"),
     ]);
-    if (!members.length) return Response.json({ sent: 0, reason: "aucun autre membre" });
-    const subs = await db("push_subs?user_id=in.(" + members.map((m) => m.user_id).join(",") + ")&select=endpoint,p256dh,auth");
-    if (!subs.length) return Response.json({ sent: 0, reason: "aucun abonné" });
     const group = groups[0]?.name || "ton groupe", who = "@" + (users[0]?.username || "quelqu'un");
-    let msg;
-    if (table === "posts") {
+
+    if (t === "memberships") {
+      if (ev.event === "request") {
+        recipients = await moderators(group_id, author);
+        msg = { title: "🙋 Demande d'adhésion · " + group, body: who + " veut rejoindre le groupe", url: "./#groupe", tag: "req-" + group_id };
+      } else {
+        recipients = [{ user_id: author }];
+        msg = { title: "✅ Bienvenue dans " + group, body: "Ta demande a été acceptée, bonne pêche !", url: "./#fil", tag: "ok-" + group_id };
+      }
+    } else if (t === "posts") {
       const n = (rec.photo_paths && rec.photo_paths.length) || (rec.photo_path ? 1 : 0);
       const parts = [rec.species, rec.length_cm ? num(rec.length_cm) + " cm" : "", rec.weight_kg ? num(rec.weight_kg) + " kg" : ""].filter(Boolean);
-      let text = parts.join(" · ") || (rec.caption || "").slice(0, 90) || (n ? "nouvelle photo" : "nouveau post");
+      let text = parts.join(" · ") || cut(rec.caption, 90) || (n ? "nouvelle photo" : "nouveau post");
       if (n > 1) text += " · " + n + " photos";
-      msg = { title: "🎣 Nouvelle prise · " + group, body: who + " : " + text, url: "./#fil", tag: "post-" + rec.id };
+      if (ev.event === "pending") {
+        recipients = await moderators(group_id, author);
+        msg = { title: "🕓 Prise à valider · " + group, body: who + " : " + text, url: "./#fil", tag: "pend-" + rec.id };
+      } else {
+        recipients = await activeMembers(group_id, author);
+        msg = { title: "🎣 Nouvelle prise · " + group, body: who + " : " + text, url: "./#fil", tag: "post-" + rec.id };
+      }
     } else {
-      msg = { title: "📍 Nouveau spot · " + group, body: who + " a ajouté « " + rec.name + " »", url: "./#carte", tag: "spot-" + rec.id };
+      recipients = await activeMembers(group_id, author);
+      if (t === "spots") msg = { title: "📍 Nouveau spot · " + group, body: who + " a ajouté « " + rec.name + " »", url: "./#carte", tag: "spot-" + rec.id };
+      else if (t === "polls") msg = { title: "📊 Sondage · " + group, body: who + " : " + cut(rec.question, 110) + (rec.place ? " (" + rec.place + ")" : ""), url: "./#groupe", tag: "poll-" + rec.id };
+      else if (t === "memos") msg = { title: "📌 Nouveau mémo · " + group, body: who + " : " + cut(rec.title, 100), url: "./#groupe", tag: "memo-" + rec.id };
+      else if (t === "sessions") {
+        const fish = rec.caught === false ? (rec.species ? rec.species + " ciblé, capot" : "capot") : [rec.species, rec.length_cm ? num(rec.length_cm) + " cm" : ""].filter(Boolean).join(" ");
+        const combo = [rec.lure, rec.color].filter(Boolean).join(" ");
+        msg = { title: "🧾 Bilan de session · " + group, body: who + " : " + [fish, combo, RATING[rec.rating]].filter(Boolean).join(" · "), url: "./#groupe", tag: "sess-" + rec.id };
+      } else msg = { title: "💬 " + group, body: who + " : " + cut(rec.body, 140), url: "./#chat", tag: "chat-" + group_id };
     }
+    if (!recipients.length) return Response.json({ sent: 0, reason: "aucun destinataire" });
+    const subs = await db("push_subs?user_id=in.(" + recipients.map((m) => m.user_id).join(",") + ")&select=endpoint,p256dh,auth");
+    if (!subs.length) return Response.json({ sent: 0, reason: "aucun abonné" });
     const payload = JSON.stringify(msg);
     const results = await Promise.allSettled(subs.map(async (s) => {
       const r = await sendPush(s, payload, VAPID);
