@@ -62,7 +62,7 @@ function placeFab(pos){
   fab.style.left=x+"px"; fab.style.top=y+"px"; fab.style.right="auto";
 }
 let fpos=null; try{ fpos=JSON.parse(localStorage.getItem(FKEY)||"null"); }catch(e){}
-if(fab){
+if(fab&&!fab.classList.contains("in-head")){
   placeFab(fpos);
   let drag=null, moved=false;
   fab.addEventListener("pointerdown",e=>{ const r=fab.getBoundingClientRect(); drag={dx:e.clientX-r.left,dy:e.clientY-r.top,x0:e.clientX,y0:e.clientY}; moved=false; });

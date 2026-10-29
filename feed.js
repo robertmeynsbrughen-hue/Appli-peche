@@ -17,12 +17,16 @@ function fire(article){
   try{ navigator.vibrate?.(25); }catch(e){}
   if(b&&b.getAttribute("aria-pressed")!=="true") b.click();
 }
-let lastTap=0, lastEl=null;
+let lastTap=0, lastEl=null, single=null;
 document.addEventListener("click",e=>{
   const g=e.target.closest?.("#feed .gallery"); if(!g) return;
   const now=Date.now();
+  clearTimeout(single);
   if(lastEl===g&&now-lastTap<320){ fire(g.closest("article")); lastTap=0; lastEl=null; return; }
   lastTap=now; lastEl=g;
+  // un seul tap : ouvre la fiche de la prise
+  const id=g.closest("article")?.dataset.post;
+  if(id&&A.openPost) single=setTimeout(()=>{ if(lastEl===g) A.openPost(Number(id)); lastEl=null; },340);
 });
 document.addEventListener("dblclick",e=>{ const g=e.target.closest?.("#feed .gallery"); if(g){ e.preventDefault(); } });
 
@@ -76,7 +80,7 @@ async function open(si){
     const p=st.posts[pi]; if(!p){ ui++; pi=0; return show(); }
     const s=seen(); s.add(p.id); set("cdj-seen-stories",JSON.stringify([...s].slice(-300)));
     bars.innerHTML=""; st.posts.forEach((_,k)=>{ const b=el("i",k<pi?"done":k===pi?"run":null); bars.append(b); });
-    head.innerHTML=""; const av=A.avatar(st.user); head.append(av,el("b",null,"@"+st.user),el("span",null,A.ago(p.created_at)));
+    head.innerHTML=""; const av=A.avatar(st.user); const nb=el("b","user-link","@"+st.user); nb.dataset.user=st.user; head.append(av,nb,el("span",null,A.ago(p.created_at)));
     const path=(p.photo_paths&&p.photo_paths[0])||p.photo_path; img.style.backgroundImage=urls[path]?"url('"+urls[path]+"')":"none";
     info.innerHTML="";
     const t=el("div","sv-t"); t.append(el("b",null,p.species||"Belle prise")); const sz=[p.length_cm?String(p.length_cm).replace(".",",")+" cm":"",p.weight_kg?String(p.weight_kg).replace(".",",")+" kg":""].filter(Boolean).join(" · "); if(sz) t.append(el("span",null,sz));

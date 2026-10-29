@@ -1218,3 +1218,57 @@ html:root[data-theme="dark"][data-bg="foret"]{--bg:#0a140d;--surface:#122017;--s
 .onb-place{display:flex;flex-direction:column;gap:8px}
 .onb-pl{font-weight:700}
 .onb-nav{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px}
+
+/* Chat dans l'en-tête (ne recouvre plus rien) */
+.app-head .brand{order:0}
+.app-head .grp-switch{order:1}
+.chat-fab.in-head{order:2;position:relative!important;left:auto!important;top:auto!important;right:auto!important;bottom:auto!important;transform:none!important;
+  width:40px;height:40px;flex:0 0 auto;border-radius:12px;box-shadow:none;touch-action:auto}
+.chat-fab.in-head svg{width:22px;height:22px}
+.chat-fab.in-head .chat-badge{top:-6px;right:-6px}
+.view-toggle{order:3}
+
+/* Lecture à une main : actions principales à portée du pouce */
+#composer .actions,#bilan .actions{position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:20;background:linear-gradient(transparent,var(--surface) 30%);padding-top:14px;margin-bottom:-4px}
+#composer .actions .btn.primary,#bilan .actions .btn.primary{flex:1;min-height:50px;font-size:1.02rem}
+.sheet-back{align-items:flex-end}
+.sheet{border-bottom-left-radius:0;border-bottom-right-radius:0;max-height:88vh}
+.sheet-head{order:-1}
+.gofish-go{position:sticky;bottom:0}
+
+/* Réactions : appui long, plus de choix, qui a réagi */
+.react-more{min-width:38px;font-weight:800;color:var(--muted)}
+.react-btn{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.react-pick{display:flex;justify-content:space-between;gap:4px;background:var(--surface-2);border-radius:999px;padding:6px;margin-bottom:12px}
+.react-pick .rp{all:unset;cursor:pointer;font-size:1.7rem;width:44px;height:44px;display:grid;place-items:center;border-radius:50%;transition:transform .12s}
+.react-pick .rp:active{transform:scale(1.25)}
+.react-pick .rp.on{background:var(--accent-soft)}
+.react-who{display:flex;flex-direction:column;gap:8px}
+.rw-line{display:flex;gap:10px;align-items:flex-start}
+.rw-e{font-size:1.4rem}
+.rw-names{display:flex;flex-wrap:wrap;gap:4px 10px;padding-top:4px}
+.user-link{cursor:pointer}
+.msg-who.user-link:hover,.chip.user-link:hover{text-decoration:underline}
+
+/* Fiche de prise */
+.ps-sheet{padding:0;overflow:auto;position:relative}
+.ps-close{position:absolute;top:10px;right:10px;z-index:5;background:rgba(0,0,0,.45);color:#fff;border:none}
+.ps-photos{position:relative}
+.ps-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.ps-track::-webkit-scrollbar{display:none}
+.ps-track img{flex:0 0 100%;width:100%;aspect-ratio:4/5;max-height:62vh;object-fit:cover;scroll-snap-align:center}
+.ps-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+.ps-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.ps-top h2{margin:0;font-family:var(--f-display);font-size:2.2rem;text-transform:uppercase;line-height:1}
+.ps-size{font-family:var(--f-display);font-weight:700;font-size:1.6rem;color:var(--amber)}
+.ps-by{color:var(--muted);font-size:.88rem}
+.ps-cap{margin:0}
+.ps-sec h3{margin:0 0 8px;font-size:1rem}
+.ps-cond{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.psc{background:var(--surface-2);border-radius:12px;padding:8px;display:flex;flex-direction:column}
+.psc span{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.psc b{font-size:.92rem}
+.ps-map{height:170px;border-radius:14px;overflow:hidden;border:1px solid var(--line);margin:6px 0}
+.ps-sec .actions{display:flex;gap:8px}
+.ps-sec a.btn{text-decoration:none}
+.ps-photos .gallery-count{right:auto;left:10px}

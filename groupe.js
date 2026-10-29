@@ -502,7 +502,7 @@ function drawMsgs(scroll){
       else if(isCtl) who.append(el("span","msg-ico","⚖️"));
       else if(isResp) who.append(el("span","msg-ico","👮"));
       else if(isMod) who.append(el("span","msg-ico","🛡️"));
-      who.append("@"+(m.profiles?.username||"?"));
+      who.append("@"+(m.profiles?.username||"?")); if(m.profiles?.username){ who.dataset.user=m.profiles.username; who.classList.add("user-link"); }
       if(isAdm||isCtl||isResp||isMod) who.setAttribute("title",isAdm?"Admin":isCtl?"Contrôleur de l'appli":isResp?"Responsable du groupe":"Modérateur du groupe");
       row.append(who);
     }
@@ -630,7 +630,7 @@ function mentionsMe(t){ const u=A.me?.username?.toLowerCase(); return !!u&&[...S
 function withMentions(t){
   const span=el("span","msg-t"); let last=0;
   for(const x of String(t).matchAll(MENTION)){
-    span.append(t.slice(last,x.index)); span.append(el("b","mention","@"+x[1])); last=x.index+x[0].length;
+    span.append(t.slice(last,x.index)); { const mb=el("b","mention user-link","@"+x[1]); mb.dataset.user=x[1]; span.append(mb); } last=x.index+x[0].length;
   }
   span.append(t.slice(last)); return span;
 }

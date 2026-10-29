@@ -46,7 +46,7 @@ function card(o,rs,host,gid){
   const yes=rs.filter(x=>x.status==="yes"), maybe=rs.filter(x=>x.status==="maybe");
   const ppl=el("div","chips");
   if(!yes.length&&!maybe.length) ppl.append(el("span","chip","Personne pour l'instant"));
-  [...yes,...maybe].forEach(x=>ppl.append(el("span","chip"+(x.status==="yes"?" plus":""),ST[x.status][0]+" @"+(x.profiles?.username||"?"))));
+  [...yes,...maybe].forEach(x=>{ const c=el("span","chip user-link"+(x.status==="yes"?" plus":""),ST[x.status][0]+" @"+(x.profiles?.username||"?")); if(x.profiles?.username) c.dataset.user=x.profiles.username; ppl.append(c); });
   c.append(el("h4","g-sub",yes.length+" partant"+(yes.length>1?"s":"")+(maybe.length?" · "+maybe.length+" peut-être":"")), ppl);
   // covoiturage et matos
   const going=[...yes,...maybe];
@@ -55,14 +55,14 @@ function card(o,rs,host,gid){
     const free=cars.reduce((a,x)=>a+x.seats,0);
     c.append(el("h4","g-sub","Covoiturage · "+free+" place"+(free>1?"s":"")+" libre"+(free>1?"s":"")));
     const ul=el("ul","out-list");
-    cars.forEach(x=>ul.append(el("li",null,"🚗 @"+(x.profiles?.username||"?")+" : "+x.seats+" place"+(x.seats>1?"s":""))));
-    need.forEach(x=>ul.append(el("li",null,"🙋 @"+(x.profiles?.username||"?")+" cherche une place")));
+    cars.forEach(x=>ul.append((li=>{ if(x.profiles?.username){ li.dataset.user=x.profiles.username; li.classList.add("user-link"); } return li; })(el("li",null,"🚗 @"+(x.profiles?.username||"?")+" : "+x.seats+" place"+(x.seats>1?"s":"")))));
+    need.forEach(x=>ul.append((li=>{ if(x.profiles?.username){ li.dataset.user=x.profiles.username; li.classList.add("user-link"); } return li; })(el("li",null,"🙋 @"+(x.profiles?.username||"?")+" cherche une place"))));
     c.append(ul);
   }
   if(gear.length){
     c.append(el("h4","g-sub","Matos partagé"));
     const ul=el("ul","out-list");
-    gear.forEach(x=>ul.append(el("li",null,"🎒 @"+(x.profiles?.username||"?")+" : "+x.brings)));
+    gear.forEach(x=>ul.append((li=>{ if(x.profiles?.username){ li.dataset.user=x.profiles.username; li.classList.add("user-link"); } return li; })(el("li",null,"🎒 @"+(x.profiles?.username||"?")+" : "+x.brings))));
     c.append(ul);
   }
   // ma réponse

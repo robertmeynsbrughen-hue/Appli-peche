@@ -1325,3 +1325,9 @@ language sql security definer set search_path = public as $$
 $$;
 revoke all on function public.set_nearby(int, boolean) from public, anon;
 grant execute on function public.set_nearby(int, boolean) to authenticated;
+
+
+-- ===== Lot 9 (0.36) =====
+-- réactions supplémentaires (appui long)
+alter table public.reactions drop constraint if exists reactions_emoji_check;
+alter table public.reactions add constraint reactions_emoji_check check (emoji in ('fire','clap','fish','heart','wow','lol','muscle','jealous'));

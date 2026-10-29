@@ -104,13 +104,13 @@ async function openProfile(username){
 }
 // toucher un pseudo n'importe où (sauf dans un bouton qui a déjà son action)
 document.addEventListener("click",e=>{
-  const u=e.target.closest(".post-user[data-user]"); if(!u) return;
-  if(u.closest("button,a,.pf-sheet .pf-id")) return;
+  const u=e.target.closest("[data-user]"); if(!u||!u.dataset.user) return;
+  if(u.closest("button,a,.pf-sheet .pf-id,.story-view .sv-info")) return;
   e.preventDefault(); openProfile(u.dataset.user);
 });
 document.addEventListener("keydown",e=>{
   if(e.key!=="Enter"&&e.key!==" ") return;
-  const u=e.target.closest?.(".post-user[data-user]"); if(!u||u.closest("button,a")) return;
+  const u=e.target.closest?.("[data-user]"); if(!u||!u.dataset.user||u.closest("button,a")) return;
   e.preventDefault(); openProfile(u.dataset.user);
 });
 

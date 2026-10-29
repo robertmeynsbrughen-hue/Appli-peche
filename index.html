@@ -31,6 +31,10 @@ body{margin:0}
       <h1>Coup du Jour</h1>
     </div>
     <button type="button" class="view-toggle" id="view-toggle" hidden></button>
+    <button type="button" class="chat-fab in-head" id="chat-fab" aria-label="Ouvrir le chat du groupe" hidden>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>
+  <span class="chat-badge" id="chat-badge" hidden></span>
+</button>
     <button type="button" class="grp-switch" id="grp-switch" aria-haspopup="dialog" hidden>
       <span class="gs-name" id="gs-name"></span>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
@@ -322,7 +326,7 @@ body{margin:0}
     <div class="panel" data-sub="reglages">
       <h2>Installer l'appli</h2>
       <p class="note">Android (Chrome) : menu ⋮ puis « Ajouter à l'écran d'accueil » ou « Installer l'application ».<br>iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
-      <p class="note app-version">Version <span id="app-version">35</span></p>
+      <p class="note app-version">Version <span id="app-version">0.36</span> · bêta</p>
     </div>
 
     <div class="panel" data-sub="reglages" id="account-panel" hidden>
@@ -415,10 +419,7 @@ body{margin:0}
 </div>
 
 <!-- Chat du groupe -->
-<button type="button" class="chat-fab" id="chat-fab" aria-label="Ouvrir le chat du groupe" hidden>
-  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>
-  <span class="chat-badge" id="chat-badge" hidden></span>
-</button>
+
 <div class="chat-panel" id="chat-panel" role="dialog" aria-modal="true" aria-labelledby="chat-title" hidden>
   <div class="chat-head">
     <div><h2 id="chat-title">Chat</h2><div class="note" id="chat-sub"></div></div>
@@ -470,6 +471,8 @@ body{margin:0}
 <script src="ui.js"></script>
 <script src="feed.js"></script>
 <script src="onboard.js"></script>
+<script src="postsheet.js"></script>
+<script src="sharein.js"></script>
 <script>
 if("serviceWorker" in navigator){
   // dès qu'une nouvelle version prend la main, on recharge une fois pour l'afficher

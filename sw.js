@@ -1,14 +1,29 @@
 /* Coup du Jour : service worker (fonctionnement hors ligne) */
-const VERSION="cdj-v35";
-const SHELL=["./","index.html","styles.css","advice.js","social.js","groupe.js","card.js","extras.js","peche.js","alerts.js","offline.js","species.js","dex.js","reco.js","outings.js","maptools.js","profile.js","layout.js","tools.js","lures.js","compet.js","modo.js","share.js","maplayers.js","stock.js","gofish.js","voice.js","today.js","ui.js","feed.js","onboard.js","share.html","config.js","manifest.webmanifest",
+const VERSION="cdj-v36";
+const SHELL=["./","index.html","styles.css","advice.js","social.js","groupe.js","card.js","extras.js","peche.js","alerts.js","offline.js","species.js","dex.js","reco.js","outings.js","maptools.js","profile.js","layout.js","tools.js","lures.js","compet.js","modo.js","share.js","maplayers.js","stock.js","gofish.js","voice.js","today.js","ui.js","feed.js","onboard.js","postsheet.js","sharein.js","share.html","config.js","manifest.webmanifest",
   "icon-192.png","badge-96.png","logo.svg","icon-512.png"];
 const CDN=["unpkg.com","cdn.jsdelivr.net","fonts.googleapis.com","fonts.gstatic.com"];
 self.addEventListener("install",e=>{ e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())); });
 self.addEventListener("activate",e=>{
-  e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSION&&k!=="cdj-tiles").map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
+  e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSION&&k!=="cdj-tiles"&&k!=="cdj-share").map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
 });
 self.addEventListener("fetch",e=>{
-  const req=e.request; if(req.method!=="GET") return;
+  const req=e.request;
+  // « Partager → Coup du Jour » depuis la galerie : on garde les photos puis on ouvre l'appli
+  if(req.method==="POST"&&new URL(req.url).pathname.endsWith("/share-target")){
+    e.respondWith((async()=>{
+      try{
+        const fd=await req.formData(); const files=fd.getAll("photos").filter(f=>f&&f.size).slice(0,6);
+        const c=await caches.open("cdj-share"); for(const k of await c.keys()) await c.delete(k);
+        await Promise.all(files.map((f,i)=>c.put("./shared-"+i,new Response(f,{headers:{"Content-Type":f.type||"image/jpeg","X-Name":encodeURIComponent(f.name||("photo-"+i+".jpg"))}}))));
+        const t=[fd.get("title"),fd.get("text")].filter(Boolean).join(" ").slice(0,300);
+        if(t) await c.put("./shared-text",new Response(t));
+      }catch(_){}
+      return Response.redirect("./index.html?shared=1#fil",303);
+    })());
+    return;
+  }
+  if(req.method!=="GET") return;
   const url=new URL(req.url);
   if(url.origin===location.origin){
     // réseau d'abord pour recevoir les mises à jour, cache si hors ligne

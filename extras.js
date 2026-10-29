@@ -6,6 +6,8 @@ const {el,toast,frError,confirmBtn,userLabel,ago}=A;
 const $=s=>document.querySelector(s);
 const SPECIES=["Brochet","Sandre","Perche","Black-bass","Silure","Carpe","Chevesne"];
 const REACT=[["fire","🔥","Feu"],["clap","👏","Bravo"],["fish","🎣","Belle prise"]];
+const REACT_MORE=[["heart","❤️","J'adore"],["wow","😮","Waouh"],["lol","😂","Trop drôle"],["muscle","💪","Costaud"],["jealous","😤","Jaloux"]];
+const REACT_ALL=[...REACT,...REACT_MORE];
 const fmt=n=>Number(n).toLocaleString("fr-FR");
 const pl=(n,w,ws)=>n+" "+(n>1?(ws||w+"s"):w);
 function btn(label,cls,fn){ const b=el("button",cls||"btn",label); b.type="button"; if(fn) b.addEventListener("click",fn); return b; }
@@ -33,24 +35,51 @@ async function feedExtras(list){
     drawSocial(box,x.post,(reac||[]).filter(r=>r.post_id===x.post.id),(coms||[]).filter(c=>c.post_id===x.post.id));
   }
 }
+// feuille : toutes les réactions + qui a réagi
+async function reactSheet(p,reac,toggle){
+  document.querySelector(".react-back")?.remove();
+  const back=el("div","sheet-back react-back"); const sh=el("div","sheet react-sheet"); sh.setAttribute("role","dialog"); sh.setAttribute("aria-modal","true"); sh.setAttribute("aria-label","Réactions");
+  const close=()=>back.remove();
+  const pick=el("div","react-pick");
+  REACT_ALL.forEach(([k,e,label])=>{ const on=reac.some(r=>r.emoji===k&&r.user_id===A.me.id); const b=btn(e,"rp"+(on?" on":""),async()=>{ close(); await toggle(k); }); b.setAttribute("aria-label",label); b.title=label; pick.append(b); });
+  sh.append(pick);
+  const who=el("div","react-who"); who.append(el("p","note","Chargement…")); sh.append(who);
+  back.append(sh); back.addEventListener("click",e=>{ if(e.target===back) close(); }); document.body.append(back);
+  const {data}=await A.sb.from("reactions").select("emoji,user_id,profiles(username,is_admin)").eq("post_id",p.id);
+  who.innerHTML="";
+  const rows=data||[];
+  if(!rows.length){ who.append(el("p","note","Personne n'a encore réagi : sois le premier !")); return; }
+  REACT_ALL.forEach(([k,e,label])=>{ const r=rows.filter(x=>x.emoji===k); if(!r.length) return;
+    const line=el("div","rw-line"); line.append(el("span","rw-e",e));
+    const names=el("div","rw-names"); r.forEach(x=>names.append(userLabel(x.profiles?.username,x.profiles?.is_admin))); line.append(names); who.append(line); });
+}
 function drawSocial(box,p,reac,coms,open){
   box.innerHTML="";
   const bar=el("div","react-bar");
-  REACT.forEach(([k,e,label])=>{
+  const toggle=async(k,b)=>{
+    const mine=reac.some(r=>r.emoji===k&&r.user_id===A.me.id);
+    if(b) b.disabled=true;
+    const q=mine?A.sb.from("reactions").delete().eq("post_id",p.id).eq("user_id",A.me.id).eq("emoji",k)
+                :A.sb.from("reactions").insert({post_id:p.id,user_id:A.me.id,emoji:k});
+    const {error}=await q;
+    if(error){ if(b) b.disabled=false; return toast(frError(error)); }
+    reac=mine?reac.filter(r=>!(r.emoji===k&&r.user_id===A.me.id)):[...reac,{post_id:p.id,user_id:A.me.id,emoji:k}];
+    drawSocial(box,p,reac,coms,open);
+  };
+  // les 3 réactions de base, plus celles déjà utilisées sur cette prise
+  REACT_ALL.filter(([k],i)=>i<3||reac.some(r=>r.emoji===k)).forEach(([k,e,label])=>{
     const mine=reac.some(r=>r.emoji===k&&r.user_id===A.me.id), n=reac.filter(r=>r.emoji===k).length;
     const b=btn("","react-btn"); b.setAttribute("aria-pressed",mine?"true":"false"); b.setAttribute("aria-label",label+(n?" ("+n+")":""));
     b.append(el("span",null,e)); if(n) b.append(el("span","react-n",String(n)));
-    b.addEventListener("click",async()=>{
-      b.disabled=true;
-      const q=mine?A.sb.from("reactions").delete().eq("post_id",p.id).eq("user_id",A.me.id).eq("emoji",k)
-                  :A.sb.from("reactions").insert({post_id:p.id,user_id:A.me.id,emoji:k});
-      const {error}=await q;
-      if(error){ b.disabled=false; return toast(frError(error)); }
-      reac=mine?reac.filter(r=>!(r.emoji===k&&r.user_id===A.me.id)):[...reac,{post_id:p.id,user_id:A.me.id,emoji:k}];
-      drawSocial(box,p,reac,coms,open);
-    });
+    let lp=null, long=false;
+    b.addEventListener("pointerdown",()=>{ long=false; lp=setTimeout(()=>{ long=true; try{ navigator.vibrate?.(20); }catch(e){} reactSheet(p,reac,toggle); },450); });
+    ["pointerup","pointerleave","pointercancel"].forEach(ev=>b.addEventListener(ev,()=>clearTimeout(lp)));
+    b.addEventListener("contextmenu",e=>e.preventDefault());
+    b.addEventListener("click",()=>{ if(long){ long=false; return; } toggle(k,b); });
     bar.append(b);
   });
+  const more=btn("＋","react-btn react-more",()=>reactSheet(p,reac,toggle)); more.setAttribute("aria-label","Plus de réactions et qui a réagi"); more.title="Plus de réactions · qui a réagi (ou appui long sur une réaction)";
+  bar.append(more);
   const cb=btn("💬 "+(coms.length?coms.length:"Commenter"),"react-btn com");
   cb.setAttribute("aria-expanded",open?"true":"false");
   cb.addEventListener("click",()=>{ drawSocial(box,p,reac,coms,!open); if(!open) box.querySelector(".cmt-form input")?.focus(); });
