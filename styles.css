@@ -427,3 +427,6 @@ body.chat-open{overflow:hidden}
 .card-sheet{max-height:94vh}
 .card-sheet>*{flex-shrink:0}
 .card-prev img{max-height:40vh;width:auto}
+.msg-who.is-mod{color:#3f5fbf}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .msg-who.is-mod{color:#8fa6ff}}
+:root[data-theme="dark"] .msg-who.is-mod{color:#8fa6ff}

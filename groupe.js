@@ -463,13 +463,15 @@ function drawMsgs(scroll){
     const mine=m.user_id===A.me.id;
     const row=el("div","msg"+(mine?" mine":""));
     if(lastUser!==m.user_id){
-      // pseudo toujours affiché ; admin en orange 👑, responsable en vert 👮
-      const isAdm=!!m.profiles?.is_admin, isResp=!isAdm&&A.roleOf(chatGid,m.user_id)==="owner";
-      const who=el("div","msg-who"+(isAdm?" is-admin":isResp?" is-owner":""));
+      // pseudo toujours affiché ; admin en orange 👑, responsable en vert 👮, modérateur en bleu 🛡️
+      const isAdm=!!m.profiles?.is_admin, role=isAdm?null:A.roleOf(chatGid,m.user_id);
+      const isResp=role==="owner", isMod=role==="moderator";
+      const who=el("div","msg-who"+(isAdm?" is-admin":isResp?" is-owner":isMod?" is-mod":""));
       if(isAdm) who.append(el("span","msg-ico","👑"));
       else if(isResp) who.append(el("span","msg-ico","👮"));
+      else if(isMod) who.append(el("span","msg-ico","🛡️"));
       who.append("@"+(m.profiles?.username||"?"));
-      if(isAdm||isResp) who.setAttribute("title",isAdm?"Admin":"Responsable du groupe");
+      if(isAdm||isResp||isMod) who.setAttribute("title",isAdm?"Admin":isResp?"Responsable du groupe":"Modérateur du groupe");
       row.append(who);
     }
     const b=el("div","bubble"); b.append(el("span","msg-t",m.body),el("span","msg-h",d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})));
