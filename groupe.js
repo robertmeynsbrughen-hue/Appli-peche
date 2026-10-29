@@ -462,7 +462,16 @@ function drawMsgs(scroll){
     if(day!==lastDay){ box.append(el("div","chat-day",day)); lastDay=day; lastUser=null; }
     const mine=m.user_id===A.me.id;
     const row=el("div","msg"+(mine?" mine":""));
-    if(!mine&&lastUser!==m.user_id){ row.append(el("div","msg-who","@"+(m.profiles?.username||"?"))); }
+    if(lastUser!==m.user_id){
+      // pseudo toujours affiché ; admin en orange 👑, responsable en vert 👮
+      const isAdm=!!m.profiles?.is_admin, isResp=!isAdm&&A.roleOf(chatGid,m.user_id)==="owner";
+      const who=el("div","msg-who"+(isAdm?" is-admin":isResp?" is-owner":""));
+      if(isAdm) who.append(el("span","msg-ico","👑"));
+      else if(isResp) who.append(el("span","msg-ico","👮"));
+      who.append("@"+(m.profiles?.username||"?"));
+      if(isAdm||isResp) who.setAttribute("title",isAdm?"Admin":"Responsable du groupe");
+      row.append(who);
+    }
     const b=el("div","bubble"); b.append(el("span","msg-t",m.body),el("span","msg-h",d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})));
     row.append(b); box.append(row); lastUser=m.user_id;
   });

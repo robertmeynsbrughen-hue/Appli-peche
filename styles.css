@@ -404,3 +404,8 @@ body.chat-open{overflow:hidden}
 .chat-tab{flex-shrink:0;display:flex;align-items:center;gap:6px;font:inherit;font-size:.86rem;font-weight:600;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:pointer;white-space:nowrap}
 .chat-tab.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .chat-tab-n{min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:var(--warn);color:#fff;font-family:var(--f-mono);font-size:.68rem;display:grid;place-items:center}
+.msg.mine .msg-who{margin:6px 10px 2px 0}
+.msg-who{display:flex;align-items:center;gap:4px}
+.msg-who.is-admin{color:var(--amber)}
+.msg-who.is-owner{color:var(--accent)}
+.msg-ico{font-size:.85rem;line-height:1}
