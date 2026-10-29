@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d2b25"/><stop offset=".62" stop-color="#17503f"/><stop offset="1" stop-color="#1f6f5c"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd27a"/><stop offset="1" stop-color="#e98a2c"/>
+    </linearGradient>
+    <linearGradient id="fish" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff7e6"/><stop offset="1" stop-color="#f1dcb2"/>
+    </linearGradient>
+    <clipPath id="c"><rect width="512" height="512"/></clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="512" height="512" fill="url(#sky)"/><rect y="336" width="512" height="176" fill="#0b2621" id="sea"/><g id="scene">
+    <circle cx="256" cy="336" r="152" fill="url(#sun)"/>
+    <!-- eau -->
+    <rect y="336" width="512" height="176" fill="#0b2621"/>
+    <g fill="#e98a2c" opacity=".55">
+      <rect x="150" y="358" width="212" height="9" rx="4.5"/>
+      <rect x="186" y="382" width="140" height="8" rx="4"/>
+      <rect x="220" y="404" width="72" height="7" rx="3.5"/>
+    </g>
+    <!-- poisson qui saute (carnassier) -->
+    <g transform="translate(256 236) rotate(-30) scale(-1 1) translate(-262 -250)">
+      <path fill="url(#fish)" d="M96 262 C150 214 250 196 336 214 C362 219 384 228 398 238 L452 204 C446 232 444 256 452 286 L398 258 C380 274 350 288 316 294 C232 310 150 298 96 262 Z"/>
+      <!-- nageoire dorsale -->
+      <path fill="#f1dcb2" d="M318 214 C326 192 344 182 366 180 C360 196 356 210 360 222 Z"/>
+      <!-- ventrale -->
+      <path fill="#f1dcb2" d="M300 294 C306 312 318 322 334 326 C332 312 330 302 332 290 Z"/>
+      <!-- bouche -->
+      <path fill="#0d2b25" d="M96 262 L140 258 L104 270 Z"/>
+      <!-- oeil -->
+      <circle cx="146" cy="248" r="11" fill="#0d2b25"/>
+      <circle cx="149" cy="245" r="3.5" fill="#fff"/>
+      <!-- motif -->
+      <g fill="#d9b876" opacity=".7">
+        <ellipse cx="210" cy="252" rx="10" ry="6"/><ellipse cx="246" cy="268" rx="9" ry="5.5"/><ellipse cx="270" cy="242" rx="10" ry="6"/>
+        <ellipse cx="300" cy="262" rx="9" ry="5.5"/><ellipse cx="330" cy="244" rx="8" ry="5"/><ellipse cx="226" cy="282" rx="8" ry="5"/>
+      </g>
+    </g>
+    <!-- ligne : le poisson est ferré -->
+    <path d="M492 -10 Q474 84 405 164" fill="none" stroke="#fff7e6" stroke-width="3.5" stroke-linecap="round" opacity=".85"/>
+    <!-- éclaboussures -->
+    <g fill="#fff7e6">
+      <circle cx="112" cy="334" r="9"/><circle cx="88" cy="316" r="6"/><circle cx="136" cy="316" r="5"/><circle cx="72" cy="336" r="4"/><circle cx="158" cy="334" r="4"/>
+    </g>
+  </g></g>
+</svg>

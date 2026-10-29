@@ -558,3 +558,4 @@ body.chat-open{overflow:hidden}
 .queue-pill{position:fixed;left:50%;transform:translateX(-50%);top:calc(64px + env(safe-area-inset-top,0px));z-index:1500;font:inherit;font-size:.82rem;font-weight:700;
   padding:6px 14px;border-radius:99px;border:1px solid var(--amber);background:var(--amber-soft);color:var(--fg);box-shadow:var(--shadow);cursor:pointer}
 .queue-pill.off{border-color:var(--warn);background:var(--warn-soft)}
+.logo-img{display:block;object-fit:cover;background:none}
