@@ -1,5 +1,5 @@
 /* Coup du Jour : service worker (fonctionnement hors ligne) */
-const VERSION="cdj-v5";
+const VERSION="cdj-v7";
 const SHELL=["./","index.html","styles.css","advice.js","social.js","config.js","manifest.webmanifest",
   "icon-192.png","icon-512.png"];
 const CDN=["unpkg.com","cdn.jsdelivr.net","fonts.googleapis.com","fonts.gstatic.com"];
@@ -17,4 +17,25 @@ self.addEventListener("fetch",e=>{
   }else if(CDN.includes(url.hostname)){
     e.respondWith(caches.match(req).then(r=>r||fetch(req).then(res=>{ const cp=res.clone(); caches.open(VERSION).then(c=>c.put(req,cp)); return res; })));
   }
+});
+
+// ---- Notifications push ----
+self.addEventListener("push",e=>{
+  let d={};
+  try{ d=e.data?e.data.json():{}; }catch(_){ d={body:e.data?e.data.text():""}; }
+  e.waitUntil(self.registration.showNotification(d.title||"Coup du Jour",{
+    body:d.body||"", icon:"icon-192.png", badge:"icon-192.png", tag:d.tag, data:{url:d.url||"./"}
+  }));
+});
+self.addEventListener("notificationclick",e=>{
+  e.notification.close();
+  const url=new URL((e.notification.data&&e.notification.data.url)||"./",self.registration.scope).href;
+  e.waitUntil(clients.matchAll({type:"window",includeUncontrolled:true}).then(list=>{
+    for(const c of list){
+      if(c.url.startsWith(self.registration.scope)){
+        return c.focus().then(w=>w&&w.navigate?w.navigate(url).catch(()=>w):w);
+      }
+    }
+    return clients.openWindow(url);
+  }));
 });

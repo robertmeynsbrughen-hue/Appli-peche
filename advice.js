@@ -198,107 +198,114 @@ function lureAdvice(sp,c,meta){
     lure=t<12?"gros shad 15 à 20 cm en verticale dans les fosses":"gros shad 20 à 25 cm, leurre à forte vibration, ou clonk";
     col="la couleur compte peu, mise sur la vibration ; noir ou blanc pour la silhouette";
   }else return null;
-  let txt="Leurre : "+lure+". Coloris : "+col+".";
-  if(strong) txt+=" Courant fort : alourdis la tête plombée (5 à 10 g de plus) et cherche les contre-courants près des berges.";
-  else if(flow&&flow.status==="basse") txt+=" Basses eaux : allège les têtes et vise les fosses et zones plus profondes.";
-  return txt;
+  let extra="";
+  if(strong) extra="Courant fort : alourdis la tête plombée (5 à 10 g de plus) et cherche les contre-courants près des berges.";
+  else if(flow&&flow.status==="basse") extra="Basses eaux : allège les têtes et vise les fosses et zones plus profondes.";
+  return {lure,col,extra};
 }
 
 // ---------- Rendu ----------
+const openTips=new Set();   // menus « Conseils » ouverts, gardés entre deux actualisations
+function mk(tag,cls,text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
+const cap=t=>t.charAt(0).toUpperCase()+t.slice(1);
 function render(){
   if(!current) return;
   const {hours,meta}=current;
   const now=hours[0];
   const st=$("#status");
   st.innerHTML="";
-  const p=document.createElement("span");
-  p.className="pill"+(mode==="live"?"":" manual");
-  p.textContent=mode==="live"?"Position + météo en direct":"Exemple de conditions";
-  st.append(p);
-  const s=document.createElement("span");
-  s.textContent=meta.place+" · "+meta.when;
-  st.append(s);
+  st.append(mk("span","pill"+(mode==="live"?"":" manual"),mode==="live"?"En direct":"Exemple"));
+  st.append(mk("span",null,meta.place+" · "+meta.when));
 
-  const g=$("#grid"); g.innerHTML="";
   const trend=now.dp<=-3?"forte baisse ↓↓":now.dp<=-1?"en baisse ↓":now.dp>=3?"forte hausse ↑↑":now.dp>=1?"en hausse ↑":"stable →";
   const sky=now.rain>=0.3?"Pluie":now.cloud>=65?"Couvert":now.cloud>=35?"Voilé":"Ensoleillé";
+  const clar=getClarity(now,meta);
+  // relevé principal
+  const hero=$("#hero"); hero.innerHTML="";
+  const big=mk("div","hero-temp"); big.append(mk("span","hero-num",now.water.toFixed(1).replace(".",",")),mk("span","hero-unit","°C"));
+  const side=mk("div","hero-side");
+  side.append(mk("div","hero-k","Eau estimée"), mk("div","hero-v",sky+" · air "+Math.round(now.air)+" °C"), mk("div","hero-v2","Eau "+CLARITY_TXT[clar]+(($("#f-clarity")||{}).value==="auto"?" (estimée)":"")));
+  hero.append(big,side);
+
+  const g=$("#grid"); g.innerHTML="";
   const cells=[
-    ["Eau (estimée)",now.water.toFixed(1)+" °C"],
-    ["Air",Math.round(now.air)+" °C"],
-    ["Pression",(meta.pressure?Math.round(meta.pressure)+" hPa, ":"")+trend],
+    ["Pression",(meta.pressure?Math.round(meta.pressure)+" hPa ":"")+trend],
     ["Vent",Math.round(now.wind)+" km/h"],
-    ["Ciel",sky],
     ["Soleil",fmtH(meta.rise)+" · "+fmtH(meta.set)],
     ["Lune",meta.moon]
   ];
-  cells.push(["Clarté de l'eau",CLARITY_TXT[getClarity(now,meta)]+(($("#f-clarity")||{}).value==="auto"?" (estimée)":"")]);
   if(waterType!=="etang"){
     const f=getFlow(meta);
-    if(f) cells.push(["Débit rivière",(f.q!=null?Math.round(f.q)+" m³/s, ":"")+FLOW_TXT[f.status]+(f.trend==="hausse"?" ↑":f.trend==="baisse"?" ↓":"")]);
-    else cells.push(["Débit rivière","indisponible"]);
+    cells.push(["Débit rivière",f?(f.q!=null?Math.round(f.q)+" m³/s · ":"")+FLOW_TXT[f.status]+(f.trend==="hausse"?" ↑":f.trend==="baisse"?" ↓":""):"indisponible"]);
   }
-  for(const [k,v] of cells){
-    const d=document.createElement("div"); d.className="cell";
-    d.innerHTML='<div class="k"></div><div class="v"></div>';
-    d.querySelector(".k").textContent=k; d.querySelector(".v").textContent=v;
-    g.append(d);
-  }
+  for(const [k,v] of cells){ const d=mk("div","cell"); d.append(mk("div","k",k),mk("div","v",v)); g.append(d); }
 
   const m=meta.month;
   const results=SPECIES.map(sp=>{
     const series=hours.map(h=>scoreHour(sp,h));
     const peak=Math.max(...series);
-    // meilleure fenêtre : heures à ≥ 85 % du pic
     const best=series.map(v=>v>=peak*0.85&&peak>0.15);
-    // première plage continue de meilleures heures
     let a=best.indexOf(true), b=a;
     while(b+1<best.length&&best[b+1]) b++;
-    return {sp,series,peak,best,a,b,now:series[0]};
+    return {sp,series,peak,best,a,b};
   }).sort((x,y)=>y.peak-x.peak);
 
   const list=$("#list"); list.innerHTML="";
   results.forEach((r,i)=>{
-    const el=document.createElement("article");
-    el.className="sp"+(i===0?" top":"");
+    const card=mk("article","sp"+(i===0?" top":""));
     const pct=Math.round(r.peak*100);
-    const winTxt=r.a<0?"Aucun créneau vraiment favorable dans les 24 h.":
-      "Meilleur créneau : <b>"+hours[r.a].label+" – "+(hours[r.b+1]?hours[r.b+1].label:hours[r.b].label)+"</b>";
-    const axis=hours.filter((_,k)=>k%3===0).map(h=>"<span>"+h.label+"</span>").join("");
-    el.innerHTML=`
-      <div class="sp-head">
-        <div class="sp-name"></div>
-        <div class="score">${pct}<span>/100</span></div>
-      </div>
-      <div class="bar"><i style="width:${pct}%"></i></div>
-      <div>
-        <div class="strip">${r.series.map((v,k)=>`<div class="${r.best[k]?"best":""}" style="${r.best[k]?"":"opacity:"+(0.1+v*0.7).toFixed(2)}" title="${hours[k].label} : ${Math.round(v*100)}"></div>`).join("")}</div>
-        <div class="axis">${axis}</div>
-      </div>
-      <div class="window">${winTxt}</div>
-      <div class="chips"></div>
-      <p class="how"></p>`;
-    const nm=el.querySelector(".sp-name");
-    nm.textContent=r.sp.name;
-    const sm=document.createElement("small"); sm.textContent=r.sp.latin; nm.append(sm);
-    const ch=el.querySelector(".chips");
-    for(const [cls,txt] of reasons(r.sp,now)){
-      const c=document.createElement("span"); c.className="chip "+cls; c.textContent=txt; ch.append(c);
-    }
-    el.querySelector(".how").textContent=r.sp.how[band(now.water)];
+    const closed=r.sp.closed&&r.sp.closed(m), maybe=!closed&&r.sp.maybe&&r.sp.maybe(m);
+    // en-tête
+    const head=mk("div","sp-head");
+    const id=mk("div","sp-id");
+    id.append(mk("span","sp-rank",String(i+1)));
+    const nm=mk("div","sp-name",r.sp.name); nm.append(mk("small",null,r.sp.latin));
+    id.append(nm);
+    const gauge=mk("div","gauge"); gauge.style.setProperty("--p",pct);
+    gauge.append(mk("span",null,String(pct)));
+    gauge.setAttribute("role","img"); gauge.setAttribute("aria-label","Score "+pct+" sur 100");
+    head.append(id,gauge);
+    card.append(head);
+    if(closed||maybe) card.append(mk("span","flag",closed?"Fermeture probable":"Fermeture possible"));
+    // frise 24 h
+    const tl=mk("div","timeline");
+    const strip=mk("div","strip");
+    r.series.forEach((v,k)=>{
+      const d=mk("div",r.best[k]?"best":null);
+      if(!r.best[k]) d.style.opacity=(0.14+v*0.6).toFixed(2);
+      d.style.height=(30+v*70).toFixed(0)+"%";
+      d.title=hours[k].label+" : "+Math.round(v*100);
+      strip.append(d);
+    });
+    const axis=mk("div","axis"); hours.forEach((h,k)=>{ if(k%3===0) axis.append(mk("span",null,h.label)); });
+    tl.append(strip,axis); card.append(tl);
+    const win=mk("div","window");
+    if(r.a<0) win.textContent="Aucun créneau vraiment favorable dans les 24 h.";
+    else{ win.append("Meilleur créneau "); win.append(mk("b",null,hours[r.a].label+" – "+(hours[r.b+1]?hours[r.b+1].label:hours[r.b].label))); }
+    card.append(win);
+    // menu déroulant des conseils
+    const det=mk("details","tips"); det.open=openTips.has(r.sp.id);
+    det.addEventListener("toggle",()=>{ det.open?openTips.add(r.sp.id):openTips.delete(r.sp.id); });
+    det.append(mk("summary",null,"Conseils de pêche"));
+    const body=mk("div","tips-body");
+    const ch=mk("div","chips");
+    for(const [cls,txt] of reasons(r.sp,now)) ch.append(mk("span","chip "+cls,txt));
+    body.append(ch);
+    const sec=(title,cls)=>{ const b=mk("section","tip"+(cls?" "+cls:"")); b.append(mk("h4",null,title)); body.append(b); return b; };
+    sec("Technique et postes").append(mk("p",null,r.sp.how[band(now.water)]));
     const lh=hours[r.a>=0?r.a:0];
     const la=lureAdvice(r.sp,lh,meta);
-    if(la){ const lt=document.createElement("p"); lt.className="how lure"; lt.textContent=(r.a>0?"Pour "+lh.label+" : ":"")+la; el.append(lt); }
-    if(r.sp.id==="carpe"){ const bt=document.createElement("p"); bt.className="how bait"; bt.textContent=carpBait(now,m); el.append(bt); }
-    if(r.sp.closed&&r.sp.closed(m)){
-      const w=document.createElement("p"); w.className="warn";
-      w.textContent="Période de fermeture probable en 2e catégorie : vérifie l'arrêté de ton département avant de le cibler.";
-      el.append(w);
-    } else if(r.sp.maybe&&r.sp.maybe(m)){
-      const w=document.createElement("p"); w.className="warn";
-      w.textContent="Fermeture possible selon les départements à cette période : vérifie la réglementation locale.";
-      el.append(w);
+    if(la){
+      const b=sec("Leurre et coloris"+(r.a>0?" pour "+lh.label:""),"lure");
+      const dl=mk("dl");
+      dl.append(mk("dt",null,"Leurre"),mk("dd",null,cap(la.lure)),mk("dt",null,"Coloris"),mk("dd",null,cap(la.col)));
+      b.append(dl);
+      if(la.extra) b.append(mk("p","tip-extra",la.extra));
     }
-    list.append(el);
+    if(r.sp.id==="carpe") sec("Bouillettes","bait").append(mk("p",null,carpBait(now,m).replace(/^Bouillettes du moment : /,"").replace(/^./,c=>c.toUpperCase())));
+    if(closed||maybe) body.append(mk("p","warn",closed?"Période de fermeture probable en 2e catégorie : vérifie l'arrêté de ton département avant de le cibler.":"Fermeture possible selon les départements à cette période : vérifie la réglementation locale."));
+    det.append(body); card.append(det);
+    list.append(card);
   });
 }
 

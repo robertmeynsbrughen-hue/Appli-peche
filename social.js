@@ -54,6 +54,11 @@ function userLabel(name,isAdmin,isOwner){
   else if(isOwner) s.append(el("span","badge owner","Resp."));
   return s;
 }
+function avatar(name){
+  const n=name||"?"; let h=0; for(const c of n) h=(h*31+c.charCodeAt(0))%360;
+  const a=el("span","avatar",n.charAt(0)); a.style.background="hsl("+h+" 42% 42%)"; a.setAttribute("aria-hidden","true");
+  return a;
+}
 const isOwner=(gid,uid)=>!!owners.get(gid)?.has(uid);
 const canManage=gid=>!!me&&(me.is_admin||isOwner(gid,me.id));
 const isManager=()=>!!me&&(me.is_admin||[...owners.values()].some(set=>set.has(me.id)));
@@ -105,6 +110,7 @@ function refreshUI(){
   if(!member){ $("#feed").innerHTML=""; }
   renderGroupSelects();
   renderMyGroups();
+  renderPush();
 }
 
 function renderGroupSelects(){
@@ -176,6 +182,7 @@ $("#join-more").addEventListener("submit",async e=>{
 });
 
 $("#logout").addEventListener("click",async()=>{
+  try{ const sub=pushSupported()?await currentSub():null; if(sub) await sb.rpc("delete_push_sub",{p_endpoint:sub.endpoint}); }catch(e){}
   await sb.auth.signOut();
   me=null; hasSession=false; groups=[]; spots=[]; cur=null; if(layer) layer.clearLayers();
   refreshUI(); route();
@@ -187,7 +194,7 @@ async function loadMe(){
   if(!session){ me=null; groups=[]; refreshUI(); return; }
   const {data}=await sb.from("profiles").select("id,username,is_admin").eq("id",session.user.id).maybeSingle();
   me=data||null;
-  if(me){ await loadGroups(); loadSpots(); loadStats(); }
+  if(me){ await loadGroups(); loadSpots(); loadStats(); syncPush(); }
   refreshUI();
 }
 
@@ -245,11 +252,28 @@ async function compress(file){
   c.getContext("2d").drawImage(img,0,0,c.width,c.height);
   return new Promise(r=>c.toBlob(r,"image/jpeg",0.82));
 }
+// Photos choisies pour le post (on peut en ajouter en plusieurs fois)
+const MAXPICS=6;
+let pics=[];
+function renderThumbs(){
+  const box=$("#p-thumbs"); box.innerHTML="";
+  box.hidden=!pics.length; $("#p-measure").hidden=!pics.length;
+  pics.forEach((f,i)=>{
+    const t=el("div","thumb");
+    const im=el("img"); im.src=f.url; im.alt="Photo "+(i+1); t.append(im);
+    if(i===0) t.append(el("span","thumb-first","1re"));
+    const x=el("button","thumb-x","×"); x.type="button"; x.setAttribute("aria-label","Retirer la photo "+(i+1));
+    x.addEventListener("click",()=>{ URL.revokeObjectURL(f.url); pics.splice(i,1); renderThumbs(); });
+    t.append(x); box.append(t);
+  });
+}
 $("#p-photo").addEventListener("change",()=>{
-  const f=$("#p-photo").files[0], pv=$("#p-preview");
-  $("#p-measure").hidden=!f;
-  if(!f){ pv.hidden=true; return; }
-  pv.src=URL.createObjectURL(f); pv.hidden=false;
+  const add=[...$("#p-photo").files];
+  const room=MAXPICS-pics.length;
+  add.slice(0,room).forEach(file=>pics.push({file,url:URL.createObjectURL(file)}));
+  if(add.length>room) toast("6 photos maximum par post");
+  $("#p-photo").value="";
+  renderThumbs();
 });
 
 // ---------- Poids estimé (formules longueur-poids : poids en g = a × longueur en cm ^ b) ----------
@@ -311,7 +335,7 @@ function mLayout(){
   mDraw();
 }
 $("#p-measure").addEventListener("click",()=>{
-  const f=$("#p-photo").files[0]; if(!f) return;
+  const f=pics[0]?.file; if(!f) return;
   const img=new Image();
   img.onload=()=>{ M.img=img; M.pts=[]; $("#measure").hidden=false; document.body.style.overflow="hidden"; requestAnimationFrame(mLayout); };
   img.src=URL.createObjectURL(f);
@@ -333,23 +357,27 @@ $("#m-ok").addEventListener("click",()=>{
 window.addEventListener("resize",()=>{ if(!$("#measure").hidden&&M.img) mLayout(); });
 $("#composer").addEventListener("submit",async e=>{
   e.preventDefault(); if(!me||cur==="all"||cur==null) return;
-  const f=$("#p-photo").files[0], cap=$("#p-caption").value.trim();
-  if(!f&&!cap&&!$("#p-bait").value.trim()) return showErr($("#p-err"),"Ajoute une photo ou une légende.");
+  const cap=$("#p-caption").value.trim();
+  if(!pics.length&&!cap&&!$("#p-bait").value.trim()) return showErr($("#p-err"),"Ajoute une photo ou une légende.");
   const btn=$("#p-submit"); btn.disabled=true; btn.textContent="Envoi…"; showErr($("#p-err"));
   try{
-    let path=null;
-    if(f){
-      const blob=await compress(f);
-      path=cur+"/"+me.id+"/"+Date.now()+".jpg";
+    const paths=[], stamp=Date.now();
+    for(let i=0;i<pics.length;i++){
+      btn.textContent="Envoi "+(i+1)+"/"+pics.length+"…";
+      const blob=await compress(pics[i].file);
+      const path=cur+"/"+me.id+"/"+stamp+"-"+i+".jpg";
       const {error}=await sb.storage.from("photos").upload(path,blob,{contentType:"image/jpeg"});
-      if(error) throw error;
+      if(error){ if(paths.length) await sb.storage.from("photos").remove(paths); throw error; }
+      paths.push(path);
     }
+    const path=paths[0]||null;
     const spot=$("#p-spot").value?Number($("#p-spot").value):null;
     const len=parseFloat($("#p-len").value), wt=parseFloat($("#p-wt").value);
-    const {error}=await sb.from("posts").insert({group_id:cur,caption:cap||null,species:$("#p-species").value||null,photo_path:path,spot_id:spot,
+    const {error}=await sb.from("posts").insert({group_id:cur,caption:cap||null,species:$("#p-species").value||null,photo_path:path,photo_paths:paths.length?paths:null,spot_id:spot,
       length_cm:len>0?Math.round(len*10)/10:null, weight_kg:wt>0?Math.round(wt*100)/100:null, bait:$("#p-bait").value.trim()||null});
-    if(error) throw error;
-    $("#composer").reset(); $("#p-preview").hidden=true; $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
+    if(error){ if(paths.length) await sb.storage.from("photos").remove(paths); throw error; }
+    pics.forEach(f=>URL.revokeObjectURL(f.url)); pics=[]; renderThumbs();
+    $("#composer").reset(); $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
     toast("Prise partagée"); loadFeed(); loadStats();
   }catch(err){ showErr($("#p-err"),frError(err)); }
   finally{ btn.disabled=false; btn.textContent="Publier"; }
@@ -360,13 +388,14 @@ async function loadFeed(){
   if(!me||!groups.length||cur==null) return;
   const feed=$("#feed");
   let q=sb.from("posts")
-    .select("id,group_id,caption,species,photo_path,created_at,user_id,length_cm,weight_kg,bait,profiles(username,is_admin),spots(id,name)")
+    .select("id,group_id,caption,species,photo_path,photo_paths,created_at,user_id,length_cm,weight_kg,bait,profiles(username,is_admin),spots(id,name)")
     .order("created_at",{ascending:false}).limit(60);
   if(cur!=="all") q=q.eq("group_id",cur);
   const {data,error}=await q;
   feed.innerHTML="";
   if(error){ feed.append(el("p","err",frError(error))); return; }
-  const paths=data.map(p=>p.photo_path).filter(Boolean);
+  const allPaths=p=>(p.photo_paths&&p.photo_paths.length)?p.photo_paths:(p.photo_path?[p.photo_path]:[]);
+  const paths=data.flatMap(allPaths);
   const urls={};
   if(paths.length){
     const {data:signed}=await sb.storage.from("photos").createSignedUrls(paths,3600);
@@ -376,13 +405,35 @@ async function loadFeed(){
   for(const p of data){
     const a=el("article","post");
     const head=el("div","post-head");
+    const who=el("div","post-who");
+    who.append(avatar(p.profiles?.username));
     const left=el("div"); left.append(userLabel(p.profiles?.username,p.profiles?.is_admin,isOwner(p.group_id,p.user_id)));
     if(cur==="all") left.append(el("div","post-group",groupName(p.group_id)));
-    head.append(left, el("span","post-date",ago(p.created_at)));
+    who.append(left);
+    head.append(who, el("span","post-date",ago(p.created_at)));
     a.append(head);
-    if(p.photo_path&&urls[p.photo_path]){
-      const img=el("img"); img.loading="lazy"; img.src=urls[p.photo_path];
-      img.alt=p.species?("Prise : "+p.species):"Photo de prise"; a.append(img);
+    const shown=allPaths(p).filter(x=>urls[x]);
+    if(shown.length){
+      const gal=el("div","gallery");
+      const track=el("div","gallery-track");
+      shown.forEach((x,i)=>{
+        const img=el("img"); img.loading="lazy"; img.src=urls[x];
+        img.alt=(p.species?"Prise : "+p.species:"Photo de prise")+(shown.length>1?" ("+(i+1)+"/"+shown.length+")":"");
+        track.append(img);
+      });
+      gal.append(track);
+      if(shown.length>1){
+        const cnt=el("span","gallery-count","1/"+shown.length);
+        const dots=el("div","gallery-dots");
+        shown.forEach((_,i)=>dots.append(el("i",i===0?"on":null)));
+        track.addEventListener("scroll",()=>{
+          const k=Math.round(track.scrollLeft/track.clientWidth);
+          cnt.textContent=(k+1)+"/"+shown.length;
+          [...dots.children].forEach((d,j)=>d.className=j===k?"on":"");
+        },{passive:true});
+        gal.append(cnt,dots);
+      }
+      a.append(gal);
     }
     const body=el("div","post-body");
     const tags=el("div","tags");
@@ -405,7 +456,7 @@ async function loadFeed(){
     if(p.user_id===me.id||canManage(p.group_id)){
       const lbl=p.user_id===me.id?"Supprimer":"Supprimer (modération)";
       foot.append(confirmBtn(lbl,"Confirmer la suppression",async()=>{
-        if(p.photo_path) await sb.storage.from("photos").remove([p.photo_path]);
+        const ph=allPaths(p); if(ph.length) await sb.storage.from("photos").remove(ph);
         const {error}=await sb.from("posts").delete().eq("id",p.id);
         if(error) return toast(frError(error));
         toast("Post supprimé"); loadFeed(); loadStats();
@@ -579,6 +630,66 @@ async function loadMembers(g){
     list.append(r);
   });
   panel.scrollIntoView({behavior:"smooth"});
+}
+
+// ---------- Notifications push ----------
+const VAPID_PUBLIC="BKA6wk-qXV331-Vep9m6SkC-4Kz4i-T3_Vm2ifrAHI35-h0Vd7xNNLmQo0v_HyIX0i46CkVcDnR6oVtppS_EdlM";
+const pushSupported=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
+function b64ToU8(str){ const s=str.replace(/-/g,"+").replace(/_/g,"/")+"===".slice((str.length+3)%4); return Uint8Array.from(atob(s),c=>c.charCodeAt(0)); }
+const swReady=()=>Promise.race([navigator.serviceWorker.ready,new Promise((_,rej)=>setTimeout(()=>rej(new Error("sw")),6000))]);
+async function currentSub(){ try{ const reg=await swReady(); return await reg.pushManager.getSubscription(); }catch(e){ return null; } }
+async function saveSub(sub){
+  const j=sub.toJSON();
+  const {error}=await sb.rpc("save_push_sub",{p_endpoint:j.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth});
+  if(error) throw error;
+}
+async function renderPush(){
+  const panel=$("#push-panel"), st=$("#push-status"), btn=$("#push-btn");
+  panel.hidden=!me; if(!me) return;
+  btn.hidden=true;
+  if(!pushSupported()){
+    st.textContent=/iPhone|iPad/.test(navigator.userAgent)
+      ?"Sur iPhone, installe d'abord l'appli sur l'écran d'accueil (Safari → Partager → Sur l'écran d'accueil), puis ouvre-la depuis son icône pour activer les notifications."
+      :"Ce navigateur ne gère pas les notifications. Utilise Chrome sur Android.";
+    return;
+  }
+  if(Notification.permission==="denied"){
+    st.textContent="Les notifications sont bloquées pour l'appli. Autorise-les dans les réglages du téléphone (Paramètres → Applis → Chrome ou Coup du Jour → Notifications), puis reviens ici.";
+    return;
+  }
+  const sub=await currentSub();
+  btn.hidden=false;
+  if(sub&&Notification.permission==="granted"){
+    st.textContent="Activées sur ce téléphone : tu es prévenu dès qu'un membre de tes groupes publie une prise ou un spot.";
+    btn.textContent="Désactiver"; btn.className="btn"; btn.dataset.a="off";
+  }else{
+    st.textContent="Reçois une alerte dès qu'un membre de tes groupes publie une prise ou un spot, même appli fermée.";
+    btn.textContent="Activer les notifications"; btn.className="btn primary"; btn.dataset.a="on";
+  }
+}
+$("#push-btn").addEventListener("click",async()=>{
+  const btn=$("#push-btn"); btn.disabled=true;
+  try{
+    if(btn.dataset.a==="on"){
+      const perm=await Notification.requestPermission();
+      if(perm!=="granted"){ toast("Notifications refusées"); return; }
+      const reg=await swReady();
+      let sub=await reg.pushManager.getSubscription();
+      if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(VAPID_PUBLIC)});
+      await saveSub(sub);
+      toast("Notifications activées");
+    }else{
+      const sub=await currentSub();
+      if(sub){ await sb.rpc("delete_push_sub",{p_endpoint:sub.endpoint}); await sub.unsubscribe(); }
+      toast("Notifications désactivées");
+    }
+  }catch(e){ toast("Impossible d'activer les notifications : "+frError(e)); }
+  finally{ btn.disabled=false; renderPush(); }
+});
+// relie l'abonnement de ce téléphone au compte connecté
+async function syncPush(){
+  if(!me||!pushSupported()||Notification.permission!=="granted") return;
+  const sub=await currentSub(); if(sub){ try{ await saveSub(sub); }catch(e){} }
 }
 
 // ---------- Démarrage ----------
