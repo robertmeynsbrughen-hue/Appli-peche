@@ -312,7 +312,7 @@ const MAXPICS=6;
 let pics=[];
 function renderThumbs(){
   const box=$("#p-thumbs"); box.innerHTML="";
-  box.hidden=!pics.length; $("#p-measure").hidden=!pics.length;
+  box.hidden=!pics.length; $("#p-measure").hidden=!pics.length; hooks.picsChanged?.(pics);
   pics.forEach((f,i)=>{
     const t=el("div","thumb");
     const im=el("img"); im.src=f.url; im.alt="Photo "+(i+1); t.append(im);
@@ -605,8 +605,10 @@ function openMap(){
     layer=L.layerGroup().addTo(map);
     map.on("click",ev=>startSpot(ev.latlng.lat,ev.latlng.lng));
     drawSpots();
+    hooks.mapReady?.(map);
   }
   setTimeout(()=>map.invalidateSize(),50);
+  hooks.mapShown?.(map);
 }
 window.addEventListener("cdj-pos",ev=>{ if(map&&!spots.length) map.setView([ev.detail.lat,ev.detail.lon],12); });
 function pinIcon(mine){ return L.divIcon({className:"",html:'<div class="spot-pin'+(mine?" mine":"")+'"></div>',iconSize:[22,22],iconAnchor:[11,22],popupAnchor:[0,-22]}); }
@@ -756,7 +758,7 @@ async function syncPush(){
 // ---------- Accès partagé pour groupe.js ----------
 window.CDJ={
   get sb(){ return sb; }, get me(){ return me; }, get cur(){ return cur; }, get groups(){ return groups; },
-  get curGroup(){ return curGroup(); }, get myRoles(){ return myRoles; }, get spots(){ return spots; }, loadSpots,
+  get curGroup(){ return curGroup(); }, get myRoles(){ return myRoles; }, get spots(){ return spots; }, loadSpots, get map(){ return map; }, get pics(){ return pics; }, focusSpot,
   el, toast, showErr, ago, frError, confirmBtn, userLabel, roleBadge, avatar, compress,
   roleOf, canManage, canModerate, isManager, groupName, setGroup, loadGroups, loadFeed, refreshUI, hooks, RATING,
 };

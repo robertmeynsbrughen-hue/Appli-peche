@@ -101,6 +101,58 @@ function progress(found){
   return w;
 }
 
+/* ---------- Trophées automatiques ---------- */
+// rows : prises (posts + bilans) ; carp : sessions carpe avec leurs événements ; sess : tous les bilans (capots compris)
+function catchesOf(rows,carp){
+  const list=rows.map(r=>({sp:entryOf(r.species)?.name||r.species,len:Number(r.length_cm)||0,kg:Number(r.weight_kg)||0,at:new Date(r.created_at)}));
+  (carp||[]).forEach(cs=>(cs.carp_events||[]).filter(e=>e.kind==="prise").forEach(e=>list.push({sp:"Carpe",len:0,kg:Number(e.weight_kg)||0,at:new Date(e.at),session:cs.id})));
+  return list;
+}
+const day=d=>d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate();
+const TROPHIES=[
+  ["bapteme","🎣","Baptême","Ta toute première prise",s=>s.c.length>=1],
+  ["double","✌️","Doublé","2 prises le même jour",s=>{ const m=new Map(); return s.c.some(c=>{ const k=day(c.at); m.set(k,(m.get(k)||0)+1); return m.get(k)>=2; }); }],
+  ["levetot","🌅","Lève-tôt","Une prise avant 7 h",s=>s.c.some(c=>c.at.getHours()<7&&c.at.getHours()>=4)],
+  ["nuit","🦉","Oiseau de nuit","Une prise entre 22 h et 4 h",s=>s.c.some(c=>c.at.getHours()>=22||c.at.getHours()<4)],
+  ["hiver","🧊","Pêcheur d'hiver","Une prise en décembre, janvier ou février",s=>s.c.some(c=>[11,0,1].includes(c.at.getMonth()))],
+  ["silure","🐋","Premier silure","Ton premier silure",s=>s.c.some(c=>c.sp==="Silure")],
+  ["metre","📏","Métré","Un brochet de 100 cm ou plus",s=>s.c.some(c=>c.sp==="Brochet"&&c.len>=100)],
+  ["monstre","🐉","Monstre","Un silure de 150 cm ou plus",s=>s.c.some(c=>c.sp==="Silure"&&c.len>=150)],
+  ["cochon","🐷","Gros cochon","Une carpe de 15 kg ou plus",s=>s.c.some(c=>c.sp==="Carpe"&&c.kg>=15)],
+  ["sandre","🎯","Sandre XXL","Un sandre de 70 cm ou plus",s=>s.c.some(c=>c.sp==="Sandre"&&c.len>=70)],
+  ["perche","⭐","Perche record","Une perche de 40 cm ou plus",s=>s.c.some(c=>c.sp==="Perche"&&c.len>=40)],
+  ["folie","🔥","Session de folie","5 carpes dans une même session",s=>{ const m=new Map(); return s.c.some(c=>c.session&&(m.set(c.session,(m.get(c.session)||0)+1),m.get(c.session)>=5)); }],
+  ["collection","🌈","Collectionneur","5 espèces différentes",s=>s.species>=5],
+  ["maitre","👑","Maître du Fishdex","10 espèces différentes",s=>s.species>=10],
+  ["regulier","📆","Régulier","10 sorties enregistrées",s=>s.outings>=10],
+  ["centurion","💯","Centurion","100 prises",s=>s.c.length>=100],
+  ["capots","😵","Pas de bol","10 capots d'affilée",s=>{ let run=0, best=0; s.sess.slice().sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(x=>{ run=x.caught===false?run+1:0; best=Math.max(best,run); }); return best>=10; }],
+].map(([id,e,name,desc,test])=>({id,e,name,desc,test}));
+function trophiesOf(rows,carp,sessAll,found){
+  const st={c:catchesOf(rows,carp),sess:sessAll||[],species:found.size,outings:(sessAll||[]).length+(carp||[]).length+rows.filter(r=>r.kind==="post").length};
+  return TROPHIES.filter(t=>{ try{ return t.test(st); }catch(e){ return false; } }).map(t=>t.id);
+}
+function trophyGrid(ids){
+  const g=el("div","troph-grid");
+  TROPHIES.forEach(t=>{
+    const got=ids.includes(t.id);
+    const c=el("div","troph"+(got?" got":""));
+    c.append(el("span","troph-e",got?t.e:"🔒"), el("span","troph-n",t.name), el("span","troph-d",t.desc));
+    c.setAttribute("aria-label",t.name+" : "+t.desc+(got?", obtenu":", pas encore obtenu"));
+    g.append(c);
+  });
+  return g;
+}
+function announce(ids){
+  if(!A.me) return;
+  const key="cdj-troph-"+A.me.id;
+  let seen=null; try{ seen=JSON.parse(localStorage.getItem(key)||"null"); }catch(e){}
+  try{ localStorage.setItem(key,JSON.stringify(ids)); }catch(e){}
+  if(!seen) return;                    // première fois : pas d'avalanche d'annonces
+  const fresh=ids.filter(i=>!seen.includes(i));
+  fresh.forEach((i,k)=>{ const t=TROPHIES.find(x=>x.id===i); setTimeout(()=>toast("🏆 Nouveau trophée : "+t.e+" "+t.name),600+k*3000); });
+}
+
 /* ---------- Mon Fishdex (Profil) ---------- */
 let mySeq=0;
 async function myDex(){
@@ -108,31 +160,42 @@ async function myDex(){
   if(!A.me){ box.hidden=true; return; }
   box.hidden=false;
   const s=++mySeq;
-  const [{data:p},{data:se}]=await Promise.all([
-    A.sb.from("posts").select("species,length_cm,weight_kg,created_at").eq("user_id",A.me.id).eq("status","published").not("species","is",null).limit(2000),
-    A.sb.from("sessions").select("species,length_cm,created_at").eq("user_id",A.me.id).eq("caught",true).not("species","is",null).limit(2000),
+  const [{data:p},{data:se},{data:cs}]=await Promise.all([
+    A.sb.from("posts").select("species,length_cm,weight_kg,created_at").eq("user_id",A.me.id).eq("status","published").limit(2000),
+    A.sb.from("sessions").select("species,caught,length_cm,created_at").eq("user_id",A.me.id).limit(2000),
+    A.sb.from("carp_sessions").select("id,started_at,carp_events(kind,at,weight_kg)").eq("user_id",A.me.id).limit(500),
   ]);
   if(s!==mySeq) return;
-  const found=collect([...(p||[]),...(se||[])]);
+  const rows=[...(p||[]).filter(x=>x.species).map(x=>({...x,kind:"post"})),...(se||[]).filter(x=>x.caught!==false&&x.species)];
+  const found=collect(rows);
+  const troph=trophiesOf(rows,cs||[],se||[],found);
+  announce(troph);
   box.innerHTML="";
   const h=el("div","g-sec-head"); h.append(el("h2",null,"Mon Fishdex")); box.append(h);
   box.append(progress(found));
   box.append(el("p","note",found.size?"Chaque nouvelle espèce publiée dans le fil ou notée dans un bilan se débloque ici.":"Ta collection est vide : publie ta première prise pour débloquer une espèce."));
   box.append(grid(found));
+  const th=el("div","g-sec-head"); th.append(el("h2",null,"Mes trophées"), el("span","note",troph.length+"/"+TROPHIES.length)); box.append(th);
+  box.append(trophyGrid(troph));
 }
 
 /* ---------- Fishdex du groupe (onglet Groupe) ---------- */
 let gSeq=0;
 async function groupDex(host,gid){
   const s=++gSeq;
-  const [{data:mem},{data:p},{data:se}]=await Promise.all([
+  const [{data:mem},{data:p},{data:se},{data:cs}]=await Promise.all([
     A.sb.from("memberships").select("user_id,profiles(username,is_admin)").eq("group_id",gid).eq("status","active"),
-    A.sb.from("posts").select("user_id,species,length_cm,weight_kg,created_at").eq("group_id",gid).eq("status","published").not("species","is",null).limit(3000),
-    A.sb.from("sessions").select("user_id,species,length_cm,created_at").eq("group_id",gid).eq("caught",true).not("species","is",null).limit(3000),
+    A.sb.from("posts").select("user_id,species,length_cm,weight_kg,created_at").eq("group_id",gid).eq("status","published").limit(3000),
+    A.sb.from("sessions").select("user_id,species,caught,length_cm,created_at").eq("group_id",gid).limit(3000),
+    A.sb.from("carp_sessions").select("id,user_id,started_at,carp_events(kind,at,weight_kg)").eq("group_id",gid).limit(1000),
   ]);
   if(s!==gSeq||!host.isConnected) return;
-  const rows=[...(p||[]),...(se||[])];
-  const people=(mem||[]).map(m=>{ const f=collect(rows.filter(r=>r.user_id===m.user_id)); return {id:m.user_id,p:m.profiles,found:f}; })
+  const rows=[...(p||[]).filter(x=>x.species).map(x=>({...x,kind:"post"})),...(se||[]).filter(x=>x.caught!==false&&x.species)];
+  const people=(mem||[]).map(m=>{
+    const mine=rows.filter(r=>r.user_id===m.user_id), f=collect(mine);
+    const tr=trophiesOf(mine,(cs||[]).filter(c=>c.user_id===m.user_id),(se||[]).filter(x=>x.user_id===m.user_id),f);
+    return {id:m.user_id,p:m.profiles,found:f,troph:tr};
+  })
     .sort((a,b)=>b.found.size-a.found.size||String(a.p?.username).localeCompare(String(b.p?.username)));
   host.innerHTML="";
   const sec=el("section","g-sec");
@@ -148,9 +211,9 @@ async function groupDex(host,gid){
     const r=el("button","dex-row"); r.type="button";
     const who=el("span","dex-who"); who.append(el("span","rk-pos",x.found.size?(medal[i]||String(i+1)):"·")); who.append(userLabel(x.p?.username,x.p?.is_admin,A.roleOf(gid,x.id)));
     const bar=el("div","dex-bar"); const b=el("i"); b.style.width=Math.round(x.found.size/DEX.length*100)+"%"; bar.append(b);
-    r.append(who, bar, el("span","dex-count",x.found.size+"/"+DEX.length));
+    r.append(who, bar, el("span","dex-count",x.found.size+"/"+DEX.length), el("span","dex-tr","🏆 "+x.troph.length));
     r.setAttribute("aria-label","Fishdex de @"+(x.p?.username||"?")+" : "+x.found.size+" espèces sur "+DEX.length);
-    r.addEventListener("click",()=>openSheet("Fishdex de @"+(x.p?.username||"?"),x.found));
+    r.addEventListener("click",()=>openSheet("Fishdex de @"+(x.p?.username||"?"),x.found,x.troph));
     list.append(r);
   });
   sec.append(list);
@@ -159,13 +222,14 @@ async function groupDex(host,gid){
 let sheet=null;
 function closeSheet(){ if(sheet){ sheet.remove(); sheet=null; document.removeEventListener("keydown",esc); } }
 function esc(e){ if(e.key==="Escape") closeSheet(); }
-function openSheet(title,found){
+function openSheet(title,found,troph){
   closeSheet();
   sheet=el("div","sheet-back");
   const sh=el("div","sheet dex-sheet"); sh.setAttribute("role","dialog"); sh.setAttribute("aria-modal","true"); sh.setAttribute("aria-label",title);
   const head=el("div","sheet-head"); head.append(el("h2",null,title));
   const x=el("button","icon-btn"); x.type="button"; x.setAttribute("aria-label","Fermer"); x.innerHTML='<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>'; x.addEventListener("click",closeSheet);
   head.append(x); sh.append(head, progress(found), grid(found));
+  if(troph){ sh.append(el("h4","g-sub","Trophées · "+troph.length+"/"+TROPHIES.length)); sh.append(trophyGrid(troph)); }
   sheet.append(sh); document.body.append(sheet);
   sheet.addEventListener("click",e=>{ if(e.target===sheet) closeSheet(); });
   document.addEventListener("keydown",esc);

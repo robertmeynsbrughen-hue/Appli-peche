@@ -866,3 +866,81 @@ alter table public.messages add constraint messages_photo_path check (photo_path
 alter table public.messages add constraint messages_audio_path check (audio_path is null or audio_path like group_id::text || '/' || user_id::text || '/%');
 alter table public.messages add constraint messages_audio_secs check (audio_secs is null or audio_secs between 1 and 180);
 update storage.buckets set allowed_mime_types = array['image/jpeg','image/png','image/webp','audio/webm','audio/ogg','audio/mp4','audio/mpeg','audio/aac'] where id = 'photos';
+
+-- ========== Sorties planifiées et position en direct ==========
+
+-- ---------- Sorties planifiées ----------
+create table if not exists public.outings (
+  id bigint generated always as identity primary key,
+  group_id bigint not null references public.groups (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  title text not null check (char_length(title) between 3 and 80),
+  place text check (char_length(place) <= 80),
+  spot_id bigint references public.spots (id) on delete set null,
+  start_at timestamptz not null,
+  notes text check (char_length(notes) <= 500),
+  reminded boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists outings_group on public.outings (group_id, start_at);
+alter table public.outings enable row level security;
+drop policy if exists outings_select on public.outings;
+drop policy if exists outings_insert on public.outings;
+drop policy if exists outings_update on public.outings;
+drop policy if exists outings_delete on public.outings;
+create policy outings_select on public.outings for select using (public.is_admin() or public.is_member_of(group_id));
+create policy outings_insert on public.outings for insert with check (user_id = auth.uid() and public.is_member_of(group_id));
+create policy outings_update on public.outings for update using (user_id = auth.uid() or public.can_moderate(group_id))
+  with check (user_id = auth.uid() or public.can_moderate(group_id));
+create policy outings_delete on public.outings for delete using (user_id = auth.uid() or public.can_moderate(group_id));
+
+create or replace function public.outing_group(o bigint) returns bigint
+language sql stable security definer set search_path = public as $$
+  select group_id from public.outings where id = o;
+$$;
+
+create table if not exists public.outing_rsvps (
+  outing_id bigint not null references public.outings (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  status text not null default 'yes' check (status in ('yes', 'maybe', 'no')),
+  seats int not null default 0 check (seats between 0 and 8),
+  needs_ride boolean not null default false,
+  brings text check (char_length(brings) <= 120),
+  updated_at timestamptz not null default now(),
+  primary key (outing_id, user_id)
+);
+alter table public.outing_rsvps enable row level security;
+drop policy if exists outing_rsvps_select on public.outing_rsvps;
+drop policy if exists outing_rsvps_write on public.outing_rsvps;
+create policy outing_rsvps_select on public.outing_rsvps for select
+  using (public.is_admin() or public.is_member_of(public.outing_group(outing_id)));
+create policy outing_rsvps_write on public.outing_rsvps for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid() and public.is_member_of(public.outing_group(outing_id)));
+
+drop trigger if exists outings_notify on public.outings;
+create trigger outings_notify after insert on public.outings
+  for each row execute function public.notify_new();
+
+-- ---------- Position en direct ----------
+create table if not exists public.live_positions (
+  user_id uuid primary key default auth.uid() references public.profiles (id) on delete cascade,
+  group_id bigint not null references public.groups (id) on delete cascade,
+  lat numeric not null check (lat between -90 and 90),
+  lon numeric not null check (lon between -180 and 180),
+  accuracy int,
+  updated_at timestamptz not null default now(),
+  expires_at timestamptz not null default now() + interval '2 hours'
+);
+alter table public.live_positions enable row level security;
+drop policy if exists live_select on public.live_positions;
+drop policy if exists live_write on public.live_positions;
+create policy live_select on public.live_positions for select
+  using (expires_at > now() and (public.is_member_of(group_id) or public.is_admin()));
+create policy live_write on public.live_positions for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid() and public.is_member_of(group_id) and expires_at <= now() + interval '8 hours');
+
+revoke all on function public.outing_group(bigint) from public, anon;
+grant execute on function public.outing_group(bigint) to authenticated;
+select cron.schedule('cdj-rappel-sorties', '0 17 * * *', $c$ select public.call_notify('{"table":"outing_reminders"}'::jsonb) $c$);

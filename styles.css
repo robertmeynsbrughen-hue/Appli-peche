@@ -619,3 +619,38 @@ body.chat-open{overflow:hidden}
 .regl-chev{font-size:1.3rem;color:var(--muted);transition:transform .15s;width:16px;text-align:center}
 .regl-item[open] .regl-chev{transform:rotate(90deg)}
 .regl-lines{margin:0 0 12px;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:.9rem;color:var(--muted)}
+
+/* ---- Trophées ---- */
+.troph-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.troph{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:12px;background:var(--surface-2);border:1px dashed var(--line);opacity:.65}
+.troph.got{opacity:1;border:1px solid var(--amber);background:color-mix(in srgb,var(--amber-soft) 55%,var(--surface))}
+.troph-e{font-size:1.6rem;line-height:1.2}
+.troph-n{font-weight:700;font-size:.92rem}
+.troph-d{font-size:.76rem;color:var(--muted)}
+.dex-tr{font-size:.78rem;color:var(--muted);white-space:nowrap}
+.reco{display:flex;flex-direction:column;gap:6px;background:var(--surface-2);border-radius:12px;padding:10px 12px}
+.reco[hidden]{display:none}
+.reco .btn{align-self:flex-start}
+
+/* ---- Sorties planifiées ---- */
+.outing{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.out-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.out-date{display:flex;flex-direction:column;font-family:var(--f-mono);font-size:.8rem;color:var(--muted);text-transform:capitalize}
+.out-rel{font-family:var(--f-display);font-weight:700;font-size:.95rem;letter-spacing:.06em;text-transform:uppercase;color:var(--amber)}
+.out-title{margin:0;font-family:var(--f-display);font-weight:700;font-size:1.35rem;text-transform:uppercase;letter-spacing:.02em}
+.out-notes{margin:0;white-space:pre-wrap}
+.out-list{margin:0;padding-left:4px;list-style:none;display:flex;flex-direction:column;gap:2px;font-size:.92rem}
+.out-opts{display:flex;flex-direction:column;gap:10px;background:var(--surface-2);border-radius:12px;padding:12px}
+.outing .linkbtn{align-self:flex-start}
+
+/* ---- Outils de carte ---- */
+.map-tools{display:flex;flex-direction:column;gap:8px}
+.map-tools[hidden]{display:none}
+.map-row{display:flex;flex-wrap:wrap;gap:8px}
+.map-row select{font:inherit;font-size:.88rem;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px;min-height:36px;flex:1;min-width:130px}
+.map-tools .btn.on{background:var(--amber-soft);border-color:var(--amber)}
+.map-tools .btn.live{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+.live-pin{width:34px;height:34px;border-radius:50%;background:#2c5f8f;border:3px solid #fff;box-shadow:0 0 0 0 rgba(44,95,143,.6);display:grid;place-items:center;animation:livepulse 2s infinite}
+.live-pin.me{background:#d93a2b;box-shadow:0 0 0 0 rgba(217,58,43,.6)}
+.live-pin span{color:#fff;font-weight:700;font-family:var(--f-display);font-size:1rem}
+@keyframes livepulse{70%{box-shadow:0 0 0 14px rgba(0,0,0,0)}100%{box-shadow:0 0 0 0 rgba(0,0,0,0)}}

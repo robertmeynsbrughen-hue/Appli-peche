@@ -100,6 +100,7 @@ export async function handle(req, cfg) {
     const ev = await req.json();
     const t = ev.table;
     if (t === "morning") return Response.json(await morning(ev, VAPID));
+    if (t === "outing_reminders") return Response.json(await outingReminders(VAPID));
     let rec, group_id, author, recipients, msg;
     if (t === "memberships") {
       group_id = Number(ev.group_id); author = String(ev.user_id).replace(/[^0-9a-f-]/gi, "");
@@ -114,6 +115,7 @@ export async function handle(req, cfg) {
         messages: "id,group_id,user_id,body,photo_path,audio_secs",
         comments: "id,post_id,user_id,body",
         challenges: "id,group_id,user_id,title,species,min_length",
+        outings: "id,group_id,user_id,title,place,start_at",
       }[t];
       if (!cols) return new Response("bad table", { status: 400 });
       [rec] = await db(t + "?id=eq." + Number(ev.id) + "&select=" + cols);
@@ -161,6 +163,8 @@ export async function handle(req, cfg) {
         const fish = rec.caught === false ? (rec.species ? rec.species + " ciblé, capot" : "capot") : [rec.species, rec.length_cm ? num(rec.length_cm) + " cm" : ""].filter(Boolean).join(" ");
         const combo = [rec.lure, rec.color].filter(Boolean).join(" ");
         msg = { title: "🧾 Bilan de session · " + group, body: who + " : " + [fish, combo, RATING[rec.rating]].filter(Boolean).join(" · "), url: "./#groupe", tag: "sess-" + rec.id };
+      } else if (t === "outings") {
+        msg = { title: "📅 Sortie prévue · " + group, body: who + " : " + cut(rec.title, 70) + " · " + whenFr(rec.start_at) + (rec.place ? " · " + cut(rec.place, 40) : ""), url: "./#groupe", tag: "out-" + rec.id };
       } else if (t === "challenges") {
         msg = { title: "🏅 Nouveau défi · " + group, body: who + " lance : " + cut(rec.title, 110), url: "./#groupe", tag: "chal-" + rec.id };
       } else if (t === "comments") {
@@ -258,4 +262,35 @@ async function morning(ev, vapid) {
     report.push({ msgs: msgs.length, sent });
   }
   return { day: today, users: prefs.length, report };
+}
+
+// ---- Sorties planifiées : rappel la veille ----
+function whenFr(iso) {
+  const d = new Date(iso);
+  const day = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", weekday: "short", day: "numeric", month: "short" }).format(d);
+  const h = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" }).format(d).replace(":", "h");
+  return day + " " + h;
+}
+async function outingReminders(vapid) {
+  const parisDay = (d) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(d);
+  const tomorrow = parisDay(new Date(Date.now() + 864e5));
+  const from = new Date().toISOString(), to = new Date(Date.now() + 2 * 864e5).toISOString();
+  const outs = (await db("outings?reminded=eq.false&start_at=gte." + from + "&start_at=lt." + to + "&select=id,group_id,title,place,start_at"))
+    .filter((o) => parisDay(new Date(o.start_at)) === tomorrow);
+  const report = [];
+  for (const o of outs) {
+    const rs = await db("outing_rsvps?outing_id=eq." + o.id + "&status=in.(yes,maybe)&select=user_id,status,seats,needs_ride");
+    const yes = rs.filter((r) => r.status === "yes").length, seats = rs.reduce((a, r) => a + (r.seats || 0), 0), need = rs.filter((r) => r.needs_ride).length;
+    const hour = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" }).format(new Date(o.start_at)).replace(":", "h");
+    const msg = {
+      title: "⏰ Demain " + hour + " : " + cut(o.title, 60),
+      body: [o.place, yes + " participant" + (yes > 1 ? "s" : ""), seats ? "🚗 " + seats + " place" + (seats > 1 ? "s" : "") + " en voiture" : null, need ? need + " cherche" + (need > 1 ? "nt" : "") + " une place" : null].filter(Boolean).join(" · "),
+      url: "./#groupe", tag: "outr-" + o.id,
+    };
+    let sent = 0;
+    for (const r of rs) sent += await pushTo(r.user_id, msg, vapid);
+    await db("outings?id=eq." + o.id, { method: "PATCH", body: JSON.stringify({ reminded: true }), headers: { Prefer: "return=minimal" } });
+    report.push({ id: o.id, people: rs.length, sent });
+  }
+  return { tomorrow, outings: outs.length, report };
 }

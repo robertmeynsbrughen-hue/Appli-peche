@@ -166,6 +166,7 @@ body{margin:0}
           <select id="p-spot"><option value="">Aucun</option></select></label>
       </div>
       <button type="button" class="btn" id="p-measure" hidden>📏 Mesurer le poisson sur la 1re photo</button>
+      <div class="reco" id="p-reco" hidden></div>
       <div class="row2">
         <label class="field">Longueur (cm)
           <input id="p-len" type="number" min="1" max="300" step="0.5" inputmode="decimal"></label>
@@ -196,6 +197,7 @@ body{margin:0}
       <button type="button" class="btn primary" id="spot-here">Spot à ma position</button>
       <span class="note">ou touche la carte à l'endroit voulu</span>
     </div>
+    <div class="map-tools" id="map-tools" hidden></div>
     <div id="map" hidden></div>
     <form class="panel" id="spot-form" hidden>
       <h2>Nouveau spot</h2>
@@ -288,7 +290,7 @@ body{margin:0}
     <div class="panel">
       <h2>Installer l'appli</h2>
       <p class="note">Android (Chrome) : menu ⋮ puis « Ajouter à l'écran d'accueil » ou « Installer l'application ».<br>iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
-      <p class="note app-version">Version <span id="app-version">21</span></p>
+      <p class="note app-version">Version <span id="app-version">22</span></p>
     </div>
   </section>
   <!-- ========== GROUPE ========== -->
@@ -405,6 +407,9 @@ body{margin:0}
 <script src="alerts.js"></script>
 <script src="offline.js"></script>
 <script src="dex.js"></script>
+<script src="reco.js"></script>
+<script src="outings.js"></script>
+<script src="maptools.js"></script>
 <script>
 if("serviceWorker" in navigator){
   // dès qu'une nouvelle version prend la main, on recharge une fois pour l'afficher
