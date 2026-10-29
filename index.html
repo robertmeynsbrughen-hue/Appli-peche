@@ -158,7 +158,9 @@ body{margin:0}
           <select id="p-species">
             <option value="">—</option>
             <option>Brochet</option><option>Sandre</option><option>Perche</option>
-            <option>Black-bass</option><option>Silure</option><option>Carpe</option><option>Autre</option>
+            <option>Black-bass</option><option>Silure</option><option>Carpe</option><option>Chevesne</option>
+            <optgroup label="Autres espèces"><option>Aspe</option><option>Truite fario</option><option>Barbeau</option><option>Tanche</option><option>Brème</option><option>Gardon</option><option>Rotengle</option><option>Carassin</option><option>Ablette</option><option>Vandoise</option><option>Amour blanc</option></optgroup>
+            <option>Autre</option>
           </select></label>
         <label class="field">Spot
           <select id="p-spot"><option value="">Aucun</option></select></label>
@@ -249,6 +251,7 @@ body{margin:0}
     </div>
 
     <div class="panel" id="carnet" hidden></div>
+    <div class="panel" id="dex" hidden></div>
     <div class="panel" id="gear" hidden></div>
 
     <div class="panel" id="my-groups" hidden>
@@ -285,7 +288,7 @@ body{margin:0}
     <div class="panel">
       <h2>Installer l'appli</h2>
       <p class="note">Android (Chrome) : menu ⋮ puis « Ajouter à l'écran d'accueil » ou « Installer l'application ».<br>iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
-      <p class="note app-version">Version <span id="app-version">19</span></p>
+      <p class="note app-version">Version <span id="app-version">20</span></p>
     </div>
   </section>
   <!-- ========== GROUPE ========== -->
@@ -394,6 +397,7 @@ body{margin:0}
 <script src="peche.js"></script>
 <script src="alerts.js"></script>
 <script src="offline.js"></script>
+<script src="dex.js"></script>
 <script>
 if("serviceWorker" in navigator){
   // dès qu'une nouvelle version prend la main, on recharge une fois pour l'afficher

@@ -3,7 +3,7 @@
 const A=window.CDJ; if(!A) return;
 const $=s=>document.querySelector(s);
 const sheet=$("#card-sheet"), img=$("#card-img"), wait=$("#card-wait");
-const LATIN={"Brochet":"Esox lucius","Sandre":"Sander lucioperca","Perche":"Perca fluviatilis","Black-bass":"Micropterus salmoides","Silure":"Silurus glanis","Carpe":"Cyprinus carpio"};
+const LATIN={"Brochet":"Esox lucius","Sandre":"Sander lucioperca","Perche":"Perca fluviatilis","Black-bass":"Micropterus salmoides","Silure":"Silurus glanis","Carpe":"Cyprinus carpio","Chevesne":"Squalius cephalus","Aspe":"Leuciscus aspius","Truite fario":"Salmo trutta","Barbeau":"Barbus barbus","Tanche":"Tinca tinca","Brème":"Abramis brama","Gardon":"Rutilus rutilus","Rotengle":"Scardinius erythrophthalmus","Carassin":"Carassius carassius","Ablette":"Alburnus alburnus","Vandoise":"Leuciscus leuciscus","Amour blanc":"Ctenopharyngodon idella"};
 const THEMES={
   nuit:{bg:"#0f1a17",fg:"#f1f5f2",muted:"#9fb3ab",accent:"#e7a650",chip:"rgba(15,26,23,0.62)",chipFg:"#f1f5f2",logo:"#2c8b73"},
   lac:{bg:"#123a31",fg:"#f1f5f2",muted:"#a9c7bc",accent:"#f0b562",chip:"rgba(18,58,49,0.66)",chipFg:"#f1f5f2",logo:"#2c8b73"},

@@ -332,7 +332,7 @@ $("#p-photo").addEventListener("change",()=>{
 });
 
 // ---------- Poids estimé (formules longueur-poids : poids en g = a × longueur en cm ^ b) ----------
-const LW={"Brochet":[0.0045,3.1],"Sandre":[0.0055,3.12],"Perche":[0.0105,3.1],"Black-bass":[0.011,3.08],"Silure":[0.0045,3.1],"Carpe":[0.019,3.0]};
+const LW={"Brochet":[0.0045,3.1],"Sandre":[0.0055,3.12],"Perche":[0.0105,3.1],"Black-bass":[0.011,3.08],"Silure":[0.0045,3.1],"Carpe":[0.019,3.0],"Chevesne":[0.0105,3.05],"Truite fario":[0.0105,3.0],"Barbeau":[0.009,3.05],"Tanche":[0.015,3.05],"Brème":[0.009,3.15],"Gardon":[0.011,3.1],"Aspe":[0.008,3.05]};
 let wtTouched=false;
 function estWeight(sp,len){ const k=LW[sp]; if(!k||!(len>0)) return null; return k[0]*Math.pow(len,k[1])/1000; }
 const fmtKg=w=>w>=10?w.toFixed(1):w.toFixed(2);

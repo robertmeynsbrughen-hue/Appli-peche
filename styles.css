@@ -559,3 +559,31 @@ body.chat-open{overflow:hidden}
   padding:6px 14px;border-radius:99px;border:1px solid var(--amber);background:var(--amber-soft);color:var(--fg);box-shadow:var(--shadow);cursor:pointer}
 .queue-pill.off{border-color:var(--warn);background:var(--warn-soft)}
 .logo-img{display:block;object-fit:cover;background:none}
+
+/* ---- Fishdex ---- */
+#dex .g-sec-head h2{margin:0}
+.dex-prog{display:flex;align-items:center;gap:10px}
+.dex-count{font-family:var(--f-mono);font-size:.85rem;font-weight:700;white-space:nowrap}
+.dex-bar{flex:1;height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden;min-width:40px}
+.dex-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--amber));border-radius:4px}
+.dex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px}
+.dex-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 6px 10px;border-radius:14px;
+  background:var(--surface-2);border:1px solid var(--line);color:var(--line);text-align:center;min-width:0}
+.dex-card.got{background:var(--surface);color:var(--fg);border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.dex-card.rare{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
+.dex-n{align-self:flex-start;font-family:var(--f-mono);font-size:.66rem;color:var(--muted)}
+.dex-art{width:100%;height:44px;display:grid;place-items:center}
+.dex-art svg{width:84px;height:42px;overflow:visible}
+.dex-card:not(.got) .dex-art{color:color-mix(in srgb,var(--muted) 45%,var(--surface-2))}
+.dex-name{font-family:var(--f-display);font-weight:700;font-size:.92rem;text-transform:uppercase;letter-spacing:.03em;line-height:1.1;color:var(--muted)}
+.dex-card.got .dex-name{color:var(--fg)}
+.dex-rare{font-size:.7rem;color:var(--amber);letter-spacing:.05em}
+.dex-card:not(.got) .dex-rare{color:var(--muted);opacity:.6}
+.dex-meta{font-family:var(--f-mono);font-size:.7rem;color:var(--muted)}
+.dex-list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:2px 12px}
+.dex-row{display:flex;align-items:center;gap:10px;min-height:48px;font:inherit;color:var(--fg);background:none;border:none;border-bottom:1px solid var(--line);text-align:left;cursor:pointer;padding:6px 0}
+.dex-row:last-child{border-bottom:none}
+.dex-row.group{font-weight:700}
+.dex-who{display:flex;align-items:center;gap:6px;min-width:0;flex:0 1 auto;max-width:55%}
+.dex-sheet{max-height:90vh}
+.dex-sheet>*{flex-shrink:0}

@@ -4,7 +4,7 @@
 const A=window.CDJ; if(!A) return;
 const {el,toast,frError}=A;
 const $=s=>document.querySelector(s);
-const SP=[["brochet","Brochet"],["sandre","Sandre"],["perche","Perche"],["bass","Black-bass"],["silure","Silure"],["carpe","Carpe"]];
+const SP=[["brochet","Brochet"],["sandre","Sandre"],["perche","Perche"],["bass","Black-bass"],["silure","Silure"],["carpe","Carpe"],["chevesne","Chevesne"]];
 const WATER=[["etang","Étang / lac"],["riviere","Rivière"],["canal","Canal"]];
 let pref=null, seq=0;
 function btn(label,cls,fn){ const b=el("button",cls||"btn",label); b.type="button"; if(fn) b.addEventListener("click",fn); return b; }

@@ -44,6 +44,7 @@ function renderRegl(){
     ["Black-bass",st.open?"Ouvert*":"Fermé*","30 cm*","Dates et taille parfois différentes selon le département",st.open],
     ["Perche","Toute l'année","—","Pas de taille nationale",true],
     ["Silure","Toute l'année","—","Pas de taille nationale",true],
+    ["Chevesne","Toute l'année","—","Pas de taille nationale",true],
     ["Carpe","Toute l'année","—","De nuit seulement sur les parcours autorisés",true],
   ];
   const list=el("div","list tight rk-list");

@@ -70,6 +70,12 @@ const SPECIES=[
    froid:"Il se regroupe dans les fosses profondes et bouge peu. Verticale avec un gros shad ou gros vif posé au fond, animation très lente. Les touches sont rares, vise les après-midis les plus doux.",
    tempere:"Shad 15 à 25 cm au fond, clonk en bateau, ou appâts posés (vif, bouquet de vers, calamar) près des fosses et des obstacles. Matériel costaud obligatoire : tresse 50/100 minimum.",
    chaud:"Pleine saison. La nuit et les temps orageux sont les meilleurs moments : appâts posés en bordure (vif, bouquet de vers), clonk, ou leurres de surface le soir. Postes : fosses, embâcles, sorties de courant."}},
+ {id:"chevesne",name:"Chevesne",latin:"Squalius cephalus",t:[4,10,22,27],
+  light:{aube:.9,jour:.85,crep:.9,nuit:.2},
+  how:{
+   froid:"Il se tient dans les zones calmes et profondes, souvent sous les obstacles. Pain ou fromage en dérive lente, petit leurre souple ou micro-jig animé doucement. Discrétion obligatoire : il est très méfiant.",
+   tempere:"Le moment idéal : cuillère n°1 à 2, petit poisson nageur 3 à 5 cm, ou pain en surface. Postes : courants, veines d'eau derrière les rochers, bordures sous les branches.",
+   chaud:"Il chasse en surface : insectes (sauterelles, criquets), petits poppers, mouche sèche, cerises ou mûres sous les arbres qui surplombent l'eau. Approche à pas de loup, il voit tout."}},
  {id:"carpe",name:"Carpe",latin:"Cyprinus carpio",t:[8,14,26,30],
   light:{aube:.95,jour:.7,crep:.9,nuit:.95},
   how:{
@@ -102,6 +108,7 @@ function scoreHour(sp,c){
     perche:(Math.abs(dp)<1.2?.08:0)+(dp<=-3?-.06:0)+(c.wind>=5&&c.wind<=22?.04:0),
     bass:(dp>=3?-.15:0)+(Math.abs(dp)<1.2?.05:0)+(!cloudy&&c.air>=15?.05:0)+(waterType==="etang"?.04:0)+(waterType==="riviere"?-.04:0),
     silure:(dp<=-1?.1:0)+(dp>=3?-.08:0)+(rainy&&c.rain<4?.05:0)+(cloudy?.03:0)+(waterType==="riviere"?.06:waterType==="canal"?.02:-.03),
+    chevesne:(Math.abs(dp)<1.2?.06:0)+(dp>=3?-.06:0)+(!cloudy&&c.water>=14&&c.phase==="jour"?.05:0)+(waterType==="riviere"?.06:waterType==="etang"?-.04:0),
     carpe:(dp<=-1&&c.water>=12?.08:0)+(dp>=3?-.1:0)+(c.wind>=6&&c.wind<=25&&c.air>=12?.06:0)+(waterType==="etang"?.03:0)
   }[sp.id];
   s+=mod;
@@ -197,6 +204,9 @@ function lureAdvice(sp,c,meta){
   }else if(sp.id==="silure"){
     lure=t<12?"gros shad 15 à 20 cm en verticale dans les fosses":"gros shad 20 à 25 cm, leurre à forte vibration, ou clonk";
     col="la couleur compte peu, mise sur la vibration ; noir ou blanc pour la silhouette";
+  }else if(sp.id==="chevesne"){
+    lure=t<10?"micro-jig ou petit leurre souple 4 à 5 cm animé lentement":(t>18?"insecte, petit popper ou leurre de surface sous les branches":"cuillère n°1 à 2 ou petit poisson nageur 3 à 5 cm");
+    col=sunny?"naturels et discrets : vairon, ablette, insecte":"naturels avec un point de couleur : vairon, cuillère cuivre ou dorée";
   }else return null;
   let extra="";
   if(strong) extra="Courant fort : alourdis la tête plombée (5 à 10 g de plus) et cherche les contre-courants près des berges.";

@@ -4,7 +4,7 @@
 const A=window.CDJ; if(!A) return;
 const {el,toast,frError,confirmBtn,userLabel,ago}=A;
 const $=s=>document.querySelector(s);
-const SPECIES=["Brochet","Sandre","Perche","Black-bass","Silure","Carpe"];
+const SPECIES=["Brochet","Sandre","Perche","Black-bass","Silure","Carpe","Chevesne"];
 const REACT=[["fire","🔥","Feu"],["clap","👏","Bravo"],["fish","🎣","Belle prise"]];
 const fmt=n=>Number(n).toLocaleString("fr-FR");
 const pl=(n,w,ws)=>n+" "+(n>1?(ws||w+"s"):w);

@@ -7,6 +7,7 @@ export const SPECIES = [
   { id: "bass", name: "Black-bass", t: [10, 16, 28, 32], light: { aube: .95, jour: .8, crep: 1, nuit: .2 } },
   { id: "silure", name: "Silure", t: [8, 14, 26, 30], light: { aube: .9, jour: .55, crep: 1, nuit: 1 } },
   { id: "carpe", name: "Carpe", t: [8, 14, 26, 30], light: { aube: .95, jour: .7, crep: .9, nuit: .95 } },
+  { id: "chevesne", name: "Chevesne", t: [4, 10, 22, 27], light: { aube: .9, jour: .85, crep: .9, nuit: .2 } },
 ];
 const CLOSED = { brochet: (m) => m >= 2 && m <= 4, sandre: (m) => m >= 2 && m <= 4, bass: (m) => m >= 2 && m <= 4 };
 
@@ -39,6 +40,7 @@ export function scoreHour(sp, c, waterType) {
     perche: (Math.abs(dp) < 1.2 ? .08 : 0) + (dp <= -3 ? -.06 : 0) + (c.wind >= 5 && c.wind <= 22 ? .04 : 0),
     bass: (dp >= 3 ? -.15 : 0) + (Math.abs(dp) < 1.2 ? .05 : 0) + (!cloudy && c.air >= 15 ? .05 : 0) + (waterType === "etang" ? .04 : 0) + (waterType === "riviere" ? -.04 : 0),
     silure: (dp <= -1 ? .1 : 0) + (dp >= 3 ? -.08 : 0) + (rainy && c.rain < 4 ? .05 : 0) + (cloudy ? .03 : 0) + (waterType === "riviere" ? .06 : waterType === "canal" ? .02 : -.03),
+    chevesne: (Math.abs(dp) < 1.2 ? .06 : 0) + (dp >= 3 ? -.06 : 0) + (!cloudy && c.water >= 14 && c.phase === "jour" ? .05 : 0) + (waterType === "riviere" ? .06 : waterType === "etang" ? -.04 : 0),
     carpe: (dp <= -1 && c.water >= 12 ? .08 : 0) + (dp >= 3 ? -.1 : 0) + (c.wind >= 6 && c.wind <= 25 && c.air >= 12 ? .06 : 0) + (waterType === "etang" ? .03 : 0),
   }[sp.id];
   s += mod;

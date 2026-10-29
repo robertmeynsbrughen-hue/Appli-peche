@@ -25,7 +25,7 @@ async function signed(paths){
 }
 
 /* ================= Bilan rapide ================= */
-const SPECIES=["Brochet","Sandre","Perche","Black-bass","Silure","Carpe","Autre"];
+const SPECIES=["Brochet","Sandre","Perche","Black-bass","Silure","Carpe","Chevesne","Autre"];
 const LURES=["Shad","Swimbait","Jerkbait","Poisson nageur","Spinnerbait","Cuillère","Drop-shot","Texan","Top-water","Vif / mort","Bouillette","Maïs / graines","Vers"];
 const COLORS=["Naturel","Perche","Ablette","Blanc","Chartreuse","Firetiger","Orange","Noir","Fluo"];
 const pick={species:null,lure:null,color:null,rating:null};
