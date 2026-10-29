@@ -944,3 +944,35 @@ create policy live_write on public.live_positions for all
 revoke all on function public.outing_group(bigint) from public, anon;
 grant execute on function public.outing_group(bigint) to authenticated;
 select cron.schedule('cdj-rappel-sorties', '0 17 * * *', $c$ select public.call_notify('{"table":"outing_reminders"}'::jsonb) $c$);
+
+-- ========== Profil public ==========
+alter table public.profiles add column if not exists bio text check (char_length(bio) <= 160);
+alter table public.profiles add column if not exists fav_species text[] not null default '{}' check (cardinality(fav_species) <= 3);
+alter table public.profiles add column if not exists avatar_path text check (char_length(avatar_path) <= 200);
+
+create or replace function public.update_my_profile(p_bio text, p_fav text[], p_avatar text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'non connecté'; end if;
+  if p_avatar is not null and p_avatar not like auth.uid()::text || '/%' then raise exception 'non autorisé'; end if;
+  update public.profiles
+     set bio = nullif(trim(p_bio), ''),
+         fav_species = (select coalesce(array_agg(left(trim(x), 30) order by o), '{}') from unnest(coalesce(p_fav, '{}')) with ordinality t(x, o) where trim(x) <> '' and o <= 3),
+         avatar_path = p_avatar
+   where id = auth.uid();
+end;
+$$;
+revoke all on function public.update_my_profile(text, text[], text) from public, anon;
+grant execute on function public.update_my_profile(text, text[], text) to authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('avatars', 'avatars', true, 1048576, array['image/jpeg', 'image/png', 'image/webp'])
+  on conflict (id) do nothing;
+drop policy if exists avatars_insert on storage.objects;
+drop policy if exists avatars_delete on storage.objects;
+create policy avatars_insert on storage.objects for insert to authenticated
+  with check (bucket_id = 'avatars' and split_part(name, '/', 1) = auth.uid()::text);
+create policy avatars_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'avatars' and split_part(name, '/', 1) = auth.uid()::text);
+create policy avatars_select on storage.objects for select to authenticated
+  using (bucket_id = 'avatars' and split_part(name, '/', 1) = auth.uid()::text);

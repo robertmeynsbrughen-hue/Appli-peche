@@ -58,6 +58,7 @@ const ROLE_LABEL={owner:"Resp.",moderator:"Modo"};
 function roleBadge(role){ return ROLE_LABEL[role]?el("span","badge "+role,ROLE_LABEL[role]):null; }
 function userLabel(name,isAdmin,role){
   const s=el("span","post-user","@"+(name||"?"));
+  if(name){ s.dataset.user=name; s.tabIndex=0; s.setAttribute("role","link"); s.title="Voir le profil de @"+name; }
   if(isAdmin) s.append(el("span","badge","Admin"));
   else if(role===true||role==="owner") s.append(roleBadge("owner"));
   else if(role==="moderator") s.append(roleBadge("moderator"));
@@ -65,7 +66,7 @@ function userLabel(name,isAdmin,role){
 }
 function avatar(name){
   const n=name||"?"; let h=0; for(const c of n) h=(h*31+c.charCodeAt(0))%360;
-  const a=el("span","avatar",n.charAt(0)); a.style.background="hsl("+h+" 42% 42%)"; a.setAttribute("aria-hidden","true");
+  const a=el("span","avatar",n.charAt(0)); a.style.background="hsl("+h+" 42% 42%)"; a.setAttribute("aria-hidden","true"); a.dataset.name=n;
   return a;
 }
 const roleOf=(gid,uid)=>roles.get(gid)?.get(uid);

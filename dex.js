@@ -76,11 +76,12 @@ function collect(rows){
   });
   return m;
 }
-function grid(found){
+function grid(found,who){
   const g=el("div","dex-grid");
   DEX.forEach(e=>{
     const x=found.get(e.n);
-    const c=el("div","dex-card"+(x?" got":"")+(x&&e.rare===3?" rare":""));
+    const c=el("button","dex-card"+(x?" got":"")+(x&&e.rare===3?" rare":"")); c.type="button";
+    c.addEventListener("click",()=>openSpecies(e,x,who));
     c.append(el("span","dex-n","#"+String(e.n).padStart(3,"0")));
     const art=el("div","dex-art"); art.append(fishSvg(e,!!x)); c.append(art);
     c.append(el("span","dex-name",x?e.name:"???"));
@@ -89,7 +90,7 @@ function grid(found){
       c.append(el("span","dex-meta","×"+x.n+(x.best?" · "+fmt(x.best)+" cm":"")));
       c.title=e.name+" ("+e.latin+") · "+RARE[e.rare]+" · 1re prise le "+new Date(x.first).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});
       c.setAttribute("aria-label",e.name+", pris "+x.n+" fois"+(x.best?", record "+fmt(x.best)+" centimètres":""));
-    }else c.setAttribute("aria-label","Espèce numéro "+e.n+" pas encore prise");
+    }else c.setAttribute("aria-label","Espèce numéro "+e.n+" pas encore prise, voir la fiche");
     g.append(c);
   });
   return g;
@@ -219,6 +220,67 @@ async function groupDex(host,gid){
   sec.append(list);
   host.append(sec);
 }
+/* ---------- Fiche espèce ---------- */
+const MONTHS=["J","F","M","A","M","J","J","A","S","O","N","D"];
+const LVL=["Faible","Moyenne","Bonne","Top"];
+let spSheet=null;
+function closeSp(){ if(spSheet){ spSheet.remove(); spSheet=null; document.removeEventListener("keydown",escSp,true); } }
+function escSp(e){ if(e.key==="Escape"){ e.stopPropagation(); closeSp(); } }
+async function openSpecies(e,x,who){
+  closeSp();
+  const info=(window.CDJ_SPECIES_INFO||{})[e.name]||{};
+  spSheet=el("div","sheet-back sp-back");
+  const sh=el("div","sheet sp-sheet"); sh.setAttribute("role","dialog"); sh.setAttribute("aria-modal","true"); sh.setAttribute("aria-label","Fiche "+e.name);
+  const head=el("div","sheet-head"); head.append(el("span","dex-n","#"+String(e.n).padStart(3,"0")));
+  const cl=el("button","icon-btn"); cl.type="button"; cl.setAttribute("aria-label","Fermer"); cl.innerHTML='<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>'; cl.addEventListener("click",closeSp);
+  head.append(cl); sh.append(head);
+  const hero=el("div","sp-hero"+(x?" got":"")); const art=el("div","sp-art"); art.append(fishSvg(e,true)); hero.append(art);
+  const ht=el("div"); ht.append(el("h2",null,e.name), el("div","sp-latin",e.latin), el("div","dex-rare","★".repeat(e.rare)+"☆".repeat(3-e.rare)+" · "+RARE[e.rare]));
+  hero.append(ht); sh.append(hero);
+  const st=el("div","sp-status"+(x?" got":""));
+  if(x) st.append(el("b",null,(who?who+" : ":"")+"pris "+x.n+" fois"), el("span",null,[x.best?"record "+fmt(x.best)+" cm":null,x.bestW?fmt(x.bestW)+" kg":null,"1re prise le "+new Date(x.first).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})].filter(Boolean).join(" · ")));
+  else st.append(el("b",null,(who?who+" ne l'a":"Pas encore dans ta collection")+(who?" pas encore attrapé":"")), el("span",null,"Publie une prise de cette espèce pour la débloquer."));
+  sh.append(st);
+  if(info.size){ const f=el("div","sp-fact"); f.append(el("span","label","Taille"),el("span",null,info.size)); sh.append(f); }
+  if(info.about) sh.append(el("h4","g-sub","Comportement"), el("p","sp-p",info.about));
+  if(info.habitat) sh.append(el("h4","g-sub","Où le trouver"), el("p","sp-p",info.habitat));
+  if(info.months){
+    sh.append(el("h4","g-sub","Meilleures périodes"));
+    const cal=el("div","sp-cal"); cal.setAttribute("role","img");
+    cal.setAttribute("aria-label",info.months.map((v,i)=>new Date(2026,i,1).toLocaleDateString("fr-FR",{month:"long"})+" "+LVL[v].toLowerCase()).join(", "));
+    const now=new Date().getMonth();
+    info.months.forEach((v,i)=>{ const c=el("div","sp-m"+(i===now?" now":"")); const b=el("i","l"+v); b.style.height=(18+v*14)+"px"; c.append(b,el("span",null,MONTHS[i])); cal.append(c); });
+    sh.append(cal, el("p","note","Activité du poisson. Vérifie aussi les périodes de fermeture dans Conseils."));
+  }
+  const list=(t,arr)=>{ if(!arr?.length) return; sh.append(el("h4","g-sub",t)); const ul=el("ul","sp-list"); arr.forEach(a=>ul.append(el("li",null,a))); sh.append(ul); };
+  list("Techniques",info.tech); list("Montages et matériel",info.rigs);
+  if(info.tip){ const t=el("div","sp-tip"); t.append(el("b",null,"💡 Astuce "),info.tip); sh.append(t); }
+  // meilleures prises du groupe
+  const best=el("div","sp-best"); best.append(el("h4","g-sub","Meilleures prises "+(A.cur==="all"?"de tous les groupes":"du groupe")), el("p","note","Chargement…"));
+  sh.append(best);
+  spSheet.append(sh); document.body.append(spSheet);
+  spSheet.addEventListener("click",ev=>{ if(ev.target===spSheet) closeSp(); });
+  document.addEventListener("keydown",escSp,true);
+  if(!A.me) return;
+  const names=[e.name,...Object.entries(ALIAS).filter(([,v])=>v===e.name).map(([k])=>k)];
+  let qp=A.sb.from("posts").select("user_id,species,length_cm,weight_kg,created_at,profiles(username,is_admin)").eq("status","published").ilike("species",e.name).order("length_cm",{ascending:false,nullsFirst:false}).limit(30);
+  let qs=A.sb.from("sessions").select("user_id,species,length_cm,created_at,profiles(username,is_admin)").eq("caught",true).ilike("species",e.name).order("length_cm",{ascending:false,nullsFirst:false}).limit(30);
+  if(typeof A.cur==="number"){ qp=qp.eq("group_id",A.cur); qs=qs.eq("group_id",A.cur); }
+  const [{data:p},{data:se}]=await Promise.all([qp,qs]);
+  if(!best.isConnected) return;
+  const rows=[...(p||[]),...(se||[])].filter(r=>r.length_cm||r.weight_kg).sort((a,b)=>(b.length_cm||0)-(a.length_cm||0)||(b.weight_kg||0)-(a.weight_kg||0)).slice(0,5);
+  best.lastChild.remove();
+  if(!rows.length){ best.append(el("p","note","Aucune prise mesurée pour l'instant. À toi d'ouvrir le classement !")); return; }
+  const ol=el("div","list tight rk-list"); const medal=["🥇","🥈","🥉"];
+  rows.forEach((r,i)=>{
+    const row=el("div","mrow");
+    const l=el("div","rk-l"); l.append(el("span","rk-pos",medal[i]||String(i+1)), userLabel(r.profiles?.username,r.profiles?.is_admin));
+    row.append(l, el("span","rk-v",[r.length_cm?fmt(r.length_cm)+" cm":null,r.weight_kg?fmt(r.weight_kg)+" kg":null].filter(Boolean).join(" · ")+" · "+new Date(r.created_at).toLocaleDateString("fr-FR",{month:"short",year:"2-digit"})));
+    ol.append(row);
+  });
+  best.append(ol);
+}
+
 let sheet=null;
 function closeSheet(){ if(sheet){ sheet.remove(); sheet=null; document.removeEventListener("keydown",esc); } }
 function esc(e){ if(e.key==="Escape") closeSheet(); }
@@ -228,7 +290,7 @@ function openSheet(title,found,troph){
   const sh=el("div","sheet dex-sheet"); sh.setAttribute("role","dialog"); sh.setAttribute("aria-modal","true"); sh.setAttribute("aria-label",title);
   const head=el("div","sheet-head"); head.append(el("h2",null,title));
   const x=el("button","icon-btn"); x.type="button"; x.setAttribute("aria-label","Fermer"); x.innerHTML='<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>'; x.addEventListener("click",closeSheet);
-  head.append(x); sh.append(head, progress(found), grid(found));
+  head.append(x); sh.append(head, progress(found), grid(found,title.replace(/^Fishdex de /,"").replace(/^Collection du groupe$/,"Le groupe")));
   if(troph){ sh.append(el("h4","g-sub","Trophées · "+troph.length+"/"+TROPHIES.length)); sh.append(trophyGrid(troph)); }
   sheet.append(sh); document.body.append(sheet);
   sheet.addEventListener("click",e=>{ if(e.target===sheet) closeSheet(); });
@@ -245,7 +307,7 @@ A.hooks.groupeExtras=(box,gid,mod)=>{
 };
 const prevChange=A.hooks.change;
 A.hooks.change=()=>{ prevChange?.(); if(!A.me){ const d=$("#dex"); if(d) d.hidden=true; } };
-A.dex={DEX,entryOf};
+A.dex={DEX,entryOf,collect,trophiesOf,TROPHIES,grid,progress,trophyGrid,openSpecies};
 if(A.me&&!$("#v-profil").hidden) myDex();
 if(A.me&&!$("#v-groupe").hidden) A.hooks.groupe?.();
 })();

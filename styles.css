@@ -654,3 +654,47 @@ body.chat-open{overflow:hidden}
 .live-pin.me{background:#d93a2b;box-shadow:0 0 0 0 rgba(217,58,43,.6)}
 .live-pin span{color:#fff;font-weight:700;font-family:var(--f-display);font-size:1rem}
 @keyframes livepulse{70%{box-shadow:0 0 0 14px rgba(0,0,0,0)}100%{box-shadow:0 0 0 0 rgba(0,0,0,0)}}
+
+/* ---- Fiche espèce ---- */
+button.dex-card{font:inherit;cursor:pointer}
+.sp-back{z-index:2700}
+.sp-sheet{max-height:92vh}
+.sp-sheet>*{flex-shrink:0}
+.sp-hero{display:flex;align-items:center;gap:14px}
+.sp-art{width:120px;flex-shrink:0;color:var(--muted)}
+.sp-art svg{width:120px;height:60px;overflow:visible}
+.sp-hero h2{margin:0;font-family:var(--f-display);font-weight:700;font-size:1.6rem;text-transform:uppercase;letter-spacing:.03em}
+.sp-latin{font-style:italic;color:var(--muted);font-size:.9rem}
+.sp-status{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:12px;background:var(--surface-2);font-size:.9rem}
+.sp-status.got{background:var(--accent-soft)}
+.sp-fact{display:flex;gap:10px;align-items:baseline}
+.sp-p{margin:0}
+.sp-cal{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end;height:80px}
+.sp-m{display:flex;flex-direction:column;align-items:center;gap:3px;justify-content:flex-end;height:100%}
+.sp-m i{display:block;width:100%;border-radius:4px 4px 0 0;background:var(--line)}
+.sp-m i.l1{background:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.sp-m i.l2{background:var(--accent-2)}
+.sp-m i.l3{background:var(--amber)}
+.sp-m span{font-family:var(--f-mono);font-size:.66rem;color:var(--muted)}
+.sp-m.now span{color:var(--fg);font-weight:700;text-decoration:underline}
+.sp-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.sp-tip{background:var(--amber-soft);border-radius:12px;padding:10px 12px;font-size:.92rem}
+
+/* ---- Profil public ---- */
+.post-user[data-user]{cursor:pointer}
+.post-user[data-user]:hover{text-decoration:underline}
+.avatar.has-img{background:none!important;overflow:hidden;padding:0}
+.avatar.has-img img{width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit}
+.avatar.big{width:76px;height:76px;font-size:2rem;flex-shrink:0;display:grid;place-items:center;border-radius:50%;color:#fff;font-family:var(--f-display);font-weight:700}
+.pf-back{z-index:2650}
+.pf-sheet{max-height:92vh}
+.pf-sheet>*{flex-shrink:0}
+.pf-top,.pf-edit-top{display:flex;align-items:center;gap:14px}
+.pf-id h2{margin:0;font-size:1.3rem}
+.pf-bio{margin:0;font-size:1rem;white-space:pre-wrap}
+.pf-more{background:var(--surface-2);border-radius:12px;padding:8px 12px}
+.pf-more summary{display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:700;min-height:36px;list-style:none}
+.pf-more summary::-webkit-details-marker{display:none}
+.pf-more[open]{display:flex;flex-direction:column;gap:10px}
+.pf-edit-btns{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+#pub-profile .g-sec-head h2{margin:0}
