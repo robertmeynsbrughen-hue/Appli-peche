@@ -73,7 +73,7 @@ async function loadCarp(){
   const box=$("#carp"); if(!box||box.hidden||!A.me||typeof A.cur!=="number") return;
   const seq=++cSeq, gid=A.cur;
   const [{data:mine},{data:recent}]=await Promise.all([
-    A.sb.from("carp_sessions").select("id,group_id,user_id,spot_id,rods,bait,groundbait,started_at,ended_at").eq("group_id",gid).eq("user_id",A.me.id).is("ended_at",null).order("started_at",{ascending:false}).limit(1),
+    A.sb.from("carp_sessions").select("id,group_id,user_id,spot_id,rods,bait,groundbait,started_at,ended_at,bait_every_min,next_bait_at").eq("group_id",gid).eq("user_id",A.me.id).is("ended_at",null).order("started_at",{ascending:false}).limit(1),
     A.sb.from("carp_sessions").select("id,user_id,spot_id,rods,bait,started_at,ended_at,profiles(username,is_admin),spots(name),carp_events(kind)").eq("group_id",gid).not("ended_at","is",null).order("started_at",{ascending:false}).limit(5),
   ]);
   if(seq!==cSeq) return;
@@ -117,6 +117,7 @@ function drawCarp(recent){
   prise.append(row,pact);
   prise.addEventListener("submit",e=>{ e.preventDefault(); addEvent("prise",wi.value?Number(wi.value):null,ni.value.trim()||null); });
   box.append(prise);
+  box.append(baitBlock());
   // stats rapides
   const cnt=k=>events.filter(x=>x.kind===k).length;
   const kp=el("div","kpis");
@@ -147,12 +148,85 @@ function drawCarp(recent){
   },"btn"));
   box.append(end);
 }
+/* ---------- Rappel d'amorçage ---------- */
+// intervalle conseillé : eau froide = on amorce peu et rarement ; courant fort = la nourriture part plus vite ; poissons actifs = plus souvent
+function suggestBait(){
+  const snap=window.CDJ_ADVICE?.snapshot?.();
+  const w=snap?.water;
+  let m=w==null?60:w<8?120:w<12?90:w<16?60:w<20?45:35;
+  const why=[w!=null?"eau à "+String(w).replace(".",",")+" °C":"eau non mesurée"];
+  if(snap?.flow==="haute"||snap?.flow==="crue"){ m*=.7; why.push("courant fort"); }
+  else if(snap?.flow==="basse"){ m*=1.2; why.push("basses eaux"); }
+  const recent=events.filter(e=>(e.kind==="depart"||e.kind==="prise")&&Date.now()-new Date(e.at)<2*36e5).length;
+  if(recent>=2){ m*=.8; why.push(recent+" départs en 2 h"); }
+  m=Math.max(20,Math.min(180,Math.round(m/5)*5));
+  return {m,why:why.join(", ")};
+}
+async function setBait(min,fromEvent){
+  const next=min?new Date(Date.now()+min*6e4).toISOString():null;
+  const {error}=await A.sb.from("carp_sessions").update({bait_every_min:min||null,next_bait_at:next}).eq("id",carp.id);
+  if(error){ if(!fromEvent) toast(frError(error)); return; }
+  carp.bait_every_min=min||null; carp.next_bait_at=next; alarmed=null;
+  if(!fromEvent) drawCarp([]);
+}
+let alarmed=null, wake=null;
+function beep(){
+  try{
+    const ac=new (window.AudioContext||window.webkitAudioContext)();
+    [0,.35,.7].forEach(t=>{ const o=ac.createOscillator(), g=ac.createGain(); o.frequency.value=880; o.connect(g); g.connect(ac.destination);
+      g.gain.setValueAtTime(.0001,ac.currentTime+t); g.gain.exponentialRampToValueAtTime(.4,ac.currentTime+t+.02); g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+t+.25);
+      o.start(ac.currentTime+t); o.stop(ac.currentTime+t+.3); });
+    setTimeout(()=>ac.close(),1500);
+  }catch(e){}
+  if(navigator.vibrate) try{ navigator.vibrate([300,150,300,150,300]); }catch(e){}
+}
+async function keepAwake(on){
+  try{
+    if(on&&"wakeLock" in navigator){ wake=await navigator.wakeLock.request("screen"); wake.addEventListener?.("release",()=>{ wake=null; }); }
+    else if(!on&&wake){ await wake.release(); wake=null; }
+  }catch(e){ toast("Impossible de garder l'écran allumé sur ce téléphone"); }
+}
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"&&localStorage.getItem("cdj-wake")==="1"&&carp&&!wake) keepAwake(true); });
+function baitBlock(){
+  const b=el("div","bait-rem");
+  const sug=suggestBait();
+  if(carp.bait_every_min){
+    const due=carp.next_bait_at?new Date(carp.next_bait_at).getTime():null;
+    const left=due?Math.round((due-Date.now())/6e4):null;
+    const t=el("div","bait-t"); t.append(el("b",null,"🥣 Rappel toutes les "+carp.bait_every_min+" min"),el("span","note",left==null?"":left<=0?"C'est l'heure de réamorcer !":"Prochain amorçage dans "+left+" min"));
+    b.append(t);
+    const act=el("div","actions");
+    act.append(btn("✓ Amorçage fait","btn primary small",()=>addEvent("amorcage")));
+    const sel=el("select"); sel.setAttribute("aria-label","Intervalle"); [20,30,45,60,90,120,180].forEach(v=>sel.append(new Option(v+" min",v))); if(![20,30,45,60,90,120,180].includes(carp.bait_every_min)) sel.append(new Option(carp.bait_every_min+" min",carp.bait_every_min)); sel.value=String(carp.bait_every_min);
+    sel.addEventListener("change",()=>setBait(Number(sel.value)));
+    act.append(sel, btn("Arrêter","linkbtn",()=>setBait(null)));
+    b.append(act);
+    if(left!=null&&left<=0) b.classList.add("due");
+  }else{
+    b.append(el("div","bait-t",""));
+    b.firstChild.append(el("b",null,"🥣 Rappel d'amorçage"),el("span","note","Conseillé : toutes les "+sug.m+" min ("+sug.why+"). Tu reçois une notification avec sonnerie, même téléphone en veille."));
+    const act=el("div","actions"); act.append(btn("Activer ("+sug.m+" min)","btn small",()=>setBait(sug.m))); b.append(act);
+  }
+  const wl=el("label","switch"); const wi=el("input"); wi.type="checkbox"; wi.checked=!!wake||localStorage.getItem("cdj-wake")==="1";
+  wi.addEventListener("change",()=>{ try{ localStorage.setItem("cdj-wake",wi.checked?"1":"0"); }catch(e){} keepAwake(wi.checked); });
+  const wt=el("span","switch-t"); wt.append(el("b",null,"🔆 Garder l'écran allumé"),el("span","note","Pratique sur le rod-pod, consomme plus de batterie"));
+  wl.append(wi,el("span","switch-ui"),wt); b.append(wl);
+  return b;
+}
+setInterval(()=>{
+  if(!carp||!carp.next_bait_at) return;
+  const due=new Date(carp.next_bait_at).getTime();
+  const n=document.querySelector("#carp .bait-rem .bait-t .note"); if(n){ const left=Math.round((due-Date.now())/6e4); n.textContent=left<=0?"C'est l'heure de réamorcer !":"Prochain amorçage dans "+left+" min"; }
+  if(Date.now()>=due&&alarmed!==carp.next_bait_at&&document.visibilityState==="visible"){ alarmed=carp.next_bait_at; beep(); toast("🥣 C'est l'heure de réamorcer !"); if(!$("#carp").hidden) drawCarp([]); }
+},15000);
+
 async function addEvent(kind,weight,note){
   const ins={session_id:carp.id,kind,at:new Date().toISOString(),rod:carp.rods>1?rod:null,weight_kg:weight||null,note:note||null};
   let {data,error}=navigator.onLine?await A.sb.from("carp_events").insert(ins).select("id,kind,at,rod,weight_kg,note").single():{error:new Error("Failed to fetch")};
   if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"carp_events",row:ins})){ error=null; data={...ins,id:"q"+Date.now(),queued:true}; }
   if(error) return toast(frError(error));
   events=[data,...events];
+  if(kind==="amorcage"&&carp.bait_every_min) await setBait(carp.bait_every_min,true);
   if(navigator.vibrate) try{ navigator.vibrate(40); }catch(e){}
   toast(KINDS[kind].e+" "+KINDS[kind].t+" notée à "+hm(data.at));
   drawCarp([]);

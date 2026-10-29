@@ -614,7 +614,7 @@ function openMap(){
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,
       attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
     layer=L.layerGroup().addTo(map);
-    map.on("click",ev=>startSpot(ev.latlng.lat,ev.latlng.lng));
+    map.on("click",ev=>{ if(hooks.mapClick?.(ev.latlng)) return; startSpot(ev.latlng.lat,ev.latlng.lng); });
     drawSpots();
     hooks.mapReady?.(map);
   }

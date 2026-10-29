@@ -1,11 +1,11 @@
 /* Coup du Jour : service worker (fonctionnement hors ligne) */
-const VERSION="cdj-v25";
-const SHELL=["./","index.html","styles.css","advice.js","social.js","groupe.js","card.js","extras.js","peche.js","alerts.js","offline.js","species.js","dex.js","reco.js","outings.js","maptools.js","profile.js","layout.js","tools.js","lures.js","compet.js","modo.js","config.js","manifest.webmanifest",
+const VERSION="cdj-v26";
+const SHELL=["./","index.html","styles.css","advice.js","social.js","groupe.js","card.js","extras.js","peche.js","alerts.js","offline.js","species.js","dex.js","reco.js","outings.js","maptools.js","profile.js","layout.js","tools.js","lures.js","compet.js","modo.js","share.js","maplayers.js","share.html","config.js","manifest.webmanifest",
   "icon-192.png","badge-96.png","logo.svg","icon-512.png"];
 const CDN=["unpkg.com","cdn.jsdelivr.net","fonts.googleapis.com","fonts.gstatic.com"];
 self.addEventListener("install",e=>{ e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())); });
 self.addEventListener("activate",e=>{
-  e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSION).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
+  e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSION&&k!=="cdj-tiles").map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
 });
 self.addEventListener("fetch",e=>{
   const req=e.request; if(req.method!=="GET") return;
@@ -14,6 +14,9 @@ self.addEventListener("fetch",e=>{
     // réseau d'abord pour recevoir les mises à jour, cache si hors ligne
     e.respondWith(fetch(req,{cache:"no-cache"}).then(r=>{ const cp=r.clone(); caches.open(VERSION).then(c=>c.put(req,cp)); return r; })
       .catch(()=>caches.match(req).then(r=>r||caches.match("index.html"))));
+  }else if(url.hostname==="data.geopf.fr"){
+    // tuiles IGN : celles téléchargées pour le hors ligne d'abord, sinon le réseau
+    e.respondWith(caches.open("cdj-tiles").then(c=>c.match(req.url).then(r=>r||fetch(req).catch(()=>new Response("",{status:504})))));
   }else if(CDN.includes(url.hostname)){
     e.respondWith(caches.match(req).then(r=>r||fetch(req).then(res=>{ const cp=res.clone(); caches.open(VERSION).then(c=>c.put(req,cp)); return res; })));
   }

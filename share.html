@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Une prise partagée · Coup du Jour</title>
+<meta name="description" content="Une belle prise partagée depuis Coup du Jour, l'appli de pêche entre potes.">
+<meta property="og:title" content="Une belle prise · Coup du Jour">
+<meta property="og:image" content="icon-512.png">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@500&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1a17;--surface:#15201d;--line:#26352f;--fg:#f1f5f2;--muted:#9fb3ab;--amber:#e7a650;--accent:#2c8b73}
+@media (prefers-color-scheme: light){:root{--bg:#e9efeb;--surface:#fff;--line:#d3ddd8;--fg:#13221d;--muted:#5b6c65;--amber:#c27a22;--accent:#1f6f5c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Source Sans 3",system-ui,sans-serif;min-height:100vh;display:flex;justify-content:center;padding:16px}
+main{width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px}
+.brand{display:flex;align-items:center;gap:10px;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:1.3rem;text-transform:uppercase;letter-spacing:.03em}
+.brand img{width:36px;height:36px;border-radius:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 20px 50px -20px rgba(0,0,0,.5)}
+.photos{display:flex;overflow-x:auto;scroll-snap-type:x mandatory}
+.photos img{width:100%;flex:0 0 100%;max-height:70vh;object-fit:cover;scroll-snap-align:center}
+.body{padding:18px;display:flex;flex-direction:column;gap:10px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.sp{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:2.6rem;line-height:.95;text-transform:uppercase;margin:0}
+.size{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:3.4rem;line-height:.85;color:var(--amber);text-align:right}
+.size small{display:block;font-family:"JetBrains Mono",monospace;font-size:.8rem;letter-spacing:.12em}
+.meta{font-family:"JetBrains Mono",monospace;font-size:.8rem;color:var(--muted)}
+.bait{background:color-mix(in srgb,var(--amber) 18%,transparent);border-radius:12px;padding:10px 12px}
+.bait b{display:block;font-family:"Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:.08em;font-size:.8rem;color:var(--amber)}
+.cta{display:block;text-align:center;background:var(--accent);color:#fff;text-decoration:none;font-weight:700;padding:14px;border-radius:14px}
+.note{color:var(--muted);text-align:center;font-size:.85rem}
+.err{text-align:center;padding:40px 16px}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><img src="icon-192.png" alt=""> Coup du Jour</div>
+  <div id="out"><p class="note">Chargement de la prise…</p></div>
+  <a class="cta" href="./">Découvrir Coup du Jour</a>
+  <p class="note">L'appli de pêche entre potes : conseils du jour, carnet, Fishdex et défis.</p>
+</main>
+<script src="config.js"></script>
+<script>
+(async function(){
+  const out=document.getElementById("out");
+  const t=new URLSearchParams(location.search).get("t")||"";
+  const C=window.CDJ_CONFIG||{};
+  const mk=(tag,cls,text)=>{ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; };
+  const fail=m=>{ out.innerHTML=""; out.append(mk("div","card err",m)); };
+  if(!/^[0-9a-f-]{36}$/i.test(t)) return fail("Ce lien de partage n'est pas valide.");
+  try{
+    const r=await fetch(C.SUPABASE_URL+"/functions/v1/share?t="+encodeURIComponent(t),{headers:{apikey:C.SUPABASE_KEY,Authorization:"Bearer "+C.SUPABASE_KEY}});
+    const d=await r.json();
+    if(!r.ok||d.error) return fail(r.status===404?"Cette prise n'est plus partagée.":"Impossible d'afficher cette prise pour le moment.");
+    out.innerHTML="";
+    const card=mk("article","card");
+    if(d.photos&&d.photos.length){ const ph=mk("div","photos"); d.photos.forEach((u,i)=>{ const im=mk("img"); im.src=u; im.alt=(d.species||"Prise")+" (photo "+(i+1)+")"; ph.append(im); }); card.append(ph); }
+    const b=mk("div","body"); const top=mk("div","top");
+    top.append(mk("h1","sp",d.species||"Belle prise"));
+    if(d.length_cm||d.weight_kg){ const s=mk("div","size",d.length_cm?String(d.length_cm).replace(".",","):String(d.weight_kg).replace(".",",")); s.append(mk("small",null,d.length_cm?"cm"+(d.weight_kg?" · "+String(d.weight_kg).replace(".",",")+" kg":""):"kg")); top.append(s); }
+    b.append(top);
+    const date=new Date(d.date).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});
+    b.append(mk("div","meta","@"+d.username+" · "+date+(d.group?" · "+d.group:"")+(d.spot?" · 📍 "+d.spot:"")));
+    if(d.bait){ const x=mk("div","bait"); x.append(mk("b",null,"Appât et amorçage"), d.bait); b.append(x); }
+    if(d.caption) b.append(mk("p",null,d.caption));
+    card.append(b); out.append(card);
+    document.title=(d.species||"Une prise")+(d.length_cm?" de "+String(d.length_cm).replace(".",",")+" cm":"")+" · Coup du Jour";
+  }catch(e){ fail("Pas de connexion réseau."); }
+})();
+</script>
+</body>
+</html>

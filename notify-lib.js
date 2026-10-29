@@ -101,6 +101,7 @@ export async function handle(req, cfg) {
     const t = ev.table;
     if (t === "morning") return Response.json(await morning(ev, VAPID));
     if (t === "outing_reminders") return Response.json(await outingReminders(VAPID));
+    if (t === "bait_reminders") return Response.json(await baitReminders(VAPID));
     let rec, group_id, author, recipients, msg;
     if (t === "memberships") {
       group_id = Number(ev.group_id); author = String(ev.user_id).replace(/[^0-9a-f-]/gi, "");
@@ -237,8 +238,8 @@ async function pushTo(user_id, msg, vapid) {
 async function morning(ev, vapid) {
   const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date());
   const test = ev.test === true && /^[0-9a-f-]{36}$/i.test(String(ev.user_id || ""));
-  let q = "alert_prefs?enabled=eq.true&select=user_id,lat,lon,place,species,threshold,water,opening,last_sent";
-  if (test) q = "alert_prefs?user_id=eq." + ev.user_id + "&select=user_id,lat,lon,place,species,threshold,water,opening,last_sent";
+  let q = "alert_prefs?enabled=eq.true&select=user_id,lat,lon,place,species,threshold,water,opening,flood,last_sent";
+  if (test) q = "alert_prefs?user_id=eq." + ev.user_id + "&select=user_id,lat,lon,place,species,threshold,water,opening,flood,last_sent";
   const prefs = await db(q);
   const reminder = openingReminder(today);
   const cache = new Map();
@@ -263,13 +264,65 @@ async function morning(ev, vapid) {
       } catch (_) { /* météo indisponible : on passe */ }
     }
     if (p.opening !== false && reminder) msgs.push({ ...reminder, url: "./#conseils", tag: "regl-" + today });
+    if (p.flood !== false && p.lat != null && p.lon != null) {
+      const fl = await floodCheck(p.lat, p.lon, cache);
+      if (fl) msgs.push({ title: "🌊 Montée des eaux prévue" + (p.place ? " · " + p.place : ""), body: "Débit ×" + num(fl.ratio.toFixed(1)) + " par rapport à la normale " + fl.when + ". Prudence au bord de l'eau, eau trouble et courant fort.", url: "./#conseils", tag: "flood-" + today });
+    }
     if (test && !msgs.length) msgs.push({ title: "🧪 Test · Alerte du matin", body: "Les alertes fonctionnent. Ajoute ta position pour recevoir les conditions.", url: "./#profil", tag: "morning" });
     let sent = 0;
     for (const m of msgs) sent += await pushTo(p.user_id, m, vapid);
     if (!test && msgs.length) await db("alert_prefs?user_id=eq." + p.user_id, { method: "PATCH", body: JSON.stringify({ last_sent: today }), headers: { Prefer: "return=minimal" } });
     report.push({ msgs: msgs.length, sent });
   }
+  // rappel de la carte de pêche : 30 jours, 7 jours, la veille et le jour même
+  if (!test) {
+    const dates = [0, 1, 7, 30].map((n) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date(Date.now() + n * 864e5)));
+    const perm = await db("profiles?permit_end=in.(" + dates.join(",") + ")&select=id,permit_end");
+    for (const u of perm) {
+      const n = dates.indexOf(u.permit_end), d = [0, 1, 7, 30][n];
+      await pushTo(u.id, { title: "🎫 Carte de pêche", body: d === 0 ? "Ta carte de pêche expire aujourd'hui : pense à la renouveler avant ta prochaine sortie." : "Ta carte de pêche expire " + (d === 1 ? "demain" : "dans " + d + " jours") + ". Renouvelle-la sur cartedepeche.fr.", url: "./#profil", tag: "permit" }, vapid);
+    }
+    report.push({ permits: perm.length });
+  }
   return { day: today, users: prefs.length, report };
+}
+// débit de la rivière la plus proche : alerte si forte montée prévue sous 3 jours
+async function floodCheck(lat, lon, cache) {
+  const key = "fl" + Number(lat).toFixed(2) + "," + Number(lon).toFixed(2);
+  if (!cache.has(key)) cache.set(key, fetch("https://flood-api.open-meteo.com/v1/flood?latitude=" + Number(lat).toFixed(3) + "&longitude=" + Number(lon).toFixed(3) + "&daily=river_discharge&past_days=60&forecast_days=4").then((r) => r.ok ? r.json() : null).catch(() => null));
+  const d = await cache.get(key);
+  if (!d?.daily?.river_discharge) return null;
+  const t = d.daily.time, q = d.daily.river_discharge;
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date());
+  const i = t.indexOf(today); if (i < 0) return null;
+  const past = q.slice(0, i).filter((v) => v != null).sort((a, b) => a - b);
+  if (past.length < 10) return null;
+  const med = past[Math.floor(past.length / 2)];
+  if (!(med > 1)) return null;
+  let best = null;
+  for (let k = i + 1; k <= Math.min(q.length - 1, i + 3); k++) {
+    if (q[k] == null) continue;
+    const ratio = q[k] / med, jump = q[i] ? q[k] / q[i] : 1;
+    if (ratio >= 2 && jump >= 1.5 && (!best || ratio > best.ratio)) best = { ratio, k };
+  }
+  if (!best) return null;
+  const n = best.k - i;
+  return { ratio: best.ratio, when: n === 1 ? "demain" : "d'ici " + n + " jours" };
+}
+// ---- Rappel d'amorçage des sessions carpe en cours ----
+async function baitReminders(vapid) {
+  const now = new Date().toISOString();
+  const rows = await db("carp_sessions?ended_at=is.null&next_bait_at=lte." + now + "&select=id,user_id,bait_every_min,started_at");
+  let sent = 0;
+  for (const r of rows) {
+    if (Date.now() - new Date(r.started_at).getTime() > 72 * 36e5 || !r.bait_every_min) {
+      await db("carp_sessions?id=eq." + r.id, { method: "PATCH", body: JSON.stringify({ next_bait_at: null }), headers: { Prefer: "return=minimal" } });
+      continue;
+    }
+    sent += await pushTo(r.user_id, { title: "🥣 C'est l'heure de réamorcer", body: "Rappel toutes les " + r.bait_every_min + " min. Note l'amorçage dans l'appli pour relancer le compte à rebours.", url: "./#fil", tag: "bait-" + r.id }, vapid);
+    await db("carp_sessions?id=eq." + r.id, { method: "PATCH", body: JSON.stringify({ next_bait_at: new Date(Date.now() + r.bait_every_min * 6e4).toISOString() }), headers: { Prefer: "return=minimal" } });
+  }
+  return { due: rows.length, sent };
 }
 
 // ---- Sorties planifiées : rappel la veille ----

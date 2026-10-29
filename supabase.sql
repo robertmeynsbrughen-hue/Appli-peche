@@ -1134,3 +1134,91 @@ begin
 end;
 $$;
 revoke all on function backup.weekly() from public, anon, authenticated;
+
+
+-- ===== Lot 6 (v26) =====
+-- Coup du Jour : partage public, carte de pêche, rappel d'amorçage, traces GPS, profondeurs, alertes crue
+
+-- ---------- Partage public d'une prise (lien sans compte) ----------
+create table if not exists public.post_shares (
+  token uuid primary key default gen_random_uuid(),
+  post_id bigint not null references public.posts (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  show_spot boolean not null default false,
+  created_at timestamptz not null default now()
+);
+alter table public.post_shares enable row level security;
+drop policy if exists shares_select on public.post_shares;
+drop policy if exists shares_insert on public.post_shares;
+drop policy if exists shares_delete on public.post_shares;
+create policy shares_select on public.post_shares for select using (user_id = auth.uid());
+create policy shares_insert on public.post_shares for insert
+  with check (user_id = auth.uid() and exists (select 1 from public.posts p where p.id = post_id and p.user_id = auth.uid() and p.status = 'published'));
+create policy shares_delete on public.post_shares for delete using (user_id = auth.uid());
+
+-- ---------- Carte de pêche ----------
+alter table public.profiles add column if not exists permit_end date;
+create or replace function public.set_permit_end(p_date date) returns void
+language sql security definer set search_path = public as $$
+  update public.profiles set permit_end = p_date where id = auth.uid();
+$$;
+revoke all on function public.set_permit_end(date) from public, anon;
+grant execute on function public.set_permit_end(date) to authenticated;
+
+-- ---------- Alerte crue (avec l'alerte du matin) ----------
+alter table public.alert_prefs add column if not exists flood boolean not null default true;
+
+-- ---------- Rappel d'amorçage pendant une session carpe ----------
+alter table public.carp_sessions add column if not exists bait_every_min int check (bait_every_min between 10 and 600);
+alter table public.carp_sessions add column if not exists next_bait_at timestamptz;
+create index if not exists carp_sessions_bait on public.carp_sessions (next_bait_at) where ended_at is null;
+
+-- ---------- Traces GPS ----------
+create table if not exists public.tracks (
+  id bigint generated always as identity primary key,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  group_id bigint references public.groups (id) on delete set null,
+  title text check (char_length(title) <= 80),
+  started_at timestamptz not null,
+  ended_at timestamptz not null,
+  points jsonb not null,
+  bites jsonb not null default '[]',
+  distance_m numeric,
+  shared boolean not null default false,
+  created_at timestamptz not null default now(),
+  check (jsonb_typeof(points) = 'array' and jsonb_array_length(points) <= 20000)
+);
+create index if not exists tracks_user on public.tracks (user_id, started_at desc);
+alter table public.tracks enable row level security;
+drop policy if exists tracks_select on public.tracks;
+drop policy if exists tracks_write on public.tracks;
+create policy tracks_select on public.tracks for select
+  using (user_id = auth.uid() or (shared and group_id is not null and (public.is_member_of(group_id) or public.is_staff())));
+create policy tracks_write on public.tracks for all using (user_id = auth.uid())
+  with check (user_id = auth.uid() and (group_id is null or public.is_member_of(group_id) or public.is_staff()));
+
+-- ---------- Profondeurs et nature du fond (relevés des membres) ----------
+create table if not exists public.depth_points (
+  id bigint generated always as identity primary key,
+  group_id bigint not null references public.groups (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  lat numeric not null check (lat between -90 and 90),
+  lon numeric not null check (lon between -180 and 180),
+  depth_m numeric check (depth_m > 0 and depth_m <= 200),
+  bottom text check (char_length(bottom) <= 40),
+  note text check (char_length(note) <= 160),
+  created_at timestamptz not null default now(),
+  check (depth_m is not null or bottom is not null)
+);
+create index if not exists depth_group on public.depth_points (group_id);
+alter table public.depth_points enable row level security;
+drop policy if exists depth_select on public.depth_points;
+drop policy if exists depth_insert on public.depth_points;
+drop policy if exists depth_delete on public.depth_points;
+create policy depth_select on public.depth_points for select using (public.is_staff() or public.is_member_of(group_id));
+create policy depth_insert on public.depth_points for insert with check (user_id = auth.uid() and public.is_member_of(group_id));
+create policy depth_delete on public.depth_points for delete using (user_id = auth.uid() or public.can_moderate(group_id));
+
+-- ---------- Rappel d'amorçage : vérification toutes les 2 minutes ----------
+do $$ begin perform cron.unschedule('cdj-amorcage'); exception when others then null; end $$;
+select cron.schedule('cdj-amorcage','*/2 * * * *', $$ select public.call_notify('{"table":"bait_reminders"}'::jsonb) where exists (select 1 from public.carp_sessions where ended_at is null and next_bait_at <= now()) $$);

@@ -68,12 +68,13 @@ function draw(){
   const seg=el("div","seg"); WATER.forEach(([v,n])=>{ const b=btn(n,null,()=>{ pref.water=v; draw(); }); b.setAttribute("aria-pressed",String(pref.water===v)); seg.append(b); });
   wf.append(seg); body.append(wf);
   body.append(sw("Rappels d'ouverture et de fermeture","Brochet, 2e catégorie : 7 jours avant, la veille",pref.opening,v=>{ pref.opening=v; }));
+  body.append(sw("🌊 Alerte montée des eaux","Si le débit de la rivière la plus proche va doubler dans les 3 jours (crue, lâcher de barrage)",pref.flood!==false,v=>{ pref.flood=v; }));
 
   const act=el("div","actions");
   const save=btn("Enregistrer","btn primary",async()=>{
     if(pref.enabled&&pref.lat==null&&!pref.opening) return toast("Choisis un lieu pour recevoir les conditions");
     save.disabled=true;
-    const row={user_id:A.me.id,enabled:pref.enabled,lat:pref.lat,lon:pref.lon,place:pref.place,species:pref.species||[],threshold:pref.threshold,water:pref.water,opening:pref.opening,updated_at:new Date().toISOString()};
+    const row={user_id:A.me.id,enabled:pref.enabled,lat:pref.lat,lon:pref.lon,place:pref.place,species:pref.species||[],threshold:pref.threshold,water:pref.water,opening:pref.opening,flood:pref.flood!==false,updated_at:new Date().toISOString()};
     const {error}=await A.sb.from("alert_prefs").upsert(row,{onConflict:"user_id"});
     save.disabled=false;
     if(error) return toast(frError(error));

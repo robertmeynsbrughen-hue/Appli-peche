@@ -108,6 +108,7 @@ body{margin:0}
       <div class="section-head"><h2 id="r-title">Espèces du moment</h2><span class="note">classées sur 24 h</span></div>
       <div class="list" id="list"></div>
     </section>
+    <div id="permit-quick" hidden></div>
     <section class="panel" id="regl" aria-labelledby="regl-title"></section>
     <footer>Conseils tirés de règles générales de pêche. Température de l'eau estimée d'après l'air des 5 derniers jours. Dates d'ouverture : vérifie l'arrêté de ton département. Météo et débits (modèle GloFAS, maille de 5 km) : Open-Meteo.</footer>
   </section>
@@ -194,12 +195,18 @@ body{margin:0}
   <section class="view" id="v-carte" hidden>
     <div class="setup" data-setup hidden>La carte des spots n'est pas encore branchée : il faut renseigner le fichier config.js (voir le guide LISEZMOI).</div>
     <div class="empty" data-need-login hidden>Connecte-toi dans l'onglet Profil pour voir les spots du groupe.</div>
+    <div class="subbar" id="carte-sub" role="tablist" hidden>
+      <button type="button" data-s="carte" aria-selected="true">Surface</button>
+      <button type="button" data-s="fond" aria-selected="false">Fond</button>
+    </div>
     <div class="map-bar" id="map-bar" hidden>
       <button type="button" class="btn primary" id="spot-here">Spot à ma position</button>
       <span class="note">ou touche la carte à l'endroit voulu</span>
     </div>
     <div class="map-tools" id="map-tools" hidden></div>
+    <div class="map-layers" id="map-layers" hidden></div>
     <div id="map" hidden></div>
+    <div class="panel fond-panel" id="fond-panel" hidden></div>
     <form class="panel" id="spot-form" hidden>
       <h2>Nouveau spot</h2>
       <p class="note" id="spot-coords"></p>
@@ -278,6 +285,7 @@ body{margin:0}
       <p class="err" id="jm-err" hidden></p>
     </div>
 
+    <div class="panel" id="permit-panel" hidden data-sub="reglages"></div>
     <div class="panel" id="push-panel" hidden data-sub="reglages">
       <h2>Notifications</h2>
       <p class="note" id="push-status"></p>
@@ -301,7 +309,7 @@ body{margin:0}
     <div class="panel" data-sub="reglages">
       <h2>Installer l'appli</h2>
       <p class="note">Android (Chrome) : menu ⋮ puis « Ajouter à l'écran d'accueil » ou « Installer l'application ».<br>iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
-      <p class="note app-version">Version <span id="app-version">25</span></p>
+      <p class="note app-version">Version <span id="app-version">26</span></p>
     </div>
 
     <div class="panel" data-sub="reglages" id="account-panel" hidden>
@@ -440,6 +448,8 @@ body{margin:0}
 <script src="lures.js"></script>
 <script src="compet.js"></script>
 <script src="modo.js"></script>
+<script src="share.js"></script>
+<script src="maplayers.js"></script>
 <script>
 if("serviceWorker" in navigator){
   // dès qu'une nouvelle version prend la main, on recharge une fois pour l'afficher
