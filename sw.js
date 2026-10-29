@@ -1,5 +1,5 @@
 /* Coup du Jour : service worker (fonctionnement hors ligne) */
-const VERSION="cdj-v4";
+const VERSION="cdj-v5";
 const SHELL=["./","index.html","styles.css","advice.js","social.js","config.js","manifest.webmanifest",
   "icon-192.png","icon-512.png"];
 const CDN=["unpkg.com","cdn.jsdelivr.net","fonts.googleapis.com","fonts.gstatic.com"];
@@ -12,7 +12,7 @@ self.addEventListener("fetch",e=>{
   const url=new URL(req.url);
   if(url.origin===location.origin){
     // réseau d'abord pour recevoir les mises à jour, cache si hors ligne
-    e.respondWith(fetch(req).then(r=>{ const cp=r.clone(); caches.open(VERSION).then(c=>c.put(req,cp)); return r; })
+    e.respondWith(fetch(req,{cache:"no-cache"}).then(r=>{ const cp=r.clone(); caches.open(VERSION).then(c=>c.put(req,cp)); return r; })
       .catch(()=>caches.match(req).then(r=>r||caches.match("index.html"))));
   }else if(CDN.includes(url.hostname)){
     e.respondWith(caches.match(req).then(r=>r||fetch(req).then(res=>{ const cp=res.clone(); caches.open(VERSION).then(c=>c.put(req,cp)); return res; })));
