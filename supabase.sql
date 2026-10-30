@@ -1560,3 +1560,102 @@ end;
 $$;
 revoke all on function public.set_spot_facing(bigint, int) from public, anon;
 grant execute on function public.set_spot_facing(bigint, int) to authenticated;
+-- ===== Lot 17 : bulletin d'eau des membres, signalements environnement =====
+create table if not exists public.water_reports (
+  id bigint generated always as identity primary key,
+  group_id bigint not null references public.groups (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  spot_id bigint references public.spots (id) on delete set null,
+  lat double precision not null check (lat between -90 and 90),
+  lon double precision not null check (lon between -180 and 180),
+  color text check (color in ('claire', 'teintee', 'trouble')),
+  level text check (level in ('bas', 'normal', 'haut', 'crue')),
+  temp numeric check (temp between 0 and 35),
+  weeds boolean,
+  note text check (char_length(note) <= 200),
+  created_at timestamptz not null default now()
+);
+create index if not exists water_reports_group_time on public.water_reports (group_id, created_at desc);
+alter table public.water_reports enable row level security;
+drop policy if exists water_reports_select on public.water_reports;
+create policy water_reports_select on public.water_reports for select to authenticated
+  using (public.is_member_of(group_id) or public.is_admin());
+drop policy if exists water_reports_insert on public.water_reports;
+create policy water_reports_insert on public.water_reports for insert to authenticated
+  with check (user_id = auth.uid() and public.is_member_of(group_id));
+drop policy if exists water_reports_delete on public.water_reports;
+create policy water_reports_delete on public.water_reports for delete to authenticated
+  using (user_id = auth.uid() or public.can_moderate(group_id));
+
+create table if not exists public.env_reports (
+  id bigint generated always as identity primary key,
+  group_id bigint not null references public.groups (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  kind text not null check (kind in ('pollution', 'mortalite', 'niveau', 'obstacle', 'dechets', 'autre')),
+  lat double precision not null check (lat between -90 and 90),
+  lon double precision not null check (lon between -180 and 180),
+  place text check (char_length(place) <= 80),
+  details text check (char_length(details) <= 600),
+  photo_path text check (char_length(photo_path) <= 200),
+  status text not null default 'ouvert' check (status in ('ouvert', 'transmis', 'resolu')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz
+);
+create index if not exists env_reports_group_time on public.env_reports (group_id, created_at desc);
+alter table public.env_reports enable row level security;
+drop policy if exists env_reports_select on public.env_reports;
+create policy env_reports_select on public.env_reports for select to authenticated
+  using (public.is_member_of(group_id) or public.is_admin());
+drop policy if exists env_reports_insert on public.env_reports;
+create policy env_reports_insert on public.env_reports for insert to authenticated
+  with check (user_id = auth.uid() and public.is_member_of(group_id) and status = 'ouvert');
+drop policy if exists env_reports_delete on public.env_reports;
+create policy env_reports_delete on public.env_reports for delete to authenticated
+  using (user_id = auth.uid() or public.can_moderate(group_id));
+
+-- changement de statut : l'auteur ou un modérateur, sans toucher au reste
+create or replace function public.set_env_status(p_id bigint, p_status text)
+returns void language plpgsql security definer set search_path = public as $$
+declare g bigint; u uuid;
+begin
+  select group_id, user_id into g, u from public.env_reports where id = p_id;
+  if g is null then raise exception 'signalement introuvable'; end if;
+  if not (u = auth.uid() or public.can_moderate(g)) then raise exception 'non autorisé'; end if;
+  if p_status not in ('ouvert', 'transmis', 'resolu') then raise exception 'statut invalide'; end if;
+  update public.env_reports set status = p_status, updated_at = now() where id = p_id;
+end;
+$$;
+revoke all on function public.set_env_status(bigint, text) from public, anon;
+grant execute on function public.set_env_status(bigint, text) to authenticated;
+
+drop trigger if exists env_reports_notify on public.env_reports;
+create trigger env_reports_notify after insert on public.env_reports
+  for each row execute function public.notify_new();
+
+-- ménage : bulletins d'eau gardés 7 jours, signalements résolus 6 mois
+select cron.schedule('cdj-eau-menage', '50 3 * * *', $c$
+  delete from public.water_reports where created_at < now() - interval '7 days';
+  delete from public.env_reports where status = 'resolu' and coalesce(updated_at, created_at) < now() - interval '6 months';
+$c$);
+-- ===== Lot 17 : carte des structures =====
+create table if not exists public.structures (
+  id bigint generated always as identity primary key,
+  group_id bigint not null references public.groups (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  kind text not null check (kind in ('cassure', 'bois', 'herbier', 'obstacle', 'fosse', 'arrivee', 'courant', 'haut_fond', 'ponton')),
+  lat double precision not null check (lat between -90 and 90),
+  lon double precision not null check (lon between -180 and 180),
+  note text check (char_length(note) <= 200),
+  created_at timestamptz not null default now()
+);
+create index if not exists structures_group on public.structures (group_id);
+alter table public.structures enable row level security;
+drop policy if exists structures_select on public.structures;
+create policy structures_select on public.structures for select to authenticated
+  using (public.is_member_of(group_id) or public.is_admin());
+drop policy if exists structures_insert on public.structures;
+create policy structures_insert on public.structures for insert to authenticated
+  with check (user_id = auth.uid() and public.is_member_of(group_id));
+drop policy if exists structures_delete on public.structures;
+create policy structures_delete on public.structures for delete to authenticated
+  using (user_id = auth.uid() or public.can_moderate(group_id));

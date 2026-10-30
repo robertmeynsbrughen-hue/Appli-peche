@@ -28,7 +28,7 @@ async function count(){
   unread=n||0; badge.textContent=unread>9?"9+":String(unread); badge.hidden=!unread;
   bell.setAttribute("aria-label","Notifications"+(unread?" ("+unread+" non lue"+(unread>1?"s":"")+")":""));
 }
-const ICON=[[/^post-/,"🎣"],[/^pend-/,"🕓"],[/^com-/,"💬"],[/^ment-/,"📣"],[/^req-|^ok-/,"🙋"],[/^rep-/,"⚑"],[/^spot-/,"📍"],[/^poll-/,"📊"],[/^memo-/,"📌"],[/^sess-/,"🧾"],[/^comp-|^photo-mois/,"🏆"],[/^out/,"📅"],[/^chal-/,"🏅"],[/^chk-/,"📍"],[/^wake-/,"⏰"],[/^storm/,"⛈️"],[/^flood/,"🌊"],[/^bait-/,"🥣"],[/^morning/,"🌤️"],[/^permit/,"🎫"],[/^regl-/,"🗓️"]];
+const ICON=[[/^post-/,"🎣"],[/^pend-/,"🕓"],[/^com-/,"💬"],[/^ment-/,"📣"],[/^req-|^ok-/,"🙋"],[/^rep-/,"⚑"],[/^spot-/,"📍"],[/^poll-/,"📊"],[/^memo-/,"📌"],[/^sess-/,"🧾"],[/^comp-|^photo-mois/,"🏆"],[/^out/,"📅"],[/^chal-/,"🏅"],[/^chk-/,"📍"],[/^wake-/,"⏰"],[/^storm/,"⛈️"],[/^flood/,"🌊"],[/^bait-/,"🥣"],[/^morning/,"🌤️"],[/^permit/,"🎫"],[/^regl-/,"🗓️"],[/^env-/,"🌿"]];
 const iconOf=t=>{ for(const [r,i] of ICON) if(r.test(t||"")) return i; return "🔔"; };
 async function openCenter(){
   const {sh,close}=sheet("Notifications","notif-sheet");

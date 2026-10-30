@@ -209,6 +209,7 @@ async function stopTrack(discard){
     try{ await window.CDJ_ADVICE?.loadAt(last[0],last[1]); }catch(e){}
     A.bilanFromTrack({track_id:saved?.id||null,duration_min:Math.round((Date.now()-data.start)/6e4),distance_m:Math.round(data.dist),bites:data.bites.length,title});
   }
+  if(saved?.id) A.hooks.trackSaved?.({id:saved.id,user_id:A.me.id,title,started_at:new Date(data.start).toISOString(),ended_at:new Date().toISOString(),points:data.pts,bites:data.bites,distance_m:Math.round(data.dist)});
 }
 let myTracks=null, shown=new Map();
 function tracksList(){
@@ -228,6 +229,7 @@ async function loadTracks(w){
     const act=el("div","actions");
     const on=shown.has(t.id);
     act.append(btn(on?"Masquer":"Voir","btn small"+(on?" on":""),()=>{ toggleTrack(t); loadTracks(w); }));
+    if(mine) A.hooks.trackActions?.(t,act);
     if(mine){
       act.append(btn(t.shared?"👥 Partagée":"🔒 Privée","linkbtn",async()=>{ const {error}=await A.sb.from("tracks").update({shared:!t.shared}).eq("id",t.id); if(error) return toast(frError(error)); t.shared=!t.shared; toast(t.shared?"Trace visible par le groupe":"Trace privée"); loadTracks(w); }));
       act.append(confirmBtn("🗑","Supprimer ?",async()=>{ const {error}=await A.sb.from("tracks").delete().eq("id",t.id); if(error) return toast(frError(error)); if(shown.has(t.id)) toggleTrack(t); myTracks=myTracks.filter(x=>x.id!==t.id); loadTracks(w); },"linkbtn danger"));

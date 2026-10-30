@@ -124,6 +124,7 @@ export async function handle(req, cfg) {
         outings: "id,group_id,user_id,title,place,start_at",
         reports: "id,group_id,user_id,kind,reason,excerpt",
         competitions: "id,group_id,user_id,title,start_at,end_at",
+        env_reports: "id,group_id,user_id,kind,place,details",
       }[t];
       if (!cols) return new Response("bad table", { status: 400 });
       [rec] = await db(t + "?id=eq." + Number(ev.id) + "&select=" + cols);
@@ -168,7 +169,10 @@ export async function handle(req, cfg) {
       msg = { title: "⚑ Signalement · " + group, body: who + " signale " + what + " : " + cut(rec.reason, 80) + (rec.excerpt ? " (« " + cut(rec.excerpt, 50) + " »)" : ""), url: "./#modo", tag: "rep-" + rec.id };
     } else {
       recipients = await activeMembers(group_id, author);
-      if (t === "spots") msg = { title: "📍 Nouveau spot · " + group, body: who + " a ajouté « " + rec.name + " »", url: "./#carte", tag: "spot-" + rec.id };
+      if (t === "env_reports") {
+        const K = { pollution: "une pollution", mortalite: "des poissons morts", niveau: "un niveau d'eau anormal", obstacle: "un obstacle ou un danger", dechets: "des déchets", autre: "un problème" };
+        msg = { title: "🌿 Alerte environnement · " + group, body: who + " signale " + (K[rec.kind] || "un problème") + (rec.place ? " · " + cut(rec.place, 50) : "") + (rec.details ? " : " + cut(rec.details, 70) : ""), url: "./#groupe", tag: "env-" + rec.id };
+      } else if (t === "spots") msg = { title: "📍 Nouveau spot · " + group, body: who + " a ajouté « " + rec.name + " »", url: "./#carte", tag: "spot-" + rec.id };
       else if (t === "polls") msg = { title: "📊 Sondage · " + group, body: who + " : " + cut(rec.question, 110) + (rec.place ? " (" + rec.place + ")" : ""), url: "./#groupe", tag: "poll-" + rec.id };
       else if (t === "memos") msg = { title: "📌 Nouveau mémo · " + group, body: who + " : " + cut(rec.title, 100), url: "./#groupe", tag: "memo-" + rec.id };
       else if (t === "sessions") {

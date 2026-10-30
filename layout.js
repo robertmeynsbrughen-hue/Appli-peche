@@ -39,7 +39,7 @@ function syncProfil(){
 }
 
 /* ---------- Groupe ---------- */
-const GSUBS=[["activite","📅 Activité"],["infos","📌 Infos"],["membres","👥 Membres"]];
+const GSUBS=[["activite","📅 Activité"],["infos","📌 Infos"],["env","🌿 Environnement"],["membres","👥 Membres"]];
 function groupBar(root){
   if(!root.querySelector("[data-sub]")||root.querySelector(".subbar")) return;
   const bar=el("div","subbar"); bar.setAttribute("role","tablist"); bar.setAttribute("aria-label","Rubriques du groupe");

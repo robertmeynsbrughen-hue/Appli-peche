@@ -158,14 +158,26 @@ function carpBait(c,month){
 // ---------- Clarté de l'eau, débit et leurres ----------
 const CLARITY_TXT={claire:"claire",teintee:"teintée",trouble:"trouble"};
 const FLOW_TXT={basse:"basses eaux",normale:"niveau normal",haute:"eau haute",crue:"en crue"};
+// bulletin d'eau noté par un membre du groupe (moins de 48 h, à moins de 6 km)
+let report=null;
+function freshReport(meta){
+  const r=report; if(!r||!meta||mode!=="live") return null;
+  if(Date.now()-new Date(r.created_at).getTime()>48*36e5) return null;
+  const dx=(r.lon-meta.lon)*111*Math.cos(meta.lat*Math.PI/180), dy=(r.lat-meta.lat)*111;
+  return Math.hypot(dx,dy)<=6?r:null;
+}
+const LEVEL_FLOW={bas:"basse",normal:"normale",haut:"haute",crue:"crue"};
 function getFlow(meta){
   const v=$("#f-flow")?$("#f-flow").value:"auto";
   if(v!=="auto") return {status:v,trend:"stable",manual:true};
+  const r=freshReport(meta);
+  if(r?.level) return {...(meta.flow||{trend:"stable"}),status:LEVEL_FLOW[r.level]||"normale",member:true};
   return meta.flow||null;
 }
 function getClarity(c,meta){
   const v=$("#f-clarity")?$("#f-clarity").value:"auto";
   if(v!=="auto") return v;
+  const rr=freshReport(meta); if(rr?.color) return rr.color;
   let s=0;
   const r48=meta.rain48!=null?meta.rain48:(c.rain>=5?20:c.rain>=1?8:0);
   if(r48>=20) s+=2; else if(r48>=6) s+=1;
@@ -236,7 +248,7 @@ function render(){
   const hero=$("#hero"); hero.innerHTML="";
   const big=mk("div","hero-temp"); big.append(mk("span","hero-num",now.water.toFixed(1).replace(".",",")),mk("span","hero-unit","°C"));
   const side=mk("div","hero-side");
-  side.append(mk("div","hero-k",tm!=null?"Eau mesurée":"Eau estimée"), mk("div","hero-v",sky+" · air "+Math.round(now.air)+"\u00a0°C"), mk("div","hero-v2","Eau "+CLARITY_TXT[clar]+(($("#f-clarity")||{}).value==="auto"?" (estimée)":"")));
+  side.append(mk("div","hero-k",tm!=null?"Eau mesurée":"Eau estimée"), mk("div","hero-v",sky+" · air "+Math.round(now.air)+"\u00a0°C"), mk("div","hero-v2","Eau "+CLARITY_TXT[clar]+(($("#f-clarity")||{}).value==="auto"?(freshReport(meta)?.color?" (relevé d'un membre)":" (estimée)"):"")));
   hero.append(big,side);
   if(mode==="live"&&meta.hub?.temp){
     const T=meta.hub.temp;
@@ -590,7 +602,7 @@ async function fetchHub(lat,lon){
   return v;
 }
 // température mesurée utilisée seulement en rivière ou canal (une sonde de rivière ne dit rien d'un étang)
-const measuredTemp=meta=>mode==="live"&&waterType!=="etang"&&meta?.hub?.temp?meta.hub.temp.v:null;
+const measuredTemp=meta=>{ const r=freshReport(meta); if(r&&r.temp!=null) return Number(r.temp); return mode==="live"&&waterType!=="etang"&&meta?.hub?.temp?meta.hub.temp.v:null; };
 const hhmmOf=t=>new Date(t).toLocaleString("fr-FR",{weekday:"short",hour:"2-digit",minute:"2-digit"});
 // Débit de la rivière la plus proche (prévisions GloFAS via Open-Meteo, maille d'environ 5 km)
 async function fetchFlow(lat,lon){
@@ -745,7 +757,7 @@ async function forecastSpots(points){
   }
   return out;
 }
-window.CDJ_ADVICE={ forecastDays, forecastSpots, moon, defaultPos:()=>DEFAULT_POS, current:()=>current?.meta?{lat:current.meta.lat,lon:current.meta.lon}:null, loadAt:(lat,lon,name)=>loadLive(lat,lon,name), species:()=>SPECIES.map(s=>s.name||s.id),
+window.CDJ_ADVICE={ forecastDays, forecastSpots, moon, setReport:r=>{ report=r||null; try{ render(); }catch(_){} }, report:()=>{ try{ return freshReport(current?.meta); }catch(_){ return null; } }, meta:()=>current?.meta||null, defaultPos:()=>DEFAULT_POS, current:()=>current?.meta?{lat:current.meta.lat,lon:current.meta.lon}:null, loadAt:(lat,lon,name)=>loadLive(lat,lon,name), species:()=>SPECIES.map(s=>s.name||s.id),
   // conditions du moment, enregistrées avec les bilans et les prises (seulement si la météo est réelle)
   snapshot:()=>{ if(!current||mode!=="live") return null; const h=current.hours[0], m=current.meta; const tmv=measuredTemp(m);
     return {water:+(tmv??h.water).toFixed(1),water_measured:tmv!=null,air:Math.round(h.air),dp:+h.dp.toFixed(1),wind:Math.round(h.wind),cloud:Math.round(h.cloud),rain:+(h.rain||0).toFixed(1),phase:h.phase,hour:new Date().getHours(),lat:+m.lat.toFixed(3),lon:+m.lon.toFixed(3),water_type:waterType,flow:m.flow?.status||null,clarity:(()=>{ try{ return getClarity(h,m); }catch(_){ return null; } })()}; },
