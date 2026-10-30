@@ -115,7 +115,7 @@ async function handleInvite(){
   const ok=btn("👥 Rejoindre le groupe","btn primary",async()=>{
     ok.disabled=true;
     const {data:gid,error}=await A.sb.rpc("join_group",{p_code:pending});
-    if(error){ ok.disabled=false; return toast(frError(error)); }
+    if(error||gid==null){ ok.disabled=false; return toast(error?frError(error):"Ce code d'invitation n'est plus valable."); }
     try{ localStorage.removeItem("cdj-invite"); }catch(_){} pending=null; close();
     await A.loadGroups();
     toast(info.require_approval?"Demande envoyée : un modérateur doit la valider":"Bienvenue dans « "+info.name+" » !");

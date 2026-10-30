@@ -1780,3 +1780,71 @@ revoke all on function public.regen_group_code(bigint) from public, anon;
 grant execute on function public.regen_group_code(bigint) to authenticated;
 
 select cron.schedule('cdj-invite-menage', '55 3 * * *', $c$ delete from public.invite_attempts where at < now() - interval '1 day'; $c$);
+-- ===== Lot 18b : codes vraiment aléatoires, IP fiable, plafond global des essais anonymes =====
+create or replace function public.random_invite_code() returns text
+language plpgsql volatile set search_path = public as $$
+declare a text := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; b bytea; s text := ''; i int;
+begin
+  -- octets issus de gen_random_uuid() (générateur cryptographique), et non de random()
+  b := decode(replace(gen_random_uuid()::text, '-', ''), 'hex') || decode(replace(gen_random_uuid()::text, '-', ''), 'hex');
+  for i in 0..9 loop
+    s := s || substr(a, 1 + (get_byte(b, i) % length(a)), 1);
+    if i = 4 then s := s || '-'; end if;
+  end loop;
+  return s;
+end $$;
+
+-- IP réelle : en-tête posé par Cloudflare (non falsifiable par le client), sinon x-real-ip, sinon dernier maillon de x-forwarded-for
+create or replace function public.invite_key() returns text
+language plpgsql stable security definer set search_path = public as $$
+declare h json := coalesce(nullif(current_setting('request.headers', true), '')::json, '{}'::json); xff text; ip text;
+begin
+  if auth.uid() is not null then return auth.uid()::text; end if;
+  xff := coalesce(h ->> 'x-forwarded-for', '');
+  ip := coalesce(nullif(h ->> 'cf-connecting-ip', ''), nullif(h ->> 'x-real-ip', ''),
+                 nullif(trim(split_part(xff, ',', greatest(1, array_length(string_to_array(xff, ','), 1)))), ''), 'inconnu');
+  return 'ip:' || ip;
+end $$;
+revoke all on function public.invite_key() from public, anon, authenticated;
+
+-- plafond global : au-delà de 300 échecs anonymes en 10 min, les vérifications sans compte sont suspendues
+create or replace function public.invite_guard(p_ok boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare k text := public.invite_key();
+begin
+  -- un essai à la fois par personne ou adresse : les requêtes simultanées ne contournent plus la limite
+  perform pg_advisory_xact_lock(hashtext('invite:' || k));
+  if (select count(*) from public.invite_attempts where who = k and at > now() - interval '1 hour') >= 15 then
+    raise exception 'trop de tentatives';
+  end if;
+  if k like 'ip:%' and (select count(*) from public.invite_attempts where who like 'ip:%' and at > now() - interval '10 minutes') >= 300 then
+    raise exception 'trop de tentatives';
+  end if;
+  if not p_ok then insert into public.invite_attempts (who) values (k); end if;
+end $$;
+revoke all on function public.invite_guard(boolean) from public, anon, authenticated;
+
+revoke all on function public.manage_save_group(bigint, text, text, text) from public, anon;
+grant execute on function public.manage_save_group(bigint, text, text, text) to authenticated;
+revoke all on function public.random_invite_code() from public, anon, authenticated;
+
+-- ===== Lot 18c : join_group renvoie null pour un code faux (l'échec reste compté) =====
+create or replace function public.join_group(p_code text, p_username text default null)
+returns bigint language plpgsql security definer set search_path = public as $$
+declare g bigint; appr boolean;
+begin
+  if auth.uid() is null then raise exception 'non connecté'; end if;
+  select id, require_approval into g, appr from public.groups where invite_code = p_code;
+  perform public.invite_guard(g is not null);
+  if g is null then return null; end if;
+  if exists (select 1 from public.memberships where group_id = g and user_id = auth.uid()) then return g; end if;
+  if public.group_is_full(g) and not public.is_admin() then raise exception 'groupe complet'; end if;
+  if not exists (select 1 from public.profiles where id = auth.uid()) then
+    if p_username is null or p_username !~ '^[A-Za-z0-9_]{3,20}$' then raise exception 'nom d''utilisateur manquant'; end if;
+    insert into public.profiles (id, username, is_admin) values (auth.uid(), p_username, false);
+  end if;
+  insert into public.memberships (group_id, user_id, status)
+    values (g, auth.uid(), case when appr and not public.is_admin() then 'pending' else 'active' end)
+    on conflict do nothing;
+  return g;
+end $$;

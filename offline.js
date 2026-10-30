@@ -32,6 +32,11 @@ async function enqueue(item){
 }
 let flushing=false;
 async function flush(){
+  // verrou partagé entre onglets : deux onglets ouverts n'envoient jamais deux fois le même élément
+  if(navigator.locks?.request) return navigator.locks.request("cdj-offline-flush",{ifAvailable:true},lock=>lock?flushNow():null);
+  return flushNow();
+}
+async function flushNow(){
   if(flushing||!navigator.onLine||!A.me||!A.sb) return;
   flushing=true;
   let done=0, failed=0;

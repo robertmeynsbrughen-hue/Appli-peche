@@ -266,7 +266,7 @@ $("#auth-form").addEventListener("submit",async e=>{
 async function finishProfile(u,code,info){
   if(code){
     if(info?.require_approval) setTimeout(()=>toast("Demande envoyée à « "+info.name+" » : un modérateur doit la valider"),900);
-    const {error}=await sb.rpc("join_group",{p_code:code,p_username:u}); if(error) throw error;
+    const {data:gid,error}=await sb.rpc("join_group",{p_code:code,p_username:u}); if(error) throw error; if(gid==null) throw new Error("code invalide");
   }else{
     const {error}=await sb.rpc("create_profile",{p_username:u}); if(error) throw error;
   }
@@ -294,7 +294,7 @@ $("#join").addEventListener("submit",async e=>{
 $("#join-more").addEventListener("submit",async e=>{
   e.preventDefault(); showErr($("#jm-err"));
   const {data:gid,error}=await sb.rpc("join_group",{p_code:$("#jm-code").value.trim()});
-  if(error) return showErr($("#jm-err"),frError(error));
+  if(error||gid==null) return showErr($("#jm-err"),frError(error||{message:"code invalide"}));
   $("#jm-code").value="";
   await loadGroups();
   if(pendingGroups.some(g=>g.id===gid)){ toast("Demande envoyée : un modérateur doit la valider"); refreshUI(); }
@@ -741,11 +741,14 @@ function openMap(){
 window.addEventListener("cdj-pos",ev=>{ if(map&&!spots.length) map.setView([ev.detail.lat,ev.detail.lon],12); });
 function pinIcon(mine){ return L.divIcon({className:"",html:'<div class="spot-pin'+(mine?" mine":"")+'"></div>',iconSize:[22,22],iconAnchor:[11,22],popupAnchor:[0,-22]}); }
 
+let spotSeq=0, pendingFocus=null;
 async function loadSpots(){
+  const sq=++spotSeq;
   if(!me||cur==null){ spots=[]; drawSpots(); return; }
   let q=sb.from("spots").select("id,group_id,name,note,lat,lon,created_at,user_id,depth_m,distance_tours,bottom,details,sheet_updated_at,facing,profiles!spots_user_id_fkey(username,is_admin)").order("created_at",{ascending:false});
   if(cur!=="all") q=q.eq("group_id",cur);
   const {data,error}=await q;
+  if(sq!==spotSeq) return;              // un groupe plus récent a été demandé entre-temps
   if(error){ console.error(error); toast("Spots : "+frError(error)); }
   spots=data||[];
   const sel=$("#p-spot"), prev=sel.value;
@@ -787,11 +790,15 @@ function drawSpots(){
     }
     m.bindPopup(box); m.addTo(layer); markers[s.id]=m;
   });
+  tryPendingFocus();
 }
+// centrer la carte sur un spot : on attend que la carte et les spots soient prêts (Leaflet est chargé à la demande)
 function focusSpot(id){
-  const s=spots.find(x=>x.id===id); if(!s||!map) return;
-  map.setView([s.lat,s.lon],15); markers[id]?.openPopup();
+  const s=spots.find(x=>x.id===id);
+  if(!s||!map||!markers[id]){ pendingFocus=id; if(!map) openMap(); return; }
+  pendingFocus=null; map.setView([s.lat,s.lon],15); markers[id]?.openPopup();
 }
+function tryPendingFocus(){ if(pendingFocus!=null&&map&&spots.some(x=>x.id===pendingFocus)) setTimeout(()=>focusSpot(pendingFocus),60); }
 function startSpot(lat,lon){
   if(cur==="all"){ toast("Choisis d'abord un groupe pour y ajouter un spot"); return; }
   pending={lat,lon};
@@ -903,8 +910,7 @@ async function init(){
   { const f=sb.from.bind(sb), r=sb.rpc.bind(sb);
     sb.from=t=>{ const q=f(t); ["insert","update","upsert","delete"].forEach(m=>{ if(typeof q[m]==="function"){ const o=q[m].bind(q); q[m]=(...a)=>{ markDirty(); return o(...a); }; } }); return q; };
     sb.rpc=(n,...a)=>{ if(!/^(check_|username_available|manage_groups|manage_members)/.test(n)) markDirty(); return r(n,...a); }; }
-  // la carte se prépare en arrière-plan, une fois l'appli affichée
-  setTimeout(()=>{ (window.requestIdleCallback||setTimeout)(()=>loadLeaflet().catch(()=>{})); },2500);
+
   sb.auth.onAuthStateChange(ev=>{ if(ev==="SIGNED_OUT"){ markDirty(); me=null; hasSession=false; groups=[]; refreshUI(); } });
   try{ await loadMe(); }catch(e){}
   markDirty(); route();

@@ -63,7 +63,7 @@ async function maybeStart(force){
         nav("Continuer"); }
       else{
         const i=el("input"); i.placeholder="Code du groupe"; i.autocomplete="off"; i.className="onb-input"; card.append(i);
-        nav("Rejoindre",async()=>{ if(!i.value.trim()) throw new Error("Entre le code du groupe ou touche Passer"); const {error}=await A.sb.rpc("join_group",{p_code:i.value.trim()}); if(error) throw error; await A.loadGroups(); toast(A.groups.length?"Groupe rejoint !":"Demande envoyée : un modérateur doit la valider"); });
+        nav("Rejoindre",async()=>{ if(!i.value.trim()) throw new Error("Entre le code du groupe ou touche Passer"); const {data:gid,error}=await A.sb.rpc("join_group",{p_code:i.value.trim()}); if(error) throw error; if(gid==null) throw new Error("code invalide"); await A.loadGroups(); toast(A.groups.length?"Groupe rejoint !":"Demande envoyée : un modérateur doit la valider"); });
       }
     }else if(step===2){
       frame("🐟","Tes espèces préférées","Choisis jusqu'à 3 espèces : elles s'affichent sur ton profil et passent en tête des conseils.");
