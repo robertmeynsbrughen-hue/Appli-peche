@@ -1400,3 +1400,8 @@ html:root[data-theme="dark"][data-bg="foret"]{--bg:#0a140d;--surface:#122017;--s
 .pm-who{position:absolute;left:0;right:0;bottom:0;padding:14px 6px 5px;font-size:.72rem;font-weight:700;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.7));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pm-vote{position:absolute;top:6px;left:6px;font-size:.7rem;font-weight:800;padding:2px 7px;border-radius:999px;background:var(--amber);color:#2a1d05}
 .pm-vote.own{background:rgba(0,0,0,.55);color:#fff}
+.knot-cat{margin-top:14px}
+.knot-emo{display:flex;align-items:center;justify-content:center;height:56px;font-size:2rem}
+.knot-mat{background:var(--surface-2);border-radius:14px;padding:10px 12px;margin:8px 0}
+.knot-mat ul{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:3px;font-size:.92rem}
+.knot-h{margin:12px 0 0;font-size:1rem}
