@@ -34,6 +34,7 @@ function frError(e){
   if(/email invalide|invalid format|validate email/i.test(m)) return "Cette adresse e-mail n'est pas valide.";
   if(/already registered|already exists/i.test(m)) return "Un compte existe déjà avec cet e-mail : connecte-toi, ou utilise « Mot de passe oublié ».";
   if(/not authorized|Email address not authorized/i.test(m)) return "L'envoi d'e-mails n'est pas encore activé sur le serveur. Réessaie plus tard ou préviens l'admin.";
+  if(/deadline|timeout|504|sending.*email|smtp/i.test(m)) return "Le serveur d'e-mails ne répond pas pour l'instant. Réessaie dans quelques minutes.";
   if(/rate limit|too many|security purposes/i.test(m)) return "Trop de demandes d'un coup : attends quelques minutes avant de réessayer.";
   if(/same password|should be different/i.test(m)) return "Le nouveau mot de passe doit être différent de l'ancien.";
   if(/weak|Password should contain/i.test(m)) return "Mot de passe trop faible : mélange lettres et chiffres, 8 caractères minimum.";

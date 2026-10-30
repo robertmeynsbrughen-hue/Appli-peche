@@ -86,6 +86,12 @@ function emailSheet(fake){
     e.preventDefault(); err.hidden=true; okm.hidden=true;
     const v=i.value.trim().toLowerCase(); if(!isMail(v)){ err.textContent="Cette adresse e-mail n'est pas valide."; err.hidden=false; return; }
     ok.disabled=true;
+    if(fake){
+      // ancien compte : l'adresse interne ne reçoit pas de courrier, le serveur enregistre directement la nouvelle
+      const r=await legacyEmail(v); ok.disabled=false;
+      if(r.error){ err.textContent=frError(new Error(r.error)); err.hidden=false; return; }
+      toast("📧 E-mail enregistré : tu peux maintenant te connecter avec lui",4000); close(); panel(); return;
+    }
     const {data,error}=await A.sb.auth.updateUser({email:v},{emailRedirectTo:siteUrl()});
     ok.disabled=false;
     if(error){ err.textContent=frError(error); err.hidden=false; return; }
@@ -93,6 +99,17 @@ function emailSheet(fake){
     else{ okm.textContent="📧 Un lien de confirmation vient de partir à "+v+". Ouvre-le pour valider le changement (pense aux spams)."; okm.hidden=false; }
   });
   sh.append(f); setTimeout(()=>i.focus(),100);
+}
+async function legacyEmail(email){
+  try{
+    const {data:{session}}=await A.sb.auth.getSession();
+    const C=window.CDJ_CONFIG||{};
+    const r=await fetch(C.SUPABASE_URL+"/functions/v1/account",{method:"POST",headers:{Authorization:"Bearer "+session.access_token,apikey:C.SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({email})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok) return {error:j.error||("erreur "+r.status)};
+    await A.sb.auth.refreshSession().catch(()=>{});
+    return j;
+  }catch(e){ return {error:String(e.message||e)}; }
 }
 function passSheet(){
   const {sh,close}=sheet("Changer de mot de passe");
