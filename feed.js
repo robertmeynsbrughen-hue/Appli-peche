@@ -38,8 +38,11 @@ let stories=[];
 const seen=()=>{ try{ return new Set(JSON.parse(get("cdj-seen-stories","[]"))); }catch(e){ return new Set(); } };
 let lt=null;
 function load(){ clearTimeout(lt); lt=setTimeout(doLoad,250); }
+let storiesDue=false;
 async function doLoad(){
   if(!A.me||!A.groups.length||A.cur==null) return;
+  if(document.querySelector("#v-fil")?.hidden){ storiesDue=true; return; } // chargé à l'ouverture du fil
+  storiesDue=false;
   let q=A.sb.from("posts").select("id,group_id,user_id,species,length_cm,weight_kg,caption,photo_path,photo_paths,created_at,profiles(username)").eq("status","published").gte("created_at",new Date(Date.now()-24*36e5).toISOString()).order("created_at").limit(60);
   if(typeof A.cur==="number") q=q.eq("group_id",A.cur);
   const {data}=await q; const rows=(data||[]).filter(p=>(p.photo_paths&&p.photo_paths.length)||p.photo_path);
@@ -102,4 +105,5 @@ async function open(si){
 const prevChange=A.hooks.change; A.hooks.change=()=>{ prevChange?.(); load(); };
 const prevFX=A.hooks.feedExtras; A.hooks.feedExtras=list=>{ prevFX?.(list); load(); };
 load();
+window.addEventListener("hashchange",()=>{ if(storiesDue&&location.hash.startsWith("#fil")) load(); });
 })();

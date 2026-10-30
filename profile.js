@@ -11,9 +11,11 @@ const pubUrl=path=>path?A.sb.storage.from("avatars").getPublicUrl(path).data.pub
 
 /* ---------- Photos de profil partout dans l'appli ---------- */
 window.CDJ_AVATARS=window.CDJ_AVATARS||{};
-async function loadAvatars(){
+async function loadAvatars(force){
   if(!A.me) return;
-  const {data}=await A.sb.from("profiles").select("username,avatar_path").not("avatar_path","is",null).limit(1000);
+  let data=null;
+  try{ const c=JSON.parse(localStorage.getItem("cdj-avatars")||"null"); if(!force&&c&&Date.now()-c.t<36e5) data=c.d; }catch(_){}
+  if(!data){ const r=await A.sb.from("profiles").select("username,avatar_path").not("avatar_path","is",null).limit(1000); data=r.data||[]; try{ localStorage.setItem("cdj-avatars",JSON.stringify({t:Date.now(),d:data})); }catch(_){} }
   (data||[]).forEach(p=>{ window.CDJ_AVATARS[p.username]=pubUrl(p.avatar_path); });
   upgradeAvatars();
 }
@@ -167,7 +169,7 @@ function draw(){
       }
       const old=(await A.sb.from("profiles").select("avatar_path").eq("id",A.me.id).maybeSingle()).data?.avatar_path;
       const {error}=await A.sb.rpc("update_my_profile",{p_bio:mine.bio.trim()||null,p_fav:mine.fav,p_avatar:path});
-      if(!error) try{ if(A.me) A.me.fav_species=mine.fav; localStorage.setItem("cdj-fav",JSON.stringify(mine.fav||[])); window.dispatchEvent(new Event("cdj-fav")); }catch(_){}
+      if(!error) try{ localStorage.removeItem("cdj-avatars"); if(A.me) A.me.fav_species=mine.fav; localStorage.setItem("cdj-fav",JSON.stringify(mine.fav||[])); window.dispatchEvent(new Event("cdj-fav")); }catch(_){}
       if(error) throw error;
       if(old&&old!==path) await A.sb.storage.from("avatars").remove([old]);
       mine.avatar=path; mine.file=null; if(mine.preview){ URL.revokeObjectURL(mine.preview); mine.preview=null; }

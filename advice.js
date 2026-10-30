@@ -396,11 +396,14 @@ async function loadHist(){
   const A=window.CDJ; if(!A||!A.me||!A.sb||hist||Date.now()-histTry<60000) return;
   histTry=Date.now();
   try{
+    const ck="cdj-hist-"+A.me.id;
+    try{ const c=JSON.parse(localStorage.getItem(ck)||"null"); if(c&&Date.now()-c.t<36e5&&Array.isArray(c.h)){ hist=c.h; render(); return; } }catch(_){}
     const [{data:se},{data:po}]=await Promise.all([
       A.sb.from("sessions").select("species,caught,rating,conditions").not("conditions","is",null).limit(2000),
       A.sb.from("posts").select("species,conditions").eq("status","published").not("conditions","is",null).limit(2000),
     ]);
     hist=[...(se||[]).map(x=>({sp:x.species,ok:x.caught!==false,r:x.rating||2,c:x.conditions})),...(po||[]).map(x=>({sp:x.species,ok:true,r:3,c:x.conditions}))];
+    try{ localStorage.setItem(ck,JSON.stringify({t:Date.now(),h:hist})); }catch(_){ /* stockage plein : pas de cache */ }
     render();
   }catch(e){}
 }
