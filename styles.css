@@ -1678,3 +1678,6 @@ nav.tabs a .tab-badge{position:absolute;top:2px;right:calc(50% - 22px)}
 .tool-tile{display:grid;justify-items:center;gap:4px;padding:12px 6px;border-radius:14px;border:1px solid var(--line,rgba(255,255,255,.12));background:var(--surface);color:var(--fg);font:inherit;font-weight:600;cursor:pointer;min-height:72px}
 .tt-i{font-size:1.5rem}
 .tool-tile:active{transform:scale(.97)}
+.tool-off{display:none!important}
+.tt-s{font-size:.72rem;font-weight:400;color:var(--muted)}
+.tool-back{display:block;margin:2px 0 10px;font-weight:700}

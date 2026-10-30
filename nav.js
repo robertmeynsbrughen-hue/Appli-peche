@@ -44,16 +44,30 @@ const prevGR=A.hooks.groupeRendered; A.hooks.groupeRendered=root=>{
 
 /* ---------- Boîte à outils (ancien onglet Matos) ---------- */
 const mt=document.querySelector('#profil-sub [data-s="matos"]'); if(mt) mt.textContent="🧰 Outils";
-const TOOLS=[["#calc-panel","🧮","Calculs"],["#tech-panel","📘","Techniques"],["#knots","🪢","Nœuds"],["#lures","🎣","Leurres"],["#bait-stock","🥣","Appâts"],["#gear","🎒","Matériel"]];
+const TOOLS=[["calc-panel","🧮","Calculs","plomb, fil, amorce"],["tech-panel","📘","Techniques","fiches par espèce"],["knots","🪢","Nœuds","et montages"],["lures","🎣","Leurres","ma boîte"],["bait-stock","🥣","Appâts","mon stock"],["gear","🎒","Matériel","check-list"]];
+// la boîte à outils est un lanceur : on n'affiche que l'outil choisi, avec un retour vers la liste
+let tool=null;
+function showTool(id){
+  tool=id;
+  TOOLS.forEach(([pid])=>{ const x=document.getElementById(pid); if(x) x.classList.toggle("tool-off",!!id&&pid!==id||!id); });
+  const g=$("#tool-grid"); if(g) g.classList.toggle("tool-off",!!id);
+  let back=$("#tool-back");
+  if(id&&!back){ back=btn("← Tous les outils","linkbtn tool-back",()=>{ showTool(null); window.scrollTo({top:0}); }); back.id="tool-back"; back.dataset.sub="matos"; g?.after(back); }
+  if(back){ back.hidden=!id; const t=TOOLS.find(x=>x[0]===id); back.textContent="← Tous les outils"+(t?" · "+t[1]+" "+t[2]:""); }
+  window.scrollTo({top:0});
+}
 function toolGrid(){
   const pv=$("#v-profil"); if(!pv||!A.me) return;
   let g=$("#tool-grid");
   if(!g){ g=el("div","tool-grid"); g.id="tool-grid"; g.dataset.sub="matos"; const first=pv.querySelector('[data-sub="matos"]'); if(first) first.before(g); else return; }
   g.innerHTML="";
-  TOOLS.forEach(([sel,ic,t])=>{ const tg=$(sel); if(!tg||tg.hidden&&sel!=="#calc-panel") return;
-    const b=btn("","tool-tile",()=>{ const x=$(sel); if(!x) return; x.scrollIntoView({behavior:"smooth",block:"start"}); window.scrollBy(0,-110); });
-    b.append(el("span","tt-i",ic),el("span","tt-t",t)); g.append(b); });
+  TOOLS.forEach(([id,ic,t,sub])=>{ if(!document.getElementById(id)) return;
+    const b=btn("","tool-tile",()=>showTool(id));
+    b.append(el("span","tt-i",ic),el("span","tt-t",t),el("span","tt-s",sub)); g.append(b); });
+  showTool(tool);
 }
+// revenir sur l'onglet Outils depuis un autre sous-onglet repart de la liste
+document.querySelector('#profil-sub [data-s="matos"]')?.addEventListener("click",()=>{ if(tool) showTool(null); });
 const prevP=A.hooks.profil; A.hooks.profil=()=>{ prevP?.(); setTimeout(toolGrid,0); };
 
 /* ---------- Barre du bas : on garde l'essentiel ---------- */
