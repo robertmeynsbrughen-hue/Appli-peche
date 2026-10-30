@@ -1372,3 +1372,73 @@ do $$ declare c text; begin
   if c is not null then execute format('alter table public.map_zones drop constraint %I', c); end if;
 end $$;
 alter table public.map_zones add constraint map_zones_kind_check check (kind in ('reserve','nokill','nuit','mise_eau','danger','frayere','autre'));
+
+-- Lot 12 : minuteur par canne, carnet d'amorçage, photo du mois, alerte orage
+-- relance de canne dans le journal carpe
+do $$ declare c text; begin
+  select conname into c from pg_constraint where conrelid='public.carp_events'::regclass and contype='c' and pg_get_constraintdef(oid) like '%kind%';
+  if c is not null then execute format('alter table public.carp_events drop constraint %I', c); end if;
+end $$;
+alter table public.carp_events add constraint carp_events_kind_check check (kind in ('depart','touche','prise','amorcage','relance'));
+-- lien d'ouverture des alarmes (minuteurs de canne)
+alter table public.wake_alarms add column if not exists url text check (url ~ '^\./#[a-z]{2,20}$');
+
+-- carnet d'amorçage (personnel)
+create table if not exists public.baitings (
+  id bigint generated always as identity primary key,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  group_id bigint references public.groups (id) on delete set null,
+  spot_id bigint references public.spots (id) on delete set null,
+  at timestamptz not null default now(),
+  mix text[] not null default '{}' check (cardinality(mix) <= 10),
+  qty_kg numeric check (qty_kg > 0 and qty_kg <= 200),
+  note text check (char_length(note) <= 300),
+  created_at timestamptz not null default now()
+);
+create index if not exists baitings_user on public.baitings (user_id, at desc);
+alter table public.baitings enable row level security;
+drop policy if exists baitings_own on public.baitings;
+create policy baitings_own on public.baitings for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- photo du mois
+create table if not exists public.photo_votes (
+  group_id bigint not null references public.groups (id) on delete cascade,
+  month date not null,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  post_id bigint not null references public.posts (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (group_id, month, user_id)
+);
+create index if not exists photo_votes_post on public.photo_votes (post_id);
+alter table public.photo_votes enable row level security;
+drop policy if exists photo_votes_select on public.photo_votes;
+create policy photo_votes_select on public.photo_votes for select using (public.is_member_of(group_id) or public.is_staff());
+create or replace function public.vote_photo(p_post bigint) returns text
+language plpgsql security definer set search_path = public as $$
+declare p record; m date := date_trunc('month', now() at time zone 'Europe/Paris')::date; cur bigint;
+begin
+  if auth.uid() is null then raise exception 'Connexion requise'; end if;
+  select id, group_id, user_id, status, created_at, photo_path into p from posts where id = p_post;
+  if p.id is null or p.status <> 'published' or p.photo_path is null then raise exception 'Photo introuvable'; end if;
+  if not public.is_member_of(p.group_id) then raise exception 'Réservé aux membres du groupe'; end if;
+  if p.user_id = auth.uid() then raise exception 'Tu ne peux pas voter pour ta propre photo'; end if;
+  if date_trunc('month', p.created_at at time zone 'Europe/Paris')::date <> m then raise exception 'Seules les photos du mois en cours sont en lice'; end if;
+  select post_id into cur from photo_votes where group_id = p.group_id and month = m and user_id = auth.uid();
+  if cur = p_post then
+    delete from photo_votes where group_id = p.group_id and month = m and user_id = auth.uid();
+    return 'retire';
+  end if;
+  insert into photo_votes (group_id, month, user_id, post_id) values (p.group_id, m, auth.uid(), p_post)
+    on conflict (group_id, month, user_id) do update set post_id = excluded.post_id, created_at = now();
+  return 'ok';
+end $$;
+revoke all on function public.vote_photo(bigint) from public, anon;
+grant execute on function public.vote_photo(bigint) to authenticated;
+
+-- alerte orage : une seule fois par sortie
+alter table public.checkins add column if not exists storm_sent_at timestamptz;
+alter table public.carp_sessions add column if not exists storm_sent_at timestamptz;
+do $$ begin perform cron.unschedule('cdj-orage'); exception when others then null; end $$;
+select cron.schedule('cdj-orage', '*/15 * * * *', $c$ select public.call_notify('{"table":"storm_watch"}'::jsonb) where exists (select 1 from public.checkins where ended_at is null and ends_at > now() and (storm_sent_at is null or storm_sent_at < now() - interval '3 hours')) or exists (select 1 from public.carp_sessions where ended_at is null and spot_id is not null and (storm_sent_at is null or storm_sent_at < now() - interval '3 hours') and started_at > now() - interval '3 days') $c$);
+do $$ begin perform cron.unschedule('cdj-photo-mois'); exception when others then null; end $$;
+select cron.schedule('cdj-photo-mois', '0 9 1 * *', $c$ select public.call_notify('{"table":"photo_month"}'::jsonb) $c$);

@@ -67,7 +67,7 @@ function renderRegl(){
 }
 
 /* ---------- Session carpe (onglet Fil) ---------- */
-const KINDS={depart:{e:"🔔",t:"Départ"},touche:{e:"〰️",t:"Touche"},prise:{e:"🐟",t:"Prise"},amorcage:{e:"🥣",t:"Amorçage"}};
+const KINDS={depart:{e:"🔔",t:"Départ"},touche:{e:"〰️",t:"Touche"},prise:{e:"🐟",t:"Prise"},amorcage:{e:"🥣",t:"Amorçage"},relance:{e:"🎣",t:"Relance"}};
 let carp=null, events=[], rod=1, tick=null, cSeq=0, rodsPick=2;
 async function loadCarp(){
   const box=$("#carp"); if(!box||box.hidden||!A.me||typeof A.cur!=="number") return;
@@ -104,7 +104,7 @@ function drawCarp(recent){
   }else rod=1;
   const grid=el("div","carp-grid");
   const prise=el("form","carp-prise"); prise.hidden=true;
-  Object.entries(KINDS).forEach(([k,v])=>{
+  Object.entries(KINDS).filter(([k])=>k!=="relance").forEach(([k,v])=>{
     const b=btn("","carp-btn k-"+k,()=>{ if(k==="prise"){ prise.hidden=!prise.hidden; if(!prise.hidden) prise.querySelector("input").focus(); return; } addEvent(k); });
     b.append(el("span","carp-e",v.e),el("span",null,v.t)); grid.append(b);
   });
@@ -221,8 +221,8 @@ setInterval(()=>{
   if(Date.now()>=due&&alarmed!==carp.next_bait_at&&document.visibilityState==="visible"){ alarmed=carp.next_bait_at; beep(); toast("🥣 C'est l'heure de réamorcer !"); if(!$("#carp").hidden) drawCarp([]); }
 },15000);
 
-async function addEvent(kind,weight,note){
-  const ins={session_id:carp.id,kind,at:new Date().toISOString(),rod:carp.rods>1?rod:null,weight_kg:weight||null,note:note||null};
+async function addEvent(kind,weight,note,forRod){
+  const ins={session_id:carp.id,kind,at:new Date().toISOString(),rod:carp.rods>1?(forRod||rod):null,weight_kg:weight||null,note:note||null};
   let {data,error}=navigator.onLine?await A.sb.from("carp_events").insert(ins).select("id,kind,at,rod,weight_kg,note").single():{error:new Error("Failed to fetch")};
   if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"carp_events",row:ins})){ error=null; data={...ins,id:"q"+Date.now(),queued:true}; }
   if(error) return toast(frError(error));
@@ -232,6 +232,7 @@ async function addEvent(kind,weight,note){
   toast(KINDS[kind].e+" "+KINDS[kind].t+" notée à "+hm(data.at));
   drawCarp([]);
 }
+A.carp={get cur(){ return carp; }, addEvent, beep};
 function publish(x){
   const b=document.querySelector('#post-mode button[data-m="post"]'); if(b) b.click();
   const set=(id,v)=>{ const e=$(id); if(e&&v!=null){ e.value=v; e.dispatchEvent(new Event("input",{bubbles:true})); e.dispatchEvent(new Event("change",{bubbles:true})); } };

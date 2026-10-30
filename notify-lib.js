@@ -105,6 +105,8 @@ export async function handle(req, cfg) {
     if (t === "flood_watch") return Response.json(await floodWatch(VAPID));
     if (t === "checkins") return Response.json(await checkinNotify(Number(ev.id), VAPID));
     if (t === "wake_alarms") return Response.json(await wakeAlarms(VAPID));
+    if (t === "storm_watch") return Response.json(await stormWatch(VAPID));
+    if (t === "photo_month") return Response.json(await photoMonth(VAPID));
     let rec, group_id, author, recipients, msg;
     if (t === "memberships") {
       group_id = Number(ev.group_id); author = String(ev.user_id).replace(/[^0-9a-f-]/gi, "");
@@ -415,15 +417,88 @@ async function checkinNotify(id, vapid) {
 
 // ---- Réveil pêche ----
 async function wakeAlarms(vapid) {
-  const rows = await db("wake_alarms?sent_at=is.null&fire_at=lte." + new Date().toISOString() + "&select=id,user_id,title,body,fire_at&limit=200");
+  const rows = await db("wake_alarms?sent_at=is.null&fire_at=lte." + new Date().toISOString() + "&select=id,user_id,title,body,fire_at,url&limit=200");
   let sent = 0;
   for (const r of rows) {
     // on marque d'abord, pour ne jamais sonner deux fois ; un réveil vieux de plus de 30 min n'est plus envoyé
     await db("wake_alarms?id=eq." + r.id, { method: "PATCH", body: JSON.stringify({ sent_at: new Date().toISOString() }), headers: { Prefer: "return=minimal" } });
     if (Date.now() - Date.parse(r.fire_at) > 30 * 6e4) continue;
-    sent += await pushTo(r.user_id, { title: r.title, body: r.body || "", url: "./#conseils", tag: "wake-" + r.id, alarm: true }, vapid);
+    sent += await pushTo(r.user_id, { title: r.title, body: r.body || "", url: r.url || "./#conseils", tag: "wake-" + r.id, alarm: true }, vapid);
   }
   return { due: rows.length, sent };
+}
+
+// ---- Alerte orage pendant une sortie ----
+async function stormAt(lat, lon) {
+  const u = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&minutely_15=weather_code,wind_gusts_10m&forecast_minutely_15=8&timezone=GMT";
+  const r = await fetch(u); if (!r.ok) throw new Error("open-meteo " + r.status);
+  const j = await r.json(), m = j.minutely_15 || {}, times = m.time || [];
+  for (let i = 0; i < times.length; i++) {
+    const code = m.weather_code?.[i], g = m.wind_gusts_10m?.[i];
+    const thunder = code === 95 || code === 96 || code === 99, wind = g != null && g >= 65;
+    if (thunder || wind) return { thunder, wind, gust: g, at: times[i], hail: code === 96 || code === 99 };
+  }
+  return null;
+}
+async function stormWatch(vapid) {
+  const now = new Date(), old = new Date(Date.now() - 3 * 36e5).toISOString();
+  const [chk, carp] = await Promise.all([
+    db("checkins?ended_at=is.null&ends_at=gt." + now.toISOString() + "&or=(storm_sent_at.is.null,storm_sent_at.lt." + old + ")&select=id,user_id,lat,lon,place,spot_id"),
+    db("carp_sessions?ended_at=is.null&spot_id=not.is.null&started_at=gt." + new Date(Date.now() - 72 * 36e5).toISOString() + "&or=(storm_sent_at.is.null,storm_sent_at.lt." + old + ")&select=id,user_id,spot_id,spots(name,lat,lon)"),
+  ]);
+  const todo = [
+    ...chk.map((c) => ({ table: "checkins", id: c.id, user_id: c.user_id, lat: Number(c.lat), lon: Number(c.lon), place: c.place })),
+    ...carp.filter((c) => c.spots?.lat != null).map((c) => ({ table: "carp_sessions", id: c.id, user_id: c.user_id, lat: Number(c.spots.lat), lon: Number(c.spots.lon), place: c.spots.name })),
+  ];
+  const cache = new Map(), warned = new Set(); let sent = 0;
+  for (const x of todo) {
+    const key = x.lat.toFixed(1) + "," + x.lon.toFixed(1);
+    if (!cache.has(key)) cache.set(key, stormAt(x.lat.toFixed(3), x.lon.toFixed(3)).catch(() => null));
+    const s = await cache.get(key);
+    if (!s) continue;
+    await db(x.table + "?id=eq." + x.id, { method: "PATCH", body: JSON.stringify({ storm_sent_at: now.toISOString() }), headers: { Prefer: "return=minimal" } });
+    if (warned.has(x.user_id)) continue;   // une seule alerte par pêcheur, même s'il a une trace et une session carpe
+    warned.add(x.user_id);
+    const mins = Math.max(0, Math.round((Date.parse(s.at + ":00Z") - Date.now()) / 6e4));
+    const when = mins <= 15 ? "dans le quart d'heure" : "dans environ " + (mins >= 60 ? Math.round(mins / 60) + " h" : Math.round(mins / 15) * 15 + " min");
+    const what = s.thunder ? (s.hail ? "Orage avec grêle" : "Orage") + (s.wind ? " et rafales à " + Math.round(s.gust) + " km/h" : "") : "Rafales à " + Math.round(s.gust) + " km/h";
+    sent += await pushTo(x.user_id, {
+      title: (s.thunder ? "⛈️ " : "💨 ") + what + " " + when + (x.place ? " · " + cut(x.place, 30) : ""),
+      body: s.thunder ? "Range les cannes en carbone, éloigne-toi de l'eau et des arbres isolés, abrite-toi dans un véhicule ou un bâtiment." : "Attention aux branches, au float-tube et au bateau : rapproche-toi de la berge et mets le matériel à l'abri.",
+      url: "./#conseils", tag: "storm", alarm: true,
+    }, vapid);
+  }
+  return { checked: todo.length, points: cache.size, sent };
+}
+
+// ---- Photo du mois : annonce du gagnant le 1er ----
+async function photoMonth(vapid) {
+  const d = new Date(new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date()) + "T12:00:00Z");
+  d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1);
+  const month = d.toISOString().slice(0, 10);
+  const label = new Intl.DateTimeFormat("fr-FR", { month: "long", timeZone: "UTC" }).format(d);
+  const votes = await db("photo_votes?month=eq." + month + "&select=group_id,post_id,created_at");
+  const byGroup = new Map();
+  for (const v of votes) { const g = byGroup.get(v.group_id) || new Map(); g.set(v.post_id, (g.get(v.post_id) || 0) + 1); byGroup.set(v.group_id, g); }
+  let sent = 0, groups = 0;
+  for (const [gid, counts] of byGroup) {
+    const best = Math.max(...counts.values());
+    const ids = [...counts].filter(([, n]) => n === best).map(([id]) => id);
+    const posts = await db("posts?id=in.(" + ids.join(",") + ")&select=id,user_id,species,length_cm,created_at,profiles(username)&order=created_at.asc");
+    if (!posts.length) continue;
+    const w = posts[0]; groups++;
+    const mem = await activeMembers(gid);
+    const what = [w.species, w.length_cm ? num(w.length_cm) + " cm" : null].filter(Boolean).join(" de ");
+    for (const m of mem) {
+      const mine = m.user_id === w.user_id;
+      sent += await pushTo(m.user_id, {
+        title: mine ? "🏆 Ta photo est la photo du mois !" : "🏆 Photo du mois de " + label,
+        body: (mine ? "Le groupe a voté pour ta photo" : "@" + (w.profiles?.username || "?") + " l'emporte") + (what ? " (" + what + ")" : "") + " avec " + best + " vote" + (best > 1 ? "s" : "") + ". Les votes de ce mois sont ouverts !",
+        url: "./#groupe", tag: "photo-mois-" + gid,
+      }, vapid);
+    }
+  }
+  return { month, groups, sent };
 }
 
 // ---- Rappel d'amorçage des sessions carpe en cours ----
