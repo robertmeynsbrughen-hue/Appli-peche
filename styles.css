@@ -1405,3 +1405,16 @@ html:root[data-theme="dark"][data-bg="foret"]{--bg:#0a140d;--surface:#122017;--s
 .knot-mat{background:var(--surface-2);border-radius:14px;padding:10px 12px;margin:8px 0}
 .knot-mat ul{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:3px;font-size:.92rem}
 .knot-h{margin:12px 0 0;font-size:1rem}
+
+/* ---------- Comptes par e-mail ---------- */
+.ok-msg{margin:6px 0;padding:10px 12px;border-radius:12px;background:var(--accent-soft);color:var(--fg);font-size:.92rem}
+#a-forgot{margin-left:auto}
+.acc-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.acc-row:last-child{border-bottom:none}
+.acc-row.warn .acc-t .note{color:var(--warn)}
+.acc-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.acc-t .note{margin:0;overflow-wrap:anywhere}
+.btn.danger{color:#fff;background:var(--warn);border-color:var(--warn)}
+.btn.small.danger{background:transparent;color:var(--warn)}
+.acc-form{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.acc-list{margin:4px 0 8px;padding-left:20px;display:flex;flex-direction:column;gap:3px}

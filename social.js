@@ -16,7 +16,7 @@ const markers={};
 
 // ---------- Utilitaires ----------
 function el(tag,cls,text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
-function toast(t){ const d=el("div","toast",t); document.body.append(d); setTimeout(()=>d.remove(),2800); }
+function toast(t,ms){ const d=el("div","toast",t); document.body.append(d); setTimeout(()=>d.remove(),ms||2800); }
 function showErr(e,t){ e.textContent=t||""; e.hidden=!t; }
 function ago(iso){
   const d=new Date(iso), s=(Date.now()-d)/1000;
@@ -28,14 +28,21 @@ function ago(iso){
 const emailOf=u=>u.trim().toLowerCase()+"@"+DOMAIN;
 function frError(e){
   const m=(e&&e.message)||String(e);
-  if(/Invalid login/i.test(m)) return "Nom d'utilisateur ou mot de passe incorrect.";
-  if(/already registered|already exists/i.test(m)) return "Ce nom d'utilisateur est déjà pris.";
+  if(/pseudo legacy/i.test(m)) return "Pseudo ou mot de passe incorrect. Si tu as ajouté un e-mail à ton compte, connecte-toi avec ton e-mail.";
+  if(/Invalid login/i.test(m)) return "E-mail ou mot de passe incorrect.";
+  if(/pseudo pris/i.test(m)) return "Ce pseudo est déjà pris, choisis-en un autre.";
+  if(/email invalide|invalid format|validate email/i.test(m)) return "Cette adresse e-mail n'est pas valide.";
+  if(/already registered|already exists/i.test(m)) return "Un compte existe déjà avec cet e-mail : connecte-toi, ou utilise « Mot de passe oublié ».";
+  if(/not authorized|Email address not authorized/i.test(m)) return "L'envoi d'e-mails n'est pas encore activé sur le serveur. Réessaie plus tard ou préviens l'admin.";
+  if(/rate limit|too many|security purposes/i.test(m)) return "Trop de demandes d'un coup : attends quelques minutes avant de réessayer.";
+  if(/same password|should be different/i.test(m)) return "Le nouveau mot de passe doit être différent de l'ancien.";
+  if(/weak|Password should contain/i.test(m)) return "Mot de passe trop faible : mélange lettres et chiffres, 8 caractères minimum.";
   if(/code invalide/i.test(m)) return "Code du groupe incorrect.";
   if(/groupe complet/i.test(m)) return "Ce groupe est complet (20 membres maximum).";
   if(/duplicate key.*(profiles|username)/i.test(m)) return "Ce nom d'utilisateur est déjà pris.";
   if(/duplicate key.*invite_code/i.test(m)) return "Ce code est déjà utilisé par un autre groupe.";
-  if(/Password should/i.test(m)) return "Mot de passe trop court (6 caractères minimum).";
-  if(/Email not confirmed/i.test(m)) return "La confirmation d'e-mail est encore activée dans Supabase : désactive-la (voir le guide).";
+  if(/Password should/i.test(m)) return "Mot de passe trop court (8 caractères minimum).";
+  if(/Email not confirmed/i.test(m)) return "Confirme d'abord ton e-mail : ouvre le lien reçu par mail (pense aux spams).";
   if(/row-level security/i.test(m)) return "Action non autorisée dans ce groupe.";
   if(/limite de groupes/i.test(m)) return "Tu es déjà responsable de 3 groupes, c'est le maximum.";
   if(/seul l'admin peut changer le responsable/i.test(m)) return "Seul l'admin peut changer le responsable du groupe.";
@@ -182,42 +189,80 @@ $$("#post-mode button").forEach(b=>b.addEventListener("click",()=>{
 }));
 try{ const m=localStorage.getItem("cdj-mode"); if(m==="post"||m==="bilan"||m==="carp"||m==="none"){ postMode=m; $$("#post-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.m===m))); } }catch(e){}
 
-// ---------- Comptes ----------
+// ---------- Comptes (e-mail + mot de passe) ----------
 let authMode="login";
-$$("#auth-mode button").forEach(b=>b.addEventListener("click",()=>{
-  authMode=b.dataset.m;
-  $$("#auth-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
-  const su=authMode==="signup";
+const isMail=v=>/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+const siteUrl=()=>location.origin+location.pathname;
+function setAuthMode(m){
+  authMode=m;
+  $$("#auth-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.m===m)));
+  const su=m==="signup";
   $("#auth-title").textContent=su?"Créer un compte":"Connexion";
   $("#a-submit").textContent=su?"Créer mon compte":"Se connecter";
+  $("#a-email-lab").textContent=su?"E-mail":"E-mail (ou pseudo pour un ancien compte)";
+  const em=$("#a-email"); em.type=su?"email":"text"; em.autocomplete=su?"email":"username";
+  $("#a-user-wrap").hidden=!su; $("#a-user").required=su;
   $("#a-code-wrap").hidden=!su; $("#a-code").required=su;
-  $("#a-pass").autocomplete=su?"new-password":"current-password";
-  showErr($("#a-err"));
-}));
+  $("#a-legacy").hidden=su; $("#a-forgot").hidden=su;
+  const pw=$("#a-pass"); pw.autocomplete=su?"new-password":"current-password"; pw.minLength=su?8:6;
+  pw.placeholder=su?"8 caractères minimum":"";
+  $("#auth-form").hidden=false; $("#forgot-form").hidden=true;
+  showErr($("#a-err")); $("#a-ok").hidden=true;
+}
+$$("#auth-mode button").forEach(b=>b.addEventListener("click",()=>setAuthMode(b.dataset.m)));
+setAuthMode("login");
 
 $("#auth-form").addEventListener("submit",async e=>{
   e.preventDefault(); if(!sb) return;
-  const u=$("#a-user").value.trim(), p=$("#a-pass").value, code=$("#a-code").value.trim();
-  const btn=$("#a-submit"); btn.disabled=true; showErr($("#a-err"));
+  const id=$("#a-email").value.trim(), p=$("#a-pass").value, code=$("#a-code").value.trim(), u=$("#a-user").value.trim();
+  const btn=$("#a-submit"); btn.disabled=true; showErr($("#a-err")); $("#a-ok").hidden=true;
   try{
     if(authMode==="signup"){
-      const {data:g,error:ce}=await sb.rpc("check_invite",{p_code:code});
+      if(!isMail(id)) throw new Error("email invalide");
+      const [{data:free,error:ue},{data:g,error:ce}]=await Promise.all([sb.rpc("username_available",{p_username:u}),sb.rpc("check_invite",{p_code:code})]);
+      if(ue) throw ue; if(free===false) throw new Error("pseudo pris");
       if(ce) throw ce; if(!g||!g.length) throw new Error("code invalide");
       if(g[0].full_group) throw new Error("groupe complet");
-      if(g[0].require_approval) setTimeout(()=>toast("Demande envoyée à « "+g[0].name+" » : un modérateur doit la valider"),900);
-      const {error}=await sb.auth.signUp({email:emailOf(u),password:p});
+      const {data:su,error}=await sb.auth.signUp({email:id.toLowerCase(),password:p,options:{emailRedirectTo:siteUrl()}});
       if(error) throw error;
+      if(!su.session){
+        // confirmation par e-mail activée : on finira l'inscription à la première connexion
+        try{ localStorage.setItem("cdj-pending-join",JSON.stringify({code,username:u})); }catch(_){}
+        $("#a-ok").textContent="📧 Presque fini ! Ouvre l'e-mail envoyé à "+id+" et touche le lien de confirmation, puis connecte-toi ici.";
+        $("#a-ok").hidden=false; setAuthMode("login"); $("#a-email").value=id; $("#a-ok").hidden=false;
+        return;
+      }
+      if(g[0].require_approval) setTimeout(()=>toast("Demande envoyée à « "+g[0].name+" » : un modérateur doit la valider"),900);
       const {error:je}=await sb.rpc("join_group",{p_code:code,p_username:u});
       if(je) throw je;
     }else{
-      const {error}=await sb.auth.signInWithPassword({email:emailOf(u),password:p});
-      if(error) throw error;
+      const email=isMail(id)?id.toLowerCase():emailOf(id);
+      const {error}=await sb.auth.signInWithPassword({email,password:p});
+      if(error){ if(!isMail(id)&&/Invalid login/i.test(error.message)) throw new Error("pseudo legacy"); throw error; }
     }
     $("#a-pass").value="";
     await loadMe();
+    if(!me){ // compte créé avec confirmation e-mail : on termine l'adhésion si on a les infos
+      let pj=null; try{ pj=JSON.parse(localStorage.getItem("cdj-pending-join")||"null"); }catch(_){}
+      if(pj){ const {error:je}=await sb.rpc("join_group",{p_code:pj.code,p_username:pj.username}); if(!je){ try{ localStorage.removeItem("cdj-pending-join"); }catch(_){} await loadMe(); } else { $("#j-user").value=pj.username; $("#j-code").value=pj.code; } }
+    }
     if(me){ toast("Bienvenue @"+me.username+" !"); location.hash="#fil"; }
   }catch(err){ showErr($("#a-err"),frError(err)); }
   finally{ btn.disabled=false; }
+});
+
+// mot de passe oublié
+$("#a-forgot").addEventListener("click",()=>{ $("#auth-form").hidden=true; $("#forgot-form").hidden=false; const v=$("#a-email").value.trim(); if(isMail(v)) $("#f-email").value=v; showErr($("#f-err")); $("#f-ok").hidden=true; $("#f-email").focus(); });
+$("#f-back").addEventListener("click",()=>setAuthMode("login"));
+$("#forgot-form").addEventListener("submit",async e=>{
+  e.preventDefault(); if(!sb) return;
+  const em=$("#f-email").value.trim().toLowerCase(), b=$("#f-submit"); b.disabled=true; showErr($("#f-err")); $("#f-ok").hidden=true;
+  const {error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:siteUrl()});
+  b.disabled=false;
+  if(error) return showErr($("#f-err"),frError(error));
+  // même message que l'adresse existe ou non, pour ne rien révéler
+  $("#f-ok").textContent="📧 Si un compte existe avec "+em+", un e-mail vient de partir. Ouvre le lien qu'il contient (pense aux spams) pour choisir un nouveau mot de passe.";
+  $("#f-ok").hidden=false;
 });
 
 $("#join").addEventListener("submit",async e=>{
@@ -823,6 +868,7 @@ window.CDJ={
 async function init(){
   refreshUI(); route();
   if(!configured||typeof supabase==="undefined") return;
+  { const h=location.hash; window.CDJ_AUTHLINK={recovery:/type=recovery/.test(h),error:/error_code=|error=/.test(h)?decodeURIComponent((h.match(/error_description=([^&]*)/)||[])[1]||"").replace(/\+/g," "):null,expired:/otp_expired/.test(h)}; }
   sb=supabase.createClient(C.SUPABASE_URL,C.SUPABASE_KEY);
   sb.auth.onAuthStateChange(ev=>{ if(ev==="SIGNED_OUT"){ me=null; hasSession=false; groups=[]; refreshUI(); } });
   try{ await loadMe(); }catch(e){}

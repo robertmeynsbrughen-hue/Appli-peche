@@ -1442,3 +1442,20 @@ do $$ begin perform cron.unschedule('cdj-orage'); exception when others then nul
 select cron.schedule('cdj-orage', '*/15 * * * *', $c$ select public.call_notify('{"table":"storm_watch"}'::jsonb) where exists (select 1 from public.checkins where ended_at is null and ends_at > now() and (storm_sent_at is null or storm_sent_at < now() - interval '3 hours')) or exists (select 1 from public.carp_sessions where ended_at is null and spot_id is not null and (storm_sent_at is null or storm_sent_at < now() - interval '3 hours') and started_at > now() - interval '3 days') $c$);
 do $$ begin perform cron.unschedule('cdj-photo-mois'); exception when others then null; end $$;
 select cron.schedule('cdj-photo-mois', '0 9 1 * *', $c$ select public.call_notify('{"table":"photo_month"}'::jsonb) $c$);
+
+-- Comptes par e-mail : pseudo disponible, suppression de compte
+create or replace function public.username_available(p_username text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select p_username ~ '^[A-Za-z0-9_]{3,20}$' and not exists (select 1 from public.profiles where lower(username) = lower(p_username));
+$$;
+revoke all on function public.username_available(text) from public;
+grant execute on function public.username_available(text) to anon, authenticated;
+
+create or replace function public.delete_my_account() returns void
+language plpgsql security definer set search_path = public, auth as $$
+begin
+  if auth.uid() is null then raise exception 'non connecté'; end if;
+  delete from auth.users where id = auth.uid();
+end $$;
+revoke all on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;
