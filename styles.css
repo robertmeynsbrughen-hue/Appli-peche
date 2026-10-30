@@ -1476,3 +1476,67 @@ html.night{filter:grayscale(1) sepia(1) saturate(6) hue-rotate(-50deg) brightnes
 .sp-tag.is-fav{background:var(--amber-soft);color:var(--fg)}
 .sp-tag.is-top{background:color-mix(in srgb,var(--best) 16%,transparent);color:var(--best)}
 .sp.fav .sp-rank{background:var(--amber-soft);border-color:var(--amber);color:var(--fg)}
+
+/* =====================================================================
+   Refonte « Sondeur » (thème sombre par défaut) : bleu nuit, cyan lumineux,
+   quadrillage discret comme un écran d'échosondeur.
+   ===================================================================== */
+:root[data-theme="dark"],:root[data-theme="dark"][data-role]{
+  --bg:#060c12; --surface:#0d1620; --surface-2:#12202d; --fg:#e4eef6; --muted:#88a0b3; --line:#1d2e3d;
+  --accent:#2fd3c4; --accent-2:#5be3d6; --accent-soft:#0e3036; --on-accent:#03201d;
+  --amber:#ffb547; --amber-soft:#3a2a10; --warn:#ff8a65; --warn-soft:#3a1a12;
+  --hero-1:#0d2536; --hero-2:#0b3f4c; --hero-fg:#e4eef6;
+  --shadow:0 0 0 1px rgba(47,211,196,.07),0 12px 30px -12px rgba(0,0,0,.85); color-scheme:dark;
+  --best:#4aa8ff; --low:#ff9a4a;
+}
+/* un léger reflet de couleur selon le rôle, sans quitter l'ambiance sondeur */
+:root[data-theme="dark"][data-role="admin"]{--bg:#0d0a07;--surface:#17120c;--surface-2:#1f1810;--line:#33271a;--muted:#b49a7e}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme]),:root:not([data-theme])[data-role]{
+    --bg:#060c12; --surface:#0d1620; --surface-2:#12202d; --fg:#e4eef6; --muted:#88a0b3; --line:#1d2e3d;
+    --accent:#2fd3c4; --accent-2:#5be3d6; --accent-soft:#0e3036; --on-accent:#03201d;
+    --amber:#ffb547; --amber-soft:#3a2a10; --hero-1:#0d2536; --hero-2:#0b3f4c; --hero-fg:#e4eef6;
+    --shadow:0 0 0 1px rgba(47,211,196,.07),0 12px 30px -12px rgba(0,0,0,.85); --best:#4aa8ff; --low:#ff9a4a}
+}
+:root[data-theme="dark"] body{background:radial-gradient(1100px 520px at 50% -180px,#0f2a3a,transparent 70%),var(--bg);background-attachment:fixed}
+:root[data-theme="dark"] .app-head{background:rgba(6,12,18,.86);border-bottom:1px solid var(--line);backdrop-filter:blur(10px)}
+:root[data-theme="dark"] .grp-switch{background:var(--surface);border-color:var(--line);color:var(--fg)}
+:root[data-theme="dark"] .day-card{border:1px solid rgba(47,211,196,.22);
+  background:linear-gradient(rgba(47,211,196,.055) 1px,transparent 1px) 0 0/22px 22px,linear-gradient(90deg,rgba(47,211,196,.055) 1px,transparent 1px) 0 0/22px 22px,linear-gradient(180deg,#0e2a3b,#09192a)}
+:root[data-theme="dark"] .day-card::after{background:radial-gradient(circle,rgba(47,211,196,.16),transparent 65%)}
+:root[data-theme="dark"] .dc-num,:root[data-theme="dark"] .dc-bp{color:var(--accent);text-shadow:0 0 18px rgba(47,211,196,.45)}
+:root[data-theme="dark"] .dc-best{background:rgba(47,211,196,.07);border:1px solid rgba(47,211,196,.18)}
+:root[data-theme="dark"] .dc-best.dc-second{background:rgba(255,255,255,.03)}
+:root[data-theme="dark"] nav.tabs{background:rgba(13,22,32,.92);border:1px solid var(--line);backdrop-filter:blur(10px)}
+:root[data-theme="dark"] nav.tabs a[aria-current="page"]{color:var(--accent);background:rgba(47,211,196,.1)}
+:root[data-theme="dark"] .panel,:root[data-theme="dark"] article.post,:root[data-theme="dark"] .sp{border-color:var(--line)}
+:root[data-theme="dark"] .gauge{filter:drop-shadow(0 0 6px rgba(47,211,196,.35))}
+:root[data-theme="dark"] .btn.primary{box-shadow:0 0 0 1px rgba(47,211,196,.3),0 6px 18px -8px rgba(47,211,196,.6)}
+:root[data-theme="dark"] .splash{background:radial-gradient(800px 500px at 50% 30%,#0f2a3a,#060c12)}
+/* Calculateurs et agenda */
+.calc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.calc-card{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:12px;border-radius:14px;background:var(--surface-2);border:1px solid var(--line);min-width:0}
+.calc-card .cc-ico{font-size:1.4rem}
+.calc-card .note{margin:0;font-size:.78rem}
+.calc-field{display:flex;flex-direction:column;gap:5px;margin:10px 0}
+.calc-lab{font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.calc-seg{flex-wrap:wrap}
+.calc-seg button{flex:1 1 auto;font-size:.82rem;padding:7px 8px}
+.calc-out{margin-top:12px;padding:14px;border-radius:16px;background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
+.calc-out ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:.9rem}
+.calc-big{display:block;font-family:var(--f-mono);font-size:1.6rem;color:var(--accent)}
+.calc-table{display:flex;flex-direction:column;gap:6px}
+.ct-row{display:flex;flex-direction:column;gap:1px;padding:8px 10px;border-radius:10px;background:var(--surface)}
+.calc-table.pe .ct-row{display:grid;grid-template-columns:40px 1fr 1fr 1fr;gap:6px;align-items:center;font-size:.86rem}
+.calc-table.pe .ct-head{background:transparent;font-weight:700;color:var(--muted);font-size:.75rem}
+.calc-tip{margin:10px 0 0;font-size:.9rem}
+.calc-h{font-size:1rem;margin:16px 0 8px}
+.ag-list{display:flex;flex-direction:column;gap:8px}
+.ag-item{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:var(--surface-2);border:1px solid var(--line)}
+.ag-item.auto{border-style:dashed}
+.ag-date{flex:0 0 46px;display:flex;flex-direction:column;align-items:center;padding:6px 0;border-radius:10px;background:var(--accent-soft);color:var(--accent);line-height:1.1}
+.ag-date b{font-size:1.3rem;font-family:var(--f-mono)}
+.ag-date span{font-size:.72rem;text-transform:uppercase;font-weight:700}
+.ag-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:.9rem}
+.ag-t .note{margin:0;font-size:.8rem}
+.ag-link{font-size:.85rem;font-weight:600;color:var(--accent)}

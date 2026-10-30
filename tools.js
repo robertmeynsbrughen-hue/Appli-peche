@@ -28,29 +28,30 @@ function applyTheme(t){
   const root=document.documentElement;
   const night=t==="night"||(t!=="light"&&get("cdj-night-auto","0")==="1"&&isNight());
   root.classList.toggle("night",night);
-  if(night||t==="dark") root.dataset.theme="dark"; else if(t==="light") root.dataset.theme="light"; else delete root.dataset.theme;
+  const sysDark=window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme=(night||t==="dark"||(t==="auto"&&sysDark))?"dark":"light";
   const tc=document.querySelector('meta[name="theme-color"]'); if(tc&&night) tc.content="#1a0000";
 }
-setInterval(()=>applyTheme(get("cdj-theme","auto")),5*6e4);
-document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") applyTheme(get("cdj-theme","auto")); });
+setInterval(()=>applyTheme(get("cdj-theme","dark")),5*6e4);
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") applyTheme(get("cdj-theme","dark")); });
 function themePanel(){
   const box=$("#theme-panel"); if(!box) return;
   box.innerHTML="";
   box.append(el("h2",null,"Apparence"));
-  const cur=get("cdj-theme","auto");
+  const cur=get("cdj-theme","dark");
   const seg=el("div","seg"); seg.setAttribute("aria-label","Thème");
-  [["auto","📱 Auto"],["light","☀️ Clair"],["dark","🌙 Sombre"],["night","🔴 Nuit"]].forEach(([v,l])=>{
+  [["dark","📡 Sondeur"],["light","☀️ Clair"],["auto","📱 Auto"],["night","🔴 Nuit"]].forEach(([v,l])=>{
     const b=btn(l,null,()=>{ set("cdj-theme",v); applyTheme(v); themePanel(); }); b.setAttribute("aria-pressed",String(cur===v)); seg.append(b);
   });
-  box.append(seg, el("p","note","« Auto » suit le réglage de ton téléphone. « Nuit » passe tout en rouge tamisé : il n'éblouit pas et garde ta vision de nuit au bord de l'eau."));
+  box.append(seg, el("p","note","« Sondeur » est le thème sombre de Rivio. « Auto » suit le réglage de ton téléphone. « Nuit » passe tout en rouge tamisé : il n'éblouit pas et garde ta vision de nuit au bord de l'eau."));
   const sw=el("label","switch"); const cb=el("input"); cb.type="checkbox"; cb.checked=get("cdj-night-auto","0")==="1";
-  cb.addEventListener("change",()=>{ set("cdj-night-auto",cb.checked?"1":"0"); applyTheme(get("cdj-theme","auto")); });
+  cb.addEventListener("change",()=>{ set("cdj-night-auto",cb.checked?"1":"0"); applyTheme(get("cdj-theme","dark")); });
   const st=el("span","switch-t"); st.append(el("b",null,"🌙 Mode nuit automatique"),el("span","note","Passe en rouge tamisé 30 min après le coucher du soleil, jusqu'à 30 min avant son lever"));
   sw.append(cb,el("span","switch-ui"),st); box.append(sw);
   if(cur==="light") sw.hidden=true;
   box.append(btn("🧭 Revoir la visite guidée","btn",()=>tour(true)));
 }
-applyTheme(get("cdj-theme","auto"));
+applyTheme(get("cdj-theme","dark"));
 themePanel();
 
 /* ---------- Visite guidée ---------- */

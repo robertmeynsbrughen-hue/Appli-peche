@@ -1518,3 +1518,29 @@ create policy notif_delete on public.notifications for delete using (user_id = a
 revoke insert on public.notifications from anon, authenticated;
 do $$ begin perform cron.unschedule('cdj-notifs-menage'); exception when others then null; end $$;
 select cron.schedule('cdj-notifs-menage', '40 3 * * *', $c$ delete from public.notifications where created_at < now() - interval '60 days' $c$);
+
+-- Agenda pêche du groupe : concours, enduros, salons, ouvertures locales
+create table if not exists public.fish_events (
+  id bigint generated always as identity primary key,
+  group_id bigint not null references public.groups (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  kind text not null check (kind in ('concours','enduro','salon','ouverture','autre')),
+  title text not null check (char_length(title) between 2 and 80),
+  start_date date not null,
+  end_date date,
+  place text check (char_length(place) <= 80),
+  url text check (char_length(url) <= 300 and url ~ '^https?://'),
+  note text check (char_length(note) <= 300),
+  created_at timestamptz not null default now(),
+  check (end_date is null or end_date >= start_date)
+);
+create index if not exists fish_events_group on public.fish_events (group_id, start_date);
+alter table public.fish_events enable row level security;
+drop policy if exists fe_select on public.fish_events;
+drop policy if exists fe_insert on public.fish_events;
+drop policy if exists fe_update on public.fish_events;
+drop policy if exists fe_delete on public.fish_events;
+create policy fe_select on public.fish_events for select using (public.is_member_of(group_id) or public.is_staff());
+create policy fe_insert on public.fish_events for insert with check (user_id = auth.uid() and (public.is_member_of(group_id) or public.is_staff()));
+create policy fe_update on public.fish_events for update using (user_id = auth.uid() or public.can_moderate(group_id)) with check (user_id = auth.uid() or public.can_moderate(group_id));
+create policy fe_delete on public.fish_events for delete using (user_id = auth.uid() or public.can_moderate(group_id));

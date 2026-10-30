@@ -116,7 +116,7 @@ function refreshUI(){
   const role=me?(me.is_admin?"admin":"user"):"";
   if(role) document.documentElement.dataset.role=role; else delete document.documentElement.dataset.role;
   const tc=document.querySelector('meta[name="theme-color"]');
-  if(tc) tc.content=role==="admin"?"#b8691c":role==="user"?"#2c5f8f":"#1f6f5c";
+  if(tc) tc.content=document.documentElement.dataset.theme==="light"?(role==="admin"?"#b8691c":role==="user"?"#2c5f8f":"#1f6f5c"):(role==="admin"?"#0d0a07":"#060c12");
   $$("[data-setup]").forEach(e=>e.hidden=configured);
   $$("[data-need-login]").forEach(e=>{
     e.hidden=!configured||member;

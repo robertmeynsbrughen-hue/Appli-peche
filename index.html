@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Rivio</title>
-<meta name="theme-color" content="#1f6f5c">
+<meta name="theme-color" content="#060c12">
 <meta name="description" content="Conseils pêche selon la météo, fil photo et carte des spots du groupe.">
 <link rel="manifest" href="manifest.webmanifest">
-<script>try{var t=localStorage.getItem("cdj-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;var g=localStorage.getItem("cdj-bg");if(g&&g!=="auto")document.documentElement.dataset.bg=g;}catch(e){}</script>
+<script>try{var t=localStorage.getItem("cdj-theme")||"dark";if(t==="light"||t==="dark"||t==="night")document.documentElement.dataset.theme=t==="light"?"light":"dark";var g=localStorage.getItem("cdj-bg");if(g&&g!=="auto")document.documentElement.dataset.bg=g;}catch(e){}</script>
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="icon" href="icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -359,7 +359,7 @@ body{margin:0}
     <div class="panel" data-sub="reglages">
       <h2>Installer l'appli</h2>
       <p class="note">Android (Chrome) : menu ⋮ puis « Ajouter à l'écran d'accueil » ou « Installer l'application ».<br>iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
-      <p class="note app-version">Version <span id="app-version">0.55</span> · bêta · <a href="confidentialite.html">Confidentialité</a></p>
+      <p class="note app-version">Version <span id="app-version">0.56</span> · bêta · <a href="confidentialite.html">Confidentialité</a></p>
     </div>
 
     <div class="panel" data-sub="reglages" id="account-panel" hidden>
@@ -514,6 +514,7 @@ body{margin:0}
 <script src="account.js"></script>
 <script src="techniques.js"></script>
 <script src="notifs.js"></script>
+<script src="calc.js"></script>
 <script>
 if("serviceWorker" in navigator){
   // dès qu'une nouvelle version prend la main, on recharge une fois pour l'afficher
