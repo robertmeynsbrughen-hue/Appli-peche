@@ -1495,3 +1495,26 @@ begin
 end $$;
 revoke all on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
+
+-- Centre de notifications : historique des notifications reçues (écrit par la fonction notify)
+create table if not exists public.notifications (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  title text not null check (char_length(title) <= 200),
+  body text check (char_length(body) <= 500),
+  url text check (char_length(url) <= 60),
+  tag text check (char_length(tag) <= 80),
+  created_at timestamptz not null default now(),
+  read_at timestamptz
+);
+create index if not exists notifications_user on public.notifications (user_id, created_at desc);
+alter table public.notifications enable row level security;
+drop policy if exists notif_select on public.notifications;
+drop policy if exists notif_update on public.notifications;
+drop policy if exists notif_delete on public.notifications;
+create policy notif_select on public.notifications for select using (user_id = auth.uid());
+create policy notif_update on public.notifications for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy notif_delete on public.notifications for delete using (user_id = auth.uid());
+revoke insert on public.notifications from anon, authenticated;
+do $$ begin perform cron.unschedule('cdj-notifs-menage'); exception when others then null; end $$;
+select cron.schedule('cdj-notifs-menage', '40 3 * * *', $c$ delete from public.notifications where created_at < now() - interval '60 days' $c$);

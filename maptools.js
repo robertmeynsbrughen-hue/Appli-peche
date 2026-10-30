@@ -50,8 +50,12 @@ async function fetchHeat(){
   let qp=A.sb.from("posts").select("spot_id,species,created_at").eq("status","published").not("spot_id","is",null).limit(5000);
   let qc=A.sb.from("carp_sessions").select("spot_id,carp_events(kind,at)").not("spot_id","is",null).limit(2000);
   if(gid!=="all"){ qp=qp.eq("group_id",gid); qc=qc.eq("group_id",gid); }
-  const [{data:p},{data:c}]=await Promise.all([qp,qc]);
+  // bilans liés à une trace de sortie : la prise compte au point de départ de la trace
+  let qs=A.sb.from("sessions").select("species,caught,created_at,track_id,tracks(points)").not("track_id","is",null).eq("caught",true).limit(2000);
+  if(gid!=="all") qs=qs.eq("group_id",gid);
+  const [{data:p},{data:c},{data:ss}]=await Promise.all([qp,qc,qs.then(r=>r,()=>({data:[]}))]);
   const rows=[...(p||[])];
+  (ss||[]).forEach(x=>{ const pt=(x.tracks?.points||[])[0]; const ll=Array.isArray(pt)?pt:pt&&[pt.lat??pt[0],pt.lon??pt.lng??pt[1]]; if(ll&&ll[0]!=null) rows.push({lat:Number(ll[0]),lon:Number(ll[1]),species:x.species,created_at:x.created_at}); });
   (c||[]).forEach(s=>(s.carp_events||[]).filter(e=>e.kind==="prise").forEach(e=>rows.push({spot_id:s.spot_id,species:"Carpe",created_at:e.at})));
   return rows;
 }
@@ -63,11 +67,18 @@ async function drawHeat(){
   if(!heat.data) heat.data=await fetchHeat();
   const norm=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
   const rows=heat.data.filter(r=>(!heat.sp||norm(r.species)===norm(heat.sp))&&(heat.season==="all"||seasonOf(r.created_at)===heat.season));
-  const by=new Map(); rows.forEach(r=>by.set(r.spot_id,(by.get(r.spot_id)||0)+1));
+  // regroupement par spot, ou par carré d'environ 100 m pour les prises de traces
+  const by=new Map();
+  rows.forEach(r=>{
+    let k,ll;
+    if(r.spot_id!=null){ const s=A.spots.find(x=>x.id===r.spot_id); if(!s) return; k="s"+r.spot_id; ll=[s.lat,s.lon]; }
+    else if(r.lat!=null){ k="p"+r.lat.toFixed(3)+","+r.lon.toFixed(3); ll=[r.lat,r.lon]; } else return;
+    const o=by.get(k)||{ll,n:0}; o.n++; by.set(k,o);
+  });
   const pts=[]; let max=1;
-  by.forEach((n,id)=>{ const s=A.spots.find(x=>x.id===id); if(s){ pts.push([s.lat,s.lon,n]); max=Math.max(max,n); } });
+  by.forEach(o=>{ pts.push([o.ll[0],o.ll[1],o.n]); max=Math.max(max,o.n); });
   const note=$("#heat-note");
-  if(note) note.textContent=pts.length?rows.length+" prise"+(rows.length>1?"s":"")+" sur "+pts.length+" spot"+(pts.length>1?"s":"")+". Plus c'est rouge, plus ça mord.":"Aucune prise liée à un spot pour ce filtre. Choisis un spot quand tu publies une prise pour alimenter la carte.";
+  if(note) note.textContent=pts.length?rows.length+" prise"+(rows.length>1?"s":"")+" sur "+pts.length+" endroit"+(pts.length>1?"s":"")+". Plus c'est rouge, plus ça mord.":"Aucune prise liée à un spot pour ce filtre. Choisis un spot quand tu publies une prise pour alimenter la carte.";
   if(!pts.length||!A.map) return;
   heat.layer=L.heatLayer(pts,{radius:38,blur:28,maxZoom:15,max,minOpacity:.35,gradient:{.2:"#2c8b73",.5:"#e7c650",.8:"#e98a2c",1:"#d93a2b"}}).addTo(A.map);
   if(pts.length) A.map.fitBounds(L.latLngBounds(pts.map(p=>[p[0],p[1]])).pad(.3),{maxZoom:14});

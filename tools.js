@@ -9,19 +9,45 @@ const set=(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} };
 function btn(label,cls,fn){ const b=el("button",cls||"btn",label); b.type="button"; if(fn) b.addEventListener("click",fn); return b; }
 
 /* ---------- Thème ---------- */
-function applyTheme(t){
-  if(t==="light"||t==="dark") document.documentElement.dataset.theme=t; else delete document.documentElement.dataset.theme;
+// lever et coucher du soleil (approximation NOAA, à quelques minutes près)
+function sunTimes(lat,lon,d=new Date()){
+  const r=Math.PI/180, n=Math.floor((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(d.getFullYear(),0,0))/864e5);
+  const g=2*Math.PI/365*(n-1);
+  const eq=229.18*(0.000075+0.001868*Math.cos(g)-0.032077*Math.sin(g)-0.014615*Math.cos(2*g)-0.040849*Math.sin(2*g));
+  const decl=0.006918-0.399912*Math.cos(g)+0.070257*Math.sin(g)-0.006758*Math.cos(2*g)+0.000907*Math.sin(2*g)-0.002697*Math.cos(3*g)+0.00148*Math.sin(3*g);
+  const ha=Math.acos(Math.cos(90.833*r)/(Math.cos(lat*r)*Math.cos(decl))-Math.tan(lat*r)*Math.tan(decl))/r;
+  const day=Date.UTC(d.getFullYear(),d.getMonth(),d.getDate());
+  return {rise:new Date(day+(720-4*(lon+ha)-eq)*6e4), set:new Date(day+(720-4*(lon-ha)-eq)*6e4)};
 }
+function isNight(){
+  const p=window.CDJ_ADVICE?.current?.()||window.CDJ_ADVICE?.defaultPos?.()||{lat:44.4,lon:0.6};
+  const {rise,set}=sunTimes(Number(p.lat)||44.4,Number(p.lon)||0.6), now=Date.now();
+  return now>set.getTime()+30*6e4||now<rise.getTime()-30*6e4;
+}
+function applyTheme(t){
+  const root=document.documentElement;
+  const night=t==="night"||(t!=="light"&&get("cdj-night-auto","0")==="1"&&isNight());
+  root.classList.toggle("night",night);
+  if(night||t==="dark") root.dataset.theme="dark"; else if(t==="light") root.dataset.theme="light"; else delete root.dataset.theme;
+  const tc=document.querySelector('meta[name="theme-color"]'); if(tc&&night) tc.content="#1a0000";
+}
+setInterval(()=>applyTheme(get("cdj-theme","auto")),5*6e4);
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") applyTheme(get("cdj-theme","auto")); });
 function themePanel(){
   const box=$("#theme-panel"); if(!box) return;
   box.innerHTML="";
   box.append(el("h2",null,"Apparence"));
   const cur=get("cdj-theme","auto");
   const seg=el("div","seg"); seg.setAttribute("aria-label","Thème");
-  [["auto","📱 Auto"],["light","☀️ Clair"],["dark","🌙 Sombre"]].forEach(([v,l])=>{
+  [["auto","📱 Auto"],["light","☀️ Clair"],["dark","🌙 Sombre"],["night","🔴 Nuit"]].forEach(([v,l])=>{
     const b=btn(l,null,()=>{ set("cdj-theme",v); applyTheme(v); themePanel(); }); b.setAttribute("aria-pressed",String(cur===v)); seg.append(b);
   });
-  box.append(seg, el("p","note","« Auto » suit le réglage de ton téléphone."));
+  box.append(seg, el("p","note","« Auto » suit le réglage de ton téléphone. « Nuit » passe tout en rouge tamisé : il n'éblouit pas et garde ta vision de nuit au bord de l'eau."));
+  const sw=el("label","switch"); const cb=el("input"); cb.type="checkbox"; cb.checked=get("cdj-night-auto","0")==="1";
+  cb.addEventListener("change",()=>{ set("cdj-night-auto",cb.checked?"1":"0"); applyTheme(get("cdj-theme","auto")); });
+  const st=el("span","switch-t"); st.append(el("b",null,"🌙 Mode nuit automatique"),el("span","note","Passe en rouge tamisé 30 min après le coucher du soleil, jusqu'à 30 min avant son lever"));
+  sw.append(cb,el("span","switch-ui"),st); box.append(sw);
+  if(cur==="light") sw.hidden=true;
   box.append(btn("🧭 Revoir la visite guidée","btn",()=>tour(true)));
 }
 applyTheme(get("cdj-theme","auto"));

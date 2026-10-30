@@ -210,6 +210,7 @@ export async function handle(req, cfg) {
     const out = [];
     for (const b of batches) {
       if (!b.recipients.length) continue;
+      await logNotif(b.recipients.map((m) => m.user_id), b.msg);
       const subs = await db("push_subs?user_id=in.(" + b.recipients.map((m) => m.user_id).join(",") + ")&select=endpoint,p256dh,auth");
       const payload = JSON.stringify(b.msg);
       const results = await Promise.allSettled(subs.map(async (s) => {
@@ -228,8 +229,15 @@ export async function handle(req, cfg) {
   }
 }
 
+// ---- Centre de notifications : on garde une trace de chaque notification envoyée ----
+async function logNotif(ids, msg) {
+  if (!ids.length || msg.test || /^chat-/.test(msg.tag || "")) return; // les messages du chat restent dans le chat
+  const rows = [...new Set(ids)].map((user_id) => ({ user_id, title: cut(msg.title, 200), body: msg.body ? cut(msg.body, 500) : null, url: msg.url ? String(msg.url).slice(0, 60) : null, tag: msg.tag ? String(msg.tag).slice(0, 80) : null }));
+  try { await db("notifications", { method: "POST", body: JSON.stringify(rows), headers: { Prefer: "return=minimal" } }); } catch (_) { /* le journal ne doit jamais bloquer l'envoi */ }
+}
 // ---- Alerte du matin : bonnes conditions + rappels d'ouverture ----
 async function pushTo(user_id, msg, vapid) {
+  await logNotif([user_id], msg);
   const subs = await db("push_subs?user_id=eq." + user_id + "&select=endpoint,p256dh,auth");
   const payload = JSON.stringify(msg);
   let ok = 0;

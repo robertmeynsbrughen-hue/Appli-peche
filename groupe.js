@@ -143,7 +143,7 @@ async function renderGroupe(){
   if(info){
     const code=el("div","g-code"); code.append(el("span","note","Code"),el("span","code",info.invite_code));
     const cp=btn("Copier","linkbtn",async()=>{ try{ await navigator.clipboard.writeText(info.invite_code); toast("Code copié"); }catch(e){ toast("Code : "+info.invite_code); } });
-    code.append(cp); head.append(code);
+    code.append(cp, btn("🔗 Inviter","btn small",()=>A.invite?.open(info.invite_code,g.name))); head.append(code);
   }
   root.append(head);
 

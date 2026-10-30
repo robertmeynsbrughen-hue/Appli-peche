@@ -1420,3 +1420,40 @@ html:root[data-theme="dark"][data-bg="foret"]{--bg:#0a140d;--surface:#122017;--s
 .acc-list{margin:4px 0 8px;padding-left:20px;display:flex;flex-direction:column;gap:3px}
 .acc-temp{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:14px;background:var(--accent-soft);margin:10px 0}
 .acc-pw{font-family:var(--f-mono);font-size:1.3rem;font-weight:800;letter-spacing:.04em;user-select:all;word-break:break-all}
+
+/* ---------- Lot 14 : cloche, invitations, fiches techniques, découverte, mode nuit ---------- */
+.notif-bell{order:2;position:relative;flex:0 0 auto;width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.notif-bell[hidden]{display:none}
+.notif-bell svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.notif-badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#d9534f;color:#fff;font-size:.7rem;font-weight:800;display:flex;align-items:center;justify-content:center}
+.notif-badge[hidden]{display:none}
+.notif-tools{justify-content:flex-end;margin:-4px 0 6px}
+.notif-list{display:flex;flex-direction:column;gap:6px}
+.notif-item{all:unset;box-sizing:border-box;display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:14px;cursor:pointer;background:var(--surface-2);border:1px solid transparent}
+.notif-item.unread{background:var(--accent-soft);border-color:var(--accent)}
+.notif-item .ni-ico{font-size:1.3rem;line-height:1.2}
+.ni-t{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:.92rem}
+.ni-t b{font-size:.95rem}
+.ni-t .note{margin:0;font-size:.78rem}
+.invite-qr{display:flex;justify-content:center;padding:14px;background:#fff;border-radius:16px;margin:10px auto;width:max-content;min-height:60px}
+.invite-qr img,.invite-qr canvas{display:block}
+.invite-link{background:var(--surface-2);border-radius:12px;padding:10px 12px;overflow-wrap:anywhere;font-size:.85rem;margin-bottom:10px}
+.g-code{flex-wrap:wrap}
+.tech-intro{font-size:1.02rem;margin:4px 0 10px}
+.tech-sec{margin:12px 0}
+.tech-sec h3{font-size:1rem;margin:0 0 6px}
+.tech-sec ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.tech-seasons{display:grid;grid-template-columns:1fr;gap:6px}
+.tech-season{display:flex;flex-direction:column;gap:2px;padding:9px 12px;border-radius:12px;background:var(--surface-2);font-size:.92rem}
+.tech-season.now{background:var(--accent-soft);border:1px solid var(--accent)}
+.tech-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
+.tech-card{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:3px;padding:12px;border-radius:14px;background:var(--surface-2);border:1px solid var(--line);border-left:5px solid var(--accent);min-width:0}
+.tech-card .note{margin:0;font-size:.8rem}
+.discover{margin-top:14px}
+.disc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0}
+.disc-item{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:12px;border-radius:14px;background:var(--surface-2);border:1px solid var(--line);min-width:0}
+.disc-item .disc-ico{font-size:1.5rem}
+.disc-item .note{margin:0;font-size:.8rem}
+.nl-actions{justify-content:center;margin-top:12px}
+html.night{filter:grayscale(1) sepia(1) saturate(6) hue-rotate(-50deg) brightness(.7) contrast(1.05)}
+@media (max-width:420px){ .notif-bell,.chat-fab.in-head{width:36px;height:36px} .app-head-in{gap:6px} #theme-panel .seg button{font-size:.8rem;padding:6px 4px} }
