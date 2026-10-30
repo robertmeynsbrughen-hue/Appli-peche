@@ -1463,3 +1463,9 @@ html.night{filter:grayscale(1) sepia(1) saturate(6) hue-rotate(-50deg) brightnes
 .sp-legend .lg-act{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 25%,transparent),var(--accent))}
 .sp-legend .lg-best{background:var(--amber)}
 .sp-legend .lg-sol{background:var(--accent);opacity:.5;box-shadow:inset 0 3px 0 0 #8a6fd6}
+:root{--best:#2f7fd1;--low:#e8873a}
+.strip div.best{background:var(--best);opacity:1}
+.strip div.low{background:var(--low);opacity:.8}
+.window b{color:var(--best)}
+.sp-legend .lg-best{background:var(--best)}
+.sp-legend .lg-low{background:var(--low);opacity:.8}

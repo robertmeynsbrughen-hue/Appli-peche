@@ -315,8 +315,9 @@ function render(){
     const tl=mk("div","timeline");
     const strip=mk("div","strip");
     r.series.forEach((v,k)=>{
-      const so=solAt(k); const d=mk("div",[r.best[k]?"best":null,so?"sol-"+so:null].filter(Boolean).join(" ")||null);
-      if(!r.best[k]) d.style.opacity=(0.14+v*0.6).toFixed(2);
+      const low=!r.best[k]&&v<0.5;
+      const so=solAt(k); const d=mk("div",[r.best[k]?"best":null,low?"low":null,so?"sol-"+so:null].filter(Boolean).join(" ")||null);
+      if(!r.best[k]&&!low) d.style.opacity=(0.14+v*0.6).toFixed(2);
       d.style.height=(30+v*70).toFixed(0)+"%";
       d.title=hours[k].label+" : "+Math.round(v*100);
       strip.append(d);
