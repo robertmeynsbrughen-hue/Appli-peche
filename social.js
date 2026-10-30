@@ -301,7 +301,7 @@ async function loadMe(){
   const {data:{session}}=await sb.auth.getSession();
   hasSession=!!session;
   if(!session){ me=null; groups=[]; refreshUI(); return; }
-  const {data}=await sb.from("profiles").select("id,username,is_admin,is_controller").eq("id",session.user.id).maybeSingle();
+  const {data}=await sb.from("profiles").select("id,username,is_admin,is_controller,pw_temp").eq("id",session.user.id).maybeSingle();
   me=data||null;
   if(me){
     me.real={is_admin:!!me.is_admin,is_controller:!!me.is_controller};

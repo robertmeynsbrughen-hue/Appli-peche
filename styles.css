@@ -1418,3 +1418,5 @@ html:root[data-theme="dark"][data-bg="foret"]{--bg:#0a140d;--surface:#122017;--s
 .btn.small.danger{background:transparent;color:var(--warn)}
 .acc-form{display:flex;flex-direction:column;gap:10px;margin-top:8px}
 .acc-list{margin:4px 0 8px;padding-left:20px;display:flex;flex-direction:column;gap:3px}
+.acc-temp{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:14px;background:var(--accent-soft);margin:10px 0}
+.acc-pw{font-family:var(--f-mono);font-size:1.3rem;font-weight:800;letter-spacing:.04em;user-select:all;word-break:break-all}

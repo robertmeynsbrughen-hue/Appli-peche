@@ -28,6 +28,7 @@ async function setPassword(p1,p2,err){
   if(p1.value!==p2.value){ err.textContent="Les deux mots de passe ne sont pas identiques."; err.hidden=false; return false; }
   const {error}=await A.sb.auth.updateUser({password:p1.value});
   if(error){ err.textContent=frError(error); err.hidden=false; return false; }
+  if(A.me?.pw_temp){ A.me.pw_temp=false; A.sb.rpc("clear_pw_temp").then(()=>{},()=>{}); }
   return true;
 }
 
@@ -111,8 +112,10 @@ async function legacyEmail(email){
     return j;
   }catch(e){ return {error:String(e.message||e)}; }
 }
-function passSheet(){
-  const {sh,close}=sheet("Changer de mot de passe");
+let tempShown=false;
+function passSheet(temp){
+  const {sh,close}=sheet(temp===true?"Choisis ton mot de passe":"Changer de mot de passe");
+  if(temp===true) sh.append(el("p","note","Tu t'es connecté avec un mot de passe provisoire donné par l'admin. Choisis maintenant le tien : le provisoire ne sera plus utile."));
   const f=el("form","acc-form"); const pw=pwFields(); const err=el("p","err"); err.hidden=true;
   const ok=el("button","btn primary","Enregistrer"); ok.type="submit";
   f.append(...pw.nodes,err,el("div","actions")); f.lastChild.append(ok);
@@ -150,8 +153,35 @@ function deleteSheet(){
   });
   sh.append(f);
 }
-A.account={panel,recoverySheet};
+/* ---------- Réinitialisation par l'admin ou un modérateur ---------- */
+function adminReset(uid,username){
+  const {sh,close}=sheet("Mot de passe de @"+username);
+  sh.append(el("p",null,"@"+username+" a oublié son mot de passe ? L'appli lui crée un mot de passe provisoire. Tu le lui transmets (de vive voix, SMS…), il se connecte avec, puis l'appli lui demande d'en choisir un nouveau."));
+  sh.append(el("p","note","Son ancien mot de passe ne marchera plus."));
+  const err=el("p","err"); err.hidden=true;
+  const res=el("div","acc-temp"); res.hidden=true;
+  const go=btn("🔑 Créer un mot de passe provisoire","btn primary",async()=>{
+    go.disabled=true; err.hidden=true;
+    try{
+      const {data:{session}}=await A.sb.auth.getSession();
+      const C=window.CDJ_CONFIG||{};
+      const r=await fetch(C.SUPABASE_URL+"/functions/v1/account",{method:"POST",headers:{Authorization:"Bearer "+session.access_token,apikey:C.SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({action:"admin_reset",user_id:uid})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(j.error||("erreur "+r.status));
+      res.innerHTML="";
+      res.append(el("span","note","Mot de passe provisoire de @"+username+" :"),el("code","acc-pw",j.password));
+      const a=el("div","actions");
+      a.append(btn("📋 Copier","btn small",async()=>{ try{ await navigator.clipboard.writeText(j.password); toast("Copié"); }catch(_){ toast("Sélectionne le mot de passe pour le copier"); } }));
+      if(navigator.share) a.append(btn("📤 Envoyer","btn small",()=>navigator.share({text:"Coup du Jour : ton mot de passe provisoire est "+j.password+" (connecte-toi avec ton e-mail ou ton pseudo, l'appli te demandera d'en choisir un nouveau)."}).catch(()=>{})));
+      res.append(a, el("p","note","Il ne sera plus affiché après fermeture : note-le ou envoie-le maintenant."));
+      res.hidden=false; go.remove();
+    }catch(e){ err.textContent=frError(e); err.hidden=false; go.disabled=false; }
+  });
+  sh.append(err,res,el("div","actions")); sh.lastChild.append(go,btn("Fermer","linkbtn",close));
+}
+A.account={panel,recoverySheet,adminReset};
 const prev=A.hooks.profil; A.hooks.profil=()=>{ prev?.(); panel(); };
-const prevC=A.hooks.change; A.hooks.change=(...a)=>{ prevC?.(...a); if(A.me&&!$("#v-profil").hidden) panel(); };
+const prevC=A.hooks.change; A.hooks.change=(...a)=>{ prevC?.(...a); if(A.me&&!$("#v-profil").hidden) panel(); if(A.me?.pw_temp&&!tempShown){ tempShown=true; setTimeout(()=>passSheet(true),600); } };
 if(A.me&&!$("#v-profil").hidden) panel();
+if(A.me?.pw_temp&&!tempShown){ tempShown=true; setTimeout(()=>passSheet(true),600); }
 })();

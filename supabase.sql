@@ -1472,3 +1472,12 @@ begin
 end $$;
 revoke all on function public.create_profile(text) from public, anon;
 grant execute on function public.create_profile(text) to authenticated;
+
+-- Réinitialisation du mot de passe par l'admin ou un modérateur (fonction « account »)
+alter table public.profiles add column if not exists pw_temp boolean not null default false;
+create or replace function public.clear_pw_temp() returns void
+language sql security definer set search_path = public as $$
+  update public.profiles set pw_temp = false where id = auth.uid();
+$$;
+revoke all on function public.clear_pw_temp() from public, anon;
+grant execute on function public.clear_pw_temp() to authenticated;

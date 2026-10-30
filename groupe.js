@@ -350,6 +350,8 @@ function renderManage(g,info,members,man){
       sel.addEventListener("change",async()=>{ const {error}=await A.sb.rpc("set_member_role",{p_group:g.id,p_user:m.user_id,p_role:sel.value}); if(error){ sel.value=m.role; return toast(frError(error)); } toast("@"+m.username+" est maintenant "+sel.options[sel.selectedIndex].text.toLowerCase()); await A.loadGroups(); afterManage(); });
       act.append(sel);
     }
+    const canReset=!self&&!m.is_admin&&(A.me.is_admin||m.role==="member");
+    if(canReset) act.append(btn("🔑","linkbtn",()=>A.account?.adminReset(m.user_id,m.username))), act.lastChild.title="Réinitialiser le mot de passe", act.lastChild.setAttribute("aria-label","Réinitialiser le mot de passe de @"+m.username);
     const canKick=!self&&(A.me.is_admin||(man&&m.role!=="owner")||(!man&&m.role==="member"));
     if(canKick) act.append(confirmBtn("Retirer","Confirmer",async()=>{ const {error}=await A.sb.from("memberships").delete().eq("group_id",g.id).eq("user_id",m.user_id); if(error) return toast(frError(error)); toast("@"+m.username+" retiré du groupe"); afterManage(); }));
     r.append(act); list.append(r);
