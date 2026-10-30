@@ -66,13 +66,13 @@ async function open(id){
     a.append(btn("Voir sur la carte","btn small",()=>{ close(); location.hash="#carte"; setTimeout(()=>A.focusSpot?.(s.id),300); }));
     const it=el("a","btn small","🧭 Itinéraire"); it.href="https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon; it.target="_blank"; it.rel="noopener"; a.append(it);
     ms.append(a); body.append(ms);
-    setTimeout(()=>{ try{
-      if(typeof L==="undefined") return;
+    const drawMini=()=>{ try{
       const m=L.map(mm,{zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,tap:false,touchZoom:false}).setView([s.lat,s.lon],14);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(m);
       L.marker([s.lat,s.lon],{icon:L.divIcon({className:"",html:'<div class="spot-pin"></div>',iconSize:[22,22],iconAnchor:[11,22]})}).addTo(m);
       setTimeout(()=>m.invalidateSize?.(),120);
-    }catch(e){} },60);
+    }catch(e){} };
+    setTimeout(()=>{ if(typeof L!=="undefined") drawMini(); else A.loadLeaflet?.().then(()=>{ if(mm.isConnected) drawMini(); }).catch(()=>{}); },60);
   }
   sh.append(body);
   back.append(sh); back.addEventListener("click",e=>{ if(e.target===back) close(); }); document.body.append(back);

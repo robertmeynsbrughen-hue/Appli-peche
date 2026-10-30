@@ -1662,3 +1662,19 @@ html.night{filter:grayscale(1) sepia(1) saturate(6) hue-rotate(-50deg) brightnes
 .queue-pill.bad{background:var(--low,#ff9a4a);color:#1a0d00}
 .queue-list{display:grid;gap:10px}
 .queue-item{display:grid;gap:4px;padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.1));border-radius:12px}
+
+/* ===== Navigation simplifiée (nav.js) ===== */
+.nav5 nav.tabs a[data-v="profil"],.nav5 nav.tabs a[data-v="modo"]{display:none!important}
+.head-me{order:99;margin-left:2px;position:relative;flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--fg);text-decoration:none;border:1px solid var(--line,rgba(255,255,255,.14));background:var(--surface)}
+.head-me svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8}
+.head-me .hm-av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700}
+.head-me.on{box-shadow:0 0 0 2px var(--accent)}
+.head-me-badge{position:absolute;top:-4px;right:-4px}
+nav.tabs a{position:relative}
+nav.tabs a .tab-badge{position:absolute;top:2px;right:calc(50% - 22px)}
+.modo-link{margin:6px 0 2px}
+.modo-back{margin:4px 0 8px}
+.tool-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 0 12px}
+.tool-tile{display:grid;justify-items:center;gap:4px;padding:12px 6px;border-radius:14px;border:1px solid var(--line,rgba(255,255,255,.12));background:var(--surface);color:var(--fg);font:inherit;font-weight:600;cursor:pointer;min-height:72px}
+.tt-i{font-size:1.5rem}
+.tool-tile:active{transform:scale(.97)}

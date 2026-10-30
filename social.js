@@ -95,7 +95,12 @@ const groupName=id=>{ const g=groups.find(x=>x.id===id); return g?g.name:"?"; };
 
 // ---------- Navigation ----------
 const VIEWS=["conseils","fil","carte","groupe","modo","profil"];
+// fraîcheur des onglets : on ne recharge un onglet que si des données ont changé ou s'il date de plus de 2 min
+const fresh={}, scrollPos={}; let curView=null, dirtyAt=0;
+const markDirty=()=>{ dirtyAt=Date.now(); };
+const needs=v=>{ const t=fresh[v]; return !t||t<dirtyAt||Date.now()-t>120000; };
 function route(){
+  if(curView) scrollPos[curView]=window.scrollY;
   let h=location.hash.slice(1);
   if(h==="admin") h="groupe";
   if(h==="chat"){ h="fil"; setTimeout(()=>hooks.openChat?.(),300); }
@@ -103,12 +108,17 @@ function route(){
   if(v==="modo"&&!(me&&isManager())) v=me?"groupe":"conseils";
   VIEWS.forEach(n=>{ $("#v-"+n).hidden=n!==v; });
   $$("nav.tabs a").forEach(a=>a.setAttribute("aria-current",a.dataset.v===v?"page":"false"));
+  const again=v===curView; curView=v;
   if(v==="carte") openMap();
-  if(v==="fil") loadFeed();
-  if(v==="groupe") hooks.groupe?.();
-  if(v==="profil") hooks.profil?.();
-  if(v==="modo") hooks.modo?.();
-  window.scrollTo(0,0);
+  const load=v==="fil"||v==="groupe"||v==="profil"||v==="modo";
+  if(load&&(again||needs(v))){
+    fresh[v]=Date.now();
+    if(v==="fil") loadFeed();
+    if(v==="groupe") hooks.groupe?.();
+    if(v==="profil") hooks.profil?.();
+    if(v==="modo") hooks.modo?.();
+    window.scrollTo(0,0);
+  }else window.scrollTo(0,scrollPos[v]||0);
 }
 window.addEventListener("hashchange",route);
 
@@ -179,7 +189,7 @@ function closeSheet(){ $("#gs-sheet").hidden=true; }
 $("#grp-switch").addEventListener("click",openSwitcher);
 $("#gs-sheet").addEventListener("click",e=>{ if(e.target.id==="gs-sheet"||e.target.closest("[data-close]")) closeSheet(); });
 function setGroup(v){
-  cur=v;
+  cur=v; markDirty();
   try{ localStorage.setItem("cdj-grp",String(v)); }catch(e){}
   refreshUI(); loadSpots(); loadFeed();
   if(!$("#v-groupe").hidden) hooks.groupe?.();
@@ -300,7 +310,7 @@ $("#logout").addEventListener("click",async()=>{
   refreshUI(); route();
 });
 
-async function loadMe(){
+async function loadMe(){ markDirty();
   const {data:{session}}=await sb.auth.getSession();
   hasSession=!!session;
   if(!session){ me=null; groups=[]; refreshUI(); return; }
@@ -704,8 +714,17 @@ function sessionCard(x){
 }
 
 // ---------- Carte ----------
+// Leaflet (la carte) n'est chargé qu'au premier besoin : démarrage plus rapide
+let leafletP=null;
+function loadLeaflet(){
+  if(typeof L!=="undefined") return Promise.resolve();
+  if(leafletP) return leafletP;
+  leafletP=new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; s.onload=()=>res(); s.onerror=()=>{ leafletP=null; rej(new Error("leaflet")); }; document.head.append(s); });
+  return leafletP;
+}
 function openMap(){
-  if(!me||!groups.length||typeof L==="undefined") return;
+  if(!me||!groups.length) return;
+  if(typeof L==="undefined"){ loadLeaflet().then(()=>{ if(!$("#v-carte").hidden) openMap(); }).catch(()=>toast("Carte indisponible : vérifie ta connexion")); return; }
   if(!map){
     const pos=window.CDJ_POS;
     map=L.map("map").setView(pos?[pos.lat,pos.lon]:[46.6,2.4],pos?12:6);
@@ -872,7 +891,7 @@ window.CDJ={
   get sb(){ return sb; }, get me(){ return me; }, get cur(){ return cur; }, get groups(){ return groups; },
   get curGroup(){ return curGroup(); }, get myRoles(){ return myRoles; }, get spots(){ return spots; }, loadSpots, get map(){ return map; }, get pics(){ return pics; }, focusSpot,
   el, toast, showErr, ago, frError, confirmBtn, userLabel, roleBadge, avatar, compress,
-  roleOf, canManage, canModerate, isManager, isStaff, groupName, setGroup, loadGroups, loadFeed, refreshUI, hooks, RATING,
+  roleOf, canManage, canModerate, isManager, isStaff, groupName, setGroup, loadGroups, loadFeed, refreshUI, hooks, RATING, loadLeaflet, markDirty,
 };
 
 // ---------- Démarrage ----------
@@ -881,9 +900,14 @@ async function init(){
   if(!configured||typeof supabase==="undefined") return;
   { const h=location.hash; window.CDJ_AUTHLINK={recovery:/type=recovery/.test(h),error:/error_code=|error=/.test(h)?decodeURIComponent((h.match(/error_description=([^&]*)/)||[])[1]||"").replace(/\+/g," "):null,expired:/otp_expired/.test(h)}; }
   sb=supabase.createClient(C.SUPABASE_URL,C.SUPABASE_KEY);
-  sb.auth.onAuthStateChange(ev=>{ if(ev==="SIGNED_OUT"){ me=null; hasSession=false; groups=[]; refreshUI(); } });
+  { const f=sb.from.bind(sb), r=sb.rpc.bind(sb);
+    sb.from=t=>{ const q=f(t); ["insert","update","upsert","delete"].forEach(m=>{ if(typeof q[m]==="function"){ const o=q[m].bind(q); q[m]=(...a)=>{ markDirty(); return o(...a); }; } }); return q; };
+    sb.rpc=(n,...a)=>{ if(!/^(check_|username_available|manage_groups|manage_members)/.test(n)) markDirty(); return r(n,...a); }; }
+  // la carte se prépare en arrière-plan, une fois l'appli affichée
+  setTimeout(()=>{ (window.requestIdleCallback||setTimeout)(()=>loadLeaflet().catch(()=>{})); },2500);
+  sb.auth.onAuthStateChange(ev=>{ if(ev==="SIGNED_OUT"){ markDirty(); me=null; hasSession=false; groups=[]; refreshUI(); } });
   try{ await loadMe(); }catch(e){}
-  route();
+  markDirty(); route();
 }
 init();
 })();

@@ -12,7 +12,8 @@ function btn(label,cls,fn){ const b=el("button",cls||"btn",label); b.type="butto
 (function(){
   const sp=$("#splash"); if(!sp) return;
   const hide=()=>{ sp.classList.add("out"); setTimeout(()=>sp.remove(),500); };
-  setTimeout(hide,900);
+  // on cache l'écran de démarrage dès le premier affichage (au plus tard 450 ms)
+  requestAnimationFrame(()=>setTimeout(hide,250)); setTimeout(hide,450);
 })();
 
 /* ---------- Bouton « + » dans la barre du bas ---------- */
@@ -41,7 +42,10 @@ function plusSheet(){
   item("🎤","Dicter","mains libres",()=>{ mode("post"); setTimeout(()=>$("#voice-btn")?.click(),500); });
   item("🧾","Bilan","3 clics",()=>mode("bilan"));
   item("⏱️","Session carpe","départs et prises",()=>mode("carp"));
-  item("🎣","Je pars pêcher","prévenir le groupe",()=>A.checkin?.open(),"wide");
+  item("🎣","Je pars pêcher","prévenir le groupe",()=>A.checkin?.open());
+  item("🛶","Tracer ma sortie","trace GPS, récap",()=>{ location.hash="#carte"; setTimeout(()=>A.track?.start(),400); });
+  item("💧","Noter l'eau","couleur, niveau, °C",()=>A.env?.waterForm(null));
+  item("🌿","Signaler","pollution, danger",()=>A.env?.envForm());
   sh.append(el("div","plus-h","Ajouter"),grid);
   back.append(sh); back.addEventListener("click",e=>{ if(e.target===back) close(); });
   document.body.append(back);
