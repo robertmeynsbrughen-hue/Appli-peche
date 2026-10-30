@@ -1,4 +1,4 @@
-/* Coup du Jour : moteur de conseils */
+/* Rivio : moteur de conseils */
 
 (function(){
 const $=s=>document.querySelector(s);

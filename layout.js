@@ -1,4 +1,4 @@
-// Coup du Jour : rangement en sous-onglets (Profil, Groupe).
+// Rivio : rangement en sous-onglets (Profil, Groupe).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

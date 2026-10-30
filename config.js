@@ -1,4 +1,4 @@
-/* Coup du Jour : réglages. Remplace les deux valeurs ci-dessous par celles de ton projet Supabase
+/* Rivio : réglages. Remplace les deux valeurs ci-dessous par celles de ton projet Supabase
    (Project Settings > API : « Project URL » et clé « anon public » / « publishable »).
    Cette clé est faite pour être publique : la sécurité repose sur le code du groupe et les règles de la base. */
 window.CDJ_CONFIG = {

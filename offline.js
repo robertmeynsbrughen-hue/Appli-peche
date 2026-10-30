@@ -1,4 +1,4 @@
-// Coup du Jour : file d'attente hors ligne (posts avec photos, bilans, messages, événements carpe).
+// Rivio : file d'attente hors ligne (posts avec photos, bilans, messages, événements carpe).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

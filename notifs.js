@@ -1,4 +1,4 @@
-// Coup du Jour : centre de notifications (cloche dans l'en-tête) et invitation par lien ou QR code.
+// Rivio : centre de notifications (cloche dans l'en-tête) et invitation par lien ou QR code.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;
@@ -74,7 +74,7 @@ function invite(code,name){
   loadQR().then(()=>{ qr.innerHTML=""; new window.QRCode(qr,{text:url,width:220,height:220,colorDark:"#0b3229",colorLight:"#ffffff",correctLevel:window.QRCode.CorrectLevel.M}); }).catch(()=>{ qr.innerHTML=""; qr.append(el("span","note","QR code indisponible hors ligne : partage le lien.")); });
   const lk=el("div","invite-link"); lk.append(el("code",null,url)); sh.append(lk);
   const a=el("div","actions");
-  if(navigator.share) a.append(btn("📤 Partager le lien","btn primary",()=>navigator.share({title:"Coup du Jour",text:"Rejoins notre groupe de pêche « "+name+" » sur Coup du Jour 🎣",url}).catch(()=>{})));
+  if(navigator.share) a.append(btn("📤 Partager le lien","btn primary",()=>navigator.share({title:"Rivio",text:"Rejoins notre groupe de pêche « "+name+" » sur Rivio 🎣",url}).catch(()=>{})));
   a.append(btn("📋 Copier","btn",async()=>{ try{ await navigator.clipboard.writeText(url); toast("Lien copié"); }catch(_){ toast(url); } }));
   sh.append(a, el("p","note","Le lien contient le code du groupe : partage-le seulement avec les personnes que tu veux inviter. Change le code dans les réglages du groupe pour invalider les anciens liens."));
 }

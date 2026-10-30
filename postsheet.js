@@ -1,4 +1,4 @@
-// Coup du Jour : fiche d'une prise en grand (photos, conditions du moment, spot sur une mini-carte).
+// Rivio : fiche d'une prise en grand (photos, conditions du moment, spot sur une mini-carte).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

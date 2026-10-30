@@ -1,4 +1,4 @@
-// Coup du Jour : réglementation, sessions carpe, fiche poste, liste de matos.
+// Rivio : réglementation, sessions carpe, fiche poste, liste de matos.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

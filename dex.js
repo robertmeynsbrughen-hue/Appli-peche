@@ -1,4 +1,4 @@
-// Coup du Jour : Fishdex, la collection des espèces prises par chaque pêcheur.
+// Rivio : Fishdex, la collection des espèces prises par chaque pêcheur.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

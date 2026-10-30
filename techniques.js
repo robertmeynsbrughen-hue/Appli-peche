@@ -1,4 +1,4 @@
-// Coup du Jour : fiches techniques par espèce (hors ligne) et accès sans compte (mode découverte).
+// Rivio : fiches techniques par espèce (hors ligne) et accès sans compte (mode découverte).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

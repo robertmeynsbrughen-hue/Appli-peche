@@ -1,4 +1,4 @@
-// Coup du Jour : « Je pars pêcher » (préparation en un geste, prévenir le groupe), potes au bord de l'eau,
+// Rivio : « Je pars pêcher » (préparation en un geste, prévenir le groupe), potes au bord de l'eau,
 // signalement discret aux potes proches quand on trace ou partage sa position.
 (function(){
 "use strict";

@@ -1,4 +1,4 @@
-// Coup du Jour : onglet Modération (signalements, adhésions, publications à valider, gestion du groupe) et bouton « Signaler ».
+// Rivio : onglet Modération (signalements, adhésions, publications à valider, gestion du groupe) et bouton « Signaler ».
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

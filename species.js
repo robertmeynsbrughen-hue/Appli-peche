@@ -1,4 +1,4 @@
-// Coup du Jour : fiches espèces (comportement, saisons, techniques, montages).
+// Rivio : fiches espèces (comportement, saisons, techniques, montages).
 // Activité par mois de janvier à décembre : 0 faible, 1 moyenne, 2 bonne, 3 top.
 window.CDJ_SPECIES_INFO={
 "Brochet":{

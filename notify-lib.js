@@ -1,4 +1,4 @@
-// Coup du Jour : bibliothèque d'envoi des notifications (utilisée par la fonction Supabase « notify »)
+// Rivio : bibliothèque d'envoi des notifications (utilisée par la fonction Supabase « notify »)
 import { scoreDay, weatherUrl, openingReminder } from "./score-lib.js";
 // ---- Web Push (RFC 8291 aes128gcm + VAPID RFC 8292), WebCrypto uniquement ----
 const te = new TextEncoder();

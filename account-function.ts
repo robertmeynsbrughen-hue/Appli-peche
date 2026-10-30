@@ -1,4 +1,4 @@
-// Coup du Jour : fonction Supabase « account ».
+// Rivio : fonction Supabase « account ».
 // Ajoute une vraie adresse e-mail à un ancien compte créé avec un simple pseudo (adresse interne fictive),
 // sans e-mail de confirmation (l'ancienne adresse fictive ne peut pas recevoir de courrier).
 // Action « admin_reset » : l'admin, ou un modérateur pour les membres de son groupe, donne un mot de passe provisoire.

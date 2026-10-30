@@ -1,4 +1,4 @@
-// Coup du Jour : thème clair/sombre, visite guidée, recherche dans le fil.
+// Rivio : thème clair/sombre, visite guidée, recherche dans le fil.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;
@@ -55,7 +55,7 @@ themePanel();
 
 /* ---------- Visite guidée ---------- */
 const SLIDES=[
-  ["🎣","Bienvenue dans Coup du Jour","L'appli de pêche de ton groupe de potes. Voici le tour du propriétaire en 30 secondes.",null],
+  ["🎣","Bienvenue dans Rivio","L'appli de pêche de ton groupe de potes. Voici le tour du propriétaire en 30 secondes.",null],
   ["☀️","Conseils","Chaque jour, les espèces classées selon la météo et l'eau, le meilleur créneau, le leurre et le coloris du moment. Compare aussi les 7 prochains jours.","conseils"],
   ["📸","Fil","Partage tes prises (photo, taille, poids), un bilan en 3 clics ou une session carpe. Réagis 🔥 et commente les prises des autres.","fil"],
   ["🗺️","Carte","Les spots du groupe, leur fiche (profondeur, fond…), les zones où ça mord et, si tu veux, ta position en direct.","carte"],

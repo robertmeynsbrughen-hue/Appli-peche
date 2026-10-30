@@ -1,4 +1,4 @@
-// Coup du Jour : journal des leurres (ma boîte, avec les prises de chaque leurre).
+// Rivio : journal des leurres (ma boîte, avec les prises de chaque leurre).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

@@ -1,4 +1,4 @@
-// Coup du Jour : carte de chaleur des prises et partage de position en direct.
+// Rivio : carte de chaleur des prises et partage de position en direct.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

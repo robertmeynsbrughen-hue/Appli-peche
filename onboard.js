@@ -1,4 +1,4 @@
-// Coup du Jour : premier lancement guidé (photo, groupe, espèces préférées, lieu de pêche).
+// Rivio : premier lancement guidé (photo, groupe, espèces préférées, lieu de pêche).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

@@ -1,4 +1,4 @@
-// Coup du Jour : compte (e-mail, mot de passe, récupération, suppression du compte).
+// Rivio : compte (e-mail, mot de passe, récupération, suppression du compte).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A||!A.sb) return;
@@ -148,7 +148,7 @@ function deleteSheet(){
     if(error){ err.textContent=frError(error); err.hidden=false; ok.disabled=false; ok.textContent="Supprimer définitivement"; return; }
     try{ await A.sb.auth.signOut(); }catch(_){}
     try{ Object.keys(localStorage).filter(k=>k.startsWith("cdj-")&&!["cdj-theme","cdj-bg"].includes(k)).forEach(k=>localStorage.removeItem(k)); }catch(_){}
-    close(); alert("Ton compte a été supprimé. Merci d'avoir utilisé Coup du Jour.");
+    close(); alert("Ton compte a été supprimé. Merci d'avoir utilisé Rivio.");
     location.hash="#conseils"; location.reload();
   });
   sh.append(f);
@@ -172,7 +172,7 @@ function adminReset(uid,username){
       res.append(el("span","note","Mot de passe provisoire de @"+username+" :"),el("code","acc-pw",j.password));
       const a=el("div","actions");
       a.append(btn("📋 Copier","btn small",async()=>{ try{ await navigator.clipboard.writeText(j.password); toast("Copié"); }catch(_){ toast("Sélectionne le mot de passe pour le copier"); } }));
-      if(navigator.share) a.append(btn("📤 Envoyer","btn small",()=>navigator.share({text:"Coup du Jour : ton mot de passe provisoire est "+j.password+" (connecte-toi avec ton e-mail ou ton pseudo, l'appli te demandera d'en choisir un nouveau)."}).catch(()=>{})));
+      if(navigator.share) a.append(btn("📤 Envoyer","btn small",()=>navigator.share({text:"Rivio : ton mot de passe provisoire est "+j.password+" (connecte-toi avec ton e-mail ou ton pseudo, l'appli te demandera d'en choisir un nouveau)."}).catch(()=>{})));
       res.append(a, el("p","note","Il ne sera plus affiché après fermeture : note-le ou envoie-le maintenant."));
       res.hidden=false; go.remove();
     }catch(e){ err.textContent=frError(e); err.hidden=false; go.disabled=false; }

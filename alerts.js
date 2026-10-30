@@ -1,4 +1,4 @@
-// Coup du Jour : réglages de l'alerte du matin (onglet Profil).
+// Rivio : réglages de l'alerte du matin (onglet Profil).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

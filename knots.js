@@ -1,4 +1,4 @@
-// Coup du Jour : fiches nœuds et montages (hors ligne).
+// Rivio : fiches nœuds et montages (hors ligne).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

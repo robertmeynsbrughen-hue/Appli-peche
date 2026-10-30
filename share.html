@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Une prise partagée · Coup du Jour</title>
-<meta name="description" content="Une belle prise partagée depuis Coup du Jour, l'appli de pêche entre potes.">
-<meta property="og:title" content="Une belle prise · Coup du Jour">
+<title>Une prise partagée · Rivio</title>
+<meta name="description" content="Une belle prise partagée depuis Rivio, l'appli de pêche entre potes.">
+<meta property="og:title" content="Une belle prise · Rivio">
 <meta property="og:image" content="icon-512.png">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,9 +36,9 @@ main{width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px}
 </head>
 <body>
 <main>
-  <div class="brand"><img src="icon-192.png" alt=""> Coup du Jour</div>
+  <div class="brand"><img src="icon-192.png" alt=""> Rivio</div>
   <div id="out"><p class="note">Chargement de la prise…</p></div>
-  <a class="cta" href="./">Découvrir Coup du Jour</a>
+  <a class="cta" href="./">Découvrir Rivio</a>
   <p class="note">L'appli de pêche entre potes : conseils du jour, carnet, Fishdex et défis.</p>
 </main>
 <script src="config.js"></script>
@@ -66,7 +66,7 @@ main{width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px}
     if(d.bait){ const x=mk("div","bait"); x.append(mk("b",null,"Appât et amorçage"), d.bait); b.append(x); }
     if(d.caption) b.append(mk("p",null,d.caption));
     card.append(b); out.append(card);
-    document.title=(d.species||"Une prise")+(d.length_cm?" de "+String(d.length_cm).replace(".",",")+" cm":"")+" · Coup du Jour";
+    document.title=(d.species||"Une prise")+(d.length_cm?" de "+String(d.length_cm).replace(".",",")+" cm":"")+" · Rivio";
   }catch(e){ fail("Pas de connexion réseau."); }
 })();
 </script>

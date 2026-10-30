@@ -1,4 +1,4 @@
-// Coup du Jour : partage d'une prise par lien public, et rappel de la carte de pêche.
+// Rivio : partage d'une prise par lien public, et rappel de la carte de pêche.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;
@@ -19,7 +19,7 @@ async function share(post){
   const url=new URL("share.html?t="+token,location.href).href;
   const title=(post.species||"Ma prise")+(post.length_cm?" de "+String(post.length_cm).replace(".",",")+" cm":"");
   try{
-    if(navigator.share){ await navigator.share({title:title+" · Coup du Jour",text:"Regarde ma prise ! 🎣",url}); return; }
+    if(navigator.share){ await navigator.share({title:title+" · Rivio",text:"Regarde ma prise ! 🎣",url}); return; }
   }catch(e){ if(e&&e.name==="AbortError") return; }
   try{ await navigator.clipboard.writeText(url); toast("Lien copié : colle-le dans un message"); }
   catch(e){ prompt("Lien de partage :",url); }

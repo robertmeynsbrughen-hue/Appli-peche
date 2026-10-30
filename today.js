@@ -1,4 +1,4 @@
-// Coup du Jour : écran « Aujourd'hui » (tableau de bord en tête de l'onglet Conseils).
+// Rivio : écran « Aujourd'hui » (tableau de bord en tête de l'onglet Conseils).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

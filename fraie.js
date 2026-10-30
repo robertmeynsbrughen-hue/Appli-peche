@@ -1,4 +1,4 @@
-// Coup du Jour : périodes de fraie, rappels de remise à l'eau et zones frayère.
+// Rivio : périodes de fraie, rappels de remise à l'eau et zones frayère.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

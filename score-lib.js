@@ -1,4 +1,4 @@
-// Coup du Jour : moteur de score des espèces, version serveur (alerte du matin).
+// Rivio : moteur de score des espèces, version serveur (alerte du matin).
 // Même logique que advice.js, sans affichage.
 export const SPECIES = [
   { id: "brochet", name: "Brochet", t: [4, 8, 18, 23], light: { aube: 1, jour: .72, crep: 1, nuit: .25 } },

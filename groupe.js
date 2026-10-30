@@ -1,4 +1,4 @@
-/* Coup du Jour : vie du groupe — bilan rapide, mémos, sondages, statistiques, gestion, chat */
+/* Rivio : vie du groupe — bilan rapide, mémos, sondages, statistiques, gestion, chat */
 (function(){
 const A=window.CDJ; if(!A) return;
 const {el,toast,showErr,ago,frError,confirmBtn,userLabel,roleBadge,avatar}=A;

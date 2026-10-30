@@ -1,4 +1,4 @@
-// Coup du Jour : fonds de carte (plan, IGN, satellite), radar de pluie, parkings et toilettes,
+// Rivio : fonds de carte (plan, IGN, satellite), radar de pluie, parkings et toilettes,
 // carte hors ligne, trace GPS des sorties, et mode « Fond » (profondeurs et nature du fond).
 (function(){
 "use strict";

@@ -1,4 +1,4 @@
-// Coup du Jour : sorties planifiées (qui vient, covoiturage, matos partagé).
+// Rivio : sorties planifiées (qui vient, covoiturage, matos partagé).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

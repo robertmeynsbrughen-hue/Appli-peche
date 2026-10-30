@@ -1,4 +1,4 @@
-// Coup du Jour : « Stories » des prises du jour, double-tap pour réagir 🔥.
+// Rivio : « Stories » des prises du jour, double-tap pour réagir 🔥.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

@@ -1,4 +1,4 @@
-// Coup du Jour : calendrier du mois (chances de pêche sur 30 jours) et réveil pêche.
+// Rivio : calendrier du mois (chances de pêche sur 30 jours) et réveil pêche.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;
@@ -180,10 +180,10 @@ function ics(pl){
   const end=new Date(pl.slot.getTime()+Math.max(1,(pl.best.to-pl.best.from))*36e5);
   const lead=Math.round((pl.slot-pl.wakeAt)/6e4);
   const esc=t=>String(t).replace(/[,;\\]/g,m=>"\\"+m).replace(/\n/g,"\\n");
-  const txt=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Coup du Jour//FR","BEGIN:VEVENT",
+  const txt=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Rivio//FR","BEGIN:VEVENT",
     "UID:cdj-"+Date.now()+"@coupdujour","DTSTAMP:"+z(new Date()),"DTSTART:"+z(pl.slot),"DTEND:"+z(end),
     "SUMMARY:"+esc("🎣 "+pl.best.name+" à "+pl.p.name),
-    "DESCRIPTION:"+esc("Créneau conseillé par Coup du Jour. Réveil à "+pad(pl.wakeAt.getHours())+":"+pad(pl.wakeAt.getMinutes())+(pl.t.min?" · "+pl.t.min+" min de route":"")),
+    "DESCRIPTION:"+esc("Créneau conseillé par Rivio. Réveil à "+pad(pl.wakeAt.getHours())+":"+pad(pl.wakeAt.getMinutes())+(pl.t.min?" · "+pl.t.min+" min de route":"")),
     "GEO:"+pl.p.lat+";"+pl.p.lon,
     "BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+esc("⏰ Debout, c'est l'heure de partir pêcher !"),"TRIGGER:-PT"+lead+"M","END:VALARM",
     "END:VEVENT","END:VCALENDAR"].join("\r\n");

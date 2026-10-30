@@ -1,4 +1,4 @@
-// Coup du Jour : dictée vocale d'une prise (« brochet 78 centimètres au shad blanc »).
+// Rivio : dictée vocale d'une prise (« brochet 78 centimètres au shad blanc »).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

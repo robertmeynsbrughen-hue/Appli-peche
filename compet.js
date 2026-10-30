@@ -1,4 +1,4 @@
-// Coup du Jour : compétitions entre amis (un week-end, des points, un classement en direct).
+// Rivio : compétitions entre amis (un week-end, des points, un classement en direct).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

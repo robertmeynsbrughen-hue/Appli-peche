@@ -1,4 +1,4 @@
-// Coup du Jour : réactions et commentaires, classements et défis du mois, carnet perso.
+// Rivio : réactions et commentaires, classements et défis du mois, carnet perso.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;
@@ -366,7 +366,7 @@ function exportPdf(data){
     '.rec{display:flex;flex-wrap:wrap;gap:8px}.rec div{border:1px solid #d3ddd8;border-radius:8px;padding:6px 10px}.rec b{display:block;font-size:18px;color:#c27a22}'+
     '@media print{body{margin:10mm}button{display:none}}</style></head><body>'+
     '<button onclick="print()" style="float:right;padding:8px 14px">Imprimer / PDF</button>'+
-    '<h1>🎣 Carnet de pêche de @'+esc(A.me.username)+'</h1><p>Coup du Jour · exporté le '+d(Date.now())+' · '+rows.length+' entrées</p>'+
+    '<h1>🎣 Carnet de pêche de @'+esc(A.me.username)+'</h1><p>Rivio · exporté le '+d(Date.now())+' · '+rows.length+' entrées</p>'+
     '<h2>Records</h2><div class="rec">'+([...rec.values()].map(r=>'<div>'+esc(r.species)+'<b>'+esc(String(r.length_cm).replace(".",","))+' cm</b>'+(r.weight_kg?esc(String(r.weight_kg).replace(".",","))+' kg · ':'')+d(r.created_at)+'</div>').join("")||'<span>Aucun record mesuré</span>')+'</div>'+
     '<h2>Historique</h2><table><thead><tr><th>Date</th><th>Type</th><th>Espèce</th><th>Taille</th><th>Poids</th><th>Appât / combo</th><th>Groupe</th></tr></thead><tbody>'+
     rows.map(r=>'<tr><td>'+d(r.created_at)+'</td><td>'+r.kind+'</td><td>'+esc(r.species||"")+'</td><td>'+(r.length_cm?esc(String(r.length_cm).replace(".",","))+' cm':'')+'</td><td>'+(r.weight_kg?esc(String(r.weight_kg).replace(".",","))+' kg':'')+'</td><td>'+esc(r.bait||[r.lure,r.color].filter(Boolean).join(" · "))+'</td><td>'+esc(A.groupName(r.group_id))+'</td></tr>').join("")+

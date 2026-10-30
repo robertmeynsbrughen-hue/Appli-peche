@@ -1,4 +1,4 @@
-// Coup du Jour : reconnaissance de l'espèce sur la photo, directement dans le téléphone (modèle CLIP, sans compte).
+// Rivio : reconnaissance de l'espèce sur la photo, directement dans le téléphone (modèle CLIP, sans compte).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

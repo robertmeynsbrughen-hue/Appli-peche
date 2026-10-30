@@ -1,5 +1,5 @@
-/* Coup du Jour : service worker (fonctionnement hors ligne) */
-const VERSION="cdj-v50";
+/* Rivio : service worker (fonctionnement hors ligne) */
+const VERSION="cdj-v51";
 const SHELL=["./","index.html","styles.css","advice.js","social.js","groupe.js","card.js","extras.js","peche.js","alerts.js","offline.js","species.js","dex.js","reco.js","outings.js","maptools.js","profile.js","layout.js","tools.js","lures.js","compet.js","modo.js","share.js","maplayers.js","stock.js","gofish.js","voice.js","today.js","ui.js","feed.js","onboard.js","postsheet.js","sharein.js","calendar.js","knots.js","fraie.js","carpe2.js","account.js","techniques.js","notifs.js","share.html","confidentialite.html","config.js","manifest.webmanifest",
   "icon-192.png","badge-96.png","logo.svg","icon-512.png"];
 const CDN=["unpkg.com","cdn.jsdelivr.net","fonts.googleapis.com","fonts.gstatic.com"];
@@ -9,7 +9,7 @@ self.addEventListener("activate",e=>{
 });
 self.addEventListener("fetch",e=>{
   const req=e.request;
-  // « Partager → Coup du Jour » depuis la galerie : on garde les photos puis on ouvre l'appli
+  // « Partager → Rivio » depuis la galerie : on garde les photos puis on ouvre l'appli
   if(req.method==="POST"&&new URL(req.url).pathname.endsWith("/share-target")){
     e.respondWith((async()=>{
       try{
@@ -41,7 +41,7 @@ self.addEventListener("fetch",e=>{
 self.addEventListener("push",e=>{
   let d={};
   try{ d=e.data?e.data.json():{}; }catch(_){ d={body:e.data?e.data.text():""}; }
-  e.waitUntil(self.registration.showNotification(d.title||"Coup du Jour",{
+  e.waitUntil(self.registration.showNotification(d.title||"Rivio",{
     body:d.body||"", icon:"icon-192.png", badge:"badge-96.png", tag:d.tag, renotify:!!d.tag,
     vibrate:d.alarm?[600,250,600,250,600,250,900]:[80,40,80], requireInteraction:!!d.alarm, timestamp:Date.now(), data:{url:d.url||"./"}
   }).then(()=>self.clients.matchAll({type:"window"})).then(cs=>cs.forEach(c=>c.postMessage({type:"push"}))));

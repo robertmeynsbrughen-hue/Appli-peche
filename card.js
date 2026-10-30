@@ -1,4 +1,4 @@
-/* Coup du Jour : carte d'identité de la prise (image à enregistrer ou partager) */
+/* Rivio : carte d'identité de la prise (image à enregistrer ou partager) */
 (function(){
 const A=window.CDJ; if(!A) return;
 const $=s=>document.querySelector(s);
@@ -46,7 +46,7 @@ function logo(ctx,x,y,s,T){
 }
 function topBar(ctx,W,T,k,group){
   // pastille logo + nom de l'appli
-  ctx.font="700 "+(21*k)+"px "+FD; const label="COUP DU JOUR"; const lw=ctx.measureText(label).width;
+  ctx.font="700 "+(21*k)+"px "+FD; const label="RIVIO"; const lw=ctx.measureText(label).width;
   const x=28*k, y=28*k, h=48*k;
   ctx.fillStyle=T.chip; rrect(ctx,x,y,7*k+34*k+10*k+lw+14*k,h,14*k); ctx.fill();
   ctx.fillStyle=T.logo; rrect(ctx,x+7*k,y+7*k,34*k,34*k,10*k); ctx.fill();
@@ -176,7 +176,7 @@ async function share(){
   if(!blob) return;
   const file=new File([blob],fileName(),{type:"image/jpeg"});
   if(navigator.canShare&&navigator.canShare({files:[file]})){
-    try{ await navigator.share({files:[file],title:"Ma prise · Coup du Jour",text:(data.species||"Belle prise")+(data.length?" de "+num(data.length)+" cm":"")+" 🎣"}); }
+    try{ await navigator.share({files:[file],title:"Ma prise · Rivio",text:(data.species||"Belle prise")+(data.length?" de "+num(data.length)+" cm":"")+" 🎣"}); }
     catch(e){ if(e.name!=="AbortError") A.toast("Partage impossible, enregistre plutôt la carte"); }
   }else{ A.toast("Partage direct indisponible ici : la carte est enregistrée, partage-la depuis ta galerie"); save(); }
 }

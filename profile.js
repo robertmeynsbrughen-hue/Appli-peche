@@ -1,4 +1,4 @@
-// Coup du Jour : profil public des membres (photo, bio, espèces favorites, stats).
+// Rivio : profil public des membres (photo, bio, espèces favorites, stats).
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

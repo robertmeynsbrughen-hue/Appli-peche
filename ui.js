@@ -1,4 +1,4 @@
-// Coup du Jour : bouton « + », profil en vitrine, célébrations, transitions, écran de démarrage, couleur de fond.
+// Rivio : bouton « + », profil en vitrine, célébrations, transitions, écran de démarrage, couleur de fond.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

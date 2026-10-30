@@ -1,4 +1,4 @@
-/* Coup du Jour : navigation, comptes, groupes, fil photo, carte des spots, administration */
+/* Rivio : navigation, comptes, groupes, fil photo, carte des spots, administration */
 (function(){
 const $=s=>document.querySelector(s);
 const $$=s=>Array.from(document.querySelectorAll(s));
@@ -825,7 +825,7 @@ async function renderPush(){
     return;
   }
   if(Notification.permission==="denied"){
-    st.textContent="Les notifications sont bloquées pour l'appli. Autorise-les dans les réglages du téléphone (Paramètres → Applis → Chrome ou Coup du Jour → Notifications), puis reviens ici.";
+    st.textContent="Les notifications sont bloquées pour l'appli. Autorise-les dans les réglages du téléphone (Paramètres → Applis → Chrome ou Rivio → Notifications), puis reviens ici.";
     return;
   }
   const sub=await currentSub();

@@ -1,4 +1,4 @@
-// Coup du Jour : stock d'appâts (bouillettes, maïs, amorces…), alerte avant une session carpe.
+// Rivio : stock d'appâts (bouillettes, maïs, amorces…), alerte avant une session carpe.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

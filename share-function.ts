@@ -1,4 +1,4 @@
-// Coup du Jour : fonction Supabase « share » (publique).
+// Rivio : fonction Supabase « share » (publique).
 // Renvoie les infos d'une prise partagée par lien, sans compte, avec une photo signée pour 7 jours.
 const URL_ = Deno.env.get("SUPABASE_URL")!, KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type", "Cache-Control": "public, max-age=300" };

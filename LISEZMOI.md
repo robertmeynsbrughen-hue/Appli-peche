@@ -1,4 +1,4 @@
-# Coup du Jour : mise en ligne
+# Rivio : mise en ligne
 
 Compte environ 25 minutes. Tout se fait depuis un navigateur, téléphone ou PC (le PC est plus confortable pour l'étape 3).
 

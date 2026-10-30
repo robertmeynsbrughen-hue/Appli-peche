@@ -1,4 +1,4 @@
-// Coup du Jour : minuteur par canne, carnet d'amorçage et photo du mois.
+// Rivio : minuteur par canne, carnet d'amorçage et photo du mois.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;

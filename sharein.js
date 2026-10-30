@@ -1,4 +1,4 @@
-// Coup du Jour : photos reçues par « Partager → Coup du Jour » depuis la galerie du téléphone.
+// Rivio : photos reçues par « Partager → Rivio » depuis la galerie du téléphone.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;
