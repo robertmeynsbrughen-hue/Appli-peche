@@ -28,15 +28,28 @@ function day(){
     const side=el("div","dc-side");
     side.append(el("div","dc-k",(T.water_measured?"Eau mesurée":"Eau estimée")+(T.live?"":" · exemple")),el("div","dc-v",T.sky+" · air "+Math.round(T.air)+" °C · vent "+Math.round(T.wind)+" km/h"),el("div","dc-v2","Pression "+T.trend));
     top.append(t,side); c.append(top);
-    const best=T.top[0];
-    if(best){
-      const b=el("div","dc-best");
-      b.append(el("span","dc-bk","Meilleur coup du jour"));
-      const row=el("div","dc-brow"); row.append(el("span","dc-bn",best.name),el("span","dc-bp",best.pct+" %"));
+    const favs=(T.fav||[]).filter(x=>!x.closed);
+    const fav=favs[0], others=T.top.filter(x=>!favs.some(f=>f.name===x.name));
+    const block=(label,x,cls)=>{
+      const b=el("div","dc-best"+(cls?" "+cls:""));
+      b.append(el("span","dc-bk",label));
+      const row=el("div","dc-brow"); row.append(el("span","dc-bn",x.name),el("span","dc-bp",x.pct+" %"));
       b.append(row);
-      if(best.from) b.append(el("span","dc-bh","🕒 "+best.from+" – "+best.to));
+      if(x.from) b.append(el("span","dc-bh","🕒 "+x.from+" – "+x.to));
       c.append(b);
-      if(T.top.length>1){ const o=el("div","dc-others"); T.top.slice(1).forEach(x=>o.append(el("span",null,x.name+" "+x.pct+" %"+(x.from?" · "+x.from:"")))); c.append(o); }
+    };
+    if(fav){
+      // l'espèce favorite du compte d'abord, puis la plus adaptée du moment
+      block("⭐ Ton espèce favorite",fav,"dc-fav");
+      if(others[0]) block("🏆 La plus adaptée en ce moment",others[0],"dc-second");
+      const rest=[...favs.slice(1),...others.slice(1)].slice(0,2);
+      if(rest.length){ const o=el("div","dc-others"); rest.forEach(x=>o.append(el("span",null,x.name+" "+x.pct+" %"+(x.from?" · "+x.from:"")))); c.append(o); }
+    }else{
+      const best=T.top[0];
+      if(best){
+        block("Meilleur coup du jour",best);
+        if(T.top.length>1){ const o=el("div","dc-others"); T.top.slice(1).forEach(x=>o.append(el("span",null,x.name+" "+x.pct+" %"+(x.from?" · "+x.from:"")))); c.append(o); }
+      }
     }
     c.append(el("div","dc-place","📍 "+String(T.place).replace(/^📍\s*/,"")+" · "+T.when));
   }

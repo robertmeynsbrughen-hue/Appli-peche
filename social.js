@@ -292,6 +292,7 @@ $("#join-more").addEventListener("submit",async e=>{
 $("#logout").addEventListener("click",async()=>{
   try{ const sub=pushSupported()?await currentSub():null; if(sub) await sb.rpc("delete_push_sub",{p_endpoint:sub.endpoint}); }catch(e){}
   await sb.auth.signOut();
+  try{ localStorage.removeItem("cdj-fav"); window.dispatchEvent(new Event("cdj-fav")); }catch(_){}
   me=null; hasSession=false; groups=[]; pendingGroups=[]; myRoles=new Map(); roles=new Map(); spots=[]; cur=null; if(layer) layer.clearLayers();
   hooks.groupChanged?.();
   refreshUI(); route();
@@ -301,8 +302,9 @@ async function loadMe(){
   const {data:{session}}=await sb.auth.getSession();
   hasSession=!!session;
   if(!session){ me=null; groups=[]; refreshUI(); return; }
-  const {data}=await sb.from("profiles").select("id,username,is_admin,is_controller,pw_temp").eq("id",session.user.id).maybeSingle();
+  const {data}=await sb.from("profiles").select("id,username,is_admin,is_controller,pw_temp,fav_species").eq("id",session.user.id).maybeSingle();
   me=data||null;
+  try{ const f=JSON.stringify(me?.fav_species||[]); if(localStorage.getItem("cdj-fav")!==f){ localStorage.setItem("cdj-fav",f); window.dispatchEvent(new Event("cdj-fav")); } }catch(_){}
   if(me){
     me.real={is_admin:!!me.is_admin,is_controller:!!me.is_controller};
     if(userView){ me.is_admin=false; me.is_controller=false; }

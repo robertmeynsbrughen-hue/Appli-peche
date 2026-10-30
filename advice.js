@@ -287,22 +287,30 @@ function render(){
     return {sp,series,peak,best,a,b,exp};
   }).sort((x,y)=>y.peak-x.peak);
 
+  // espèces favorites du compte en tête, puis la plus adaptée du moment, puis les autres
+  const nrm=x=>String(x||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+  let favs=[]; try{ favs=JSON.parse(localStorage.getItem("cdj-fav")||"[]").map(nrm); }catch(_){}
+  const isFav=r=>favs.includes(nrm(r.sp.name));
+  const ordered=[...results.filter(isFav),...results.filter(r=>!isFav(r))];
+  const bestOther=results.find(r=>!isFav(r));
   // résumé pour l'écran « Aujourd'hui »
   try{
     const hr=k=>new Date(start.getTime()+k*36e5).getHours()+"h";
     window.CDJ_TODAY={live:mode==="live",place:meta.place,when:meta.when,water:now.water,water_measured:tm!=null,air:now.air,sky,wind:now.wind,trend,
-      top:results.filter(r=>!(r.sp.closed&&r.sp.closed(m))).slice(0,3).map(r=>({name:r.sp.name,pct:Math.round(r.peak*100),from:r.a>=0?hr(r.a):null,to:r.a>=0?hr(r.b+1):null}))};
+      top:results.filter(r=>!(r.sp.closed&&r.sp.closed(m))).slice(0,3).map(r=>({name:r.sp.name,pct:Math.round(r.peak*100),from:r.a>=0?hr(r.a):null,to:r.a>=0?hr(r.b+1):null})),
+      fav:results.filter(isFav).map(r=>({name:r.sp.name,pct:Math.round(r.peak*100),from:r.a>=0?hr(r.a):null,to:r.a>=0?hr(r.b+1):null,closed:!!(r.sp.closed&&r.sp.closed(m))}))};
     window.dispatchEvent(new Event("cdj-today"));
   }catch(e){}
   const list=$("#list"); list.innerHTML="";
-  results.forEach((r,i)=>{
-    const card=mk("article","sp"+(i===0?" top":""));
+  ordered.forEach((r,i)=>{
+    const fav=isFav(r), top=r===bestOther||(!favs.length&&i===0);
+    const card=mk("article","sp"+(top?" top":"")+(fav?" fav":""));
     const pct=Math.round(r.peak*100);
     const closed=r.sp.closed&&r.sp.closed(m), maybe=!closed&&r.sp.maybe&&r.sp.maybe(m);
     // en-tête
     const head=mk("div","sp-head");
     const id=mk("div","sp-id");
-    id.append(mk("span","sp-rank",String(i+1)));
+    id.append(mk("span","sp-rank",fav?"★":String(results.indexOf(r)+1)));
     const nm=mk("div","sp-name",r.sp.name); nm.append(mk("small",null,r.sp.latin));
     id.append(nm);
     const gauge=mk("div","gauge"); gauge.style.setProperty("--p",pct);
@@ -310,6 +318,7 @@ function render(){
     gauge.setAttribute("role","img"); gauge.setAttribute("aria-label","Score "+pct+" sur 100");
     head.append(id,gauge);
     card.append(head);
+    if(fav||(top&&favs.length)) card.append(mk("span","sp-tag "+(fav?"is-fav":"is-top"),fav?"⭐ Ton espèce favorite":"🏆 La plus adaptée en ce moment"));
     if(closed||maybe) card.append(mk("span","flag",closed?"Fermeture probable":"Fermeture possible"));
     // frise 24 h
     const tl=mk("div","timeline");
@@ -713,7 +722,8 @@ window.CDJ_ADVICE={ forecastDays, moon, defaultPos:()=>DEFAULT_POS, current:()=>
   // conditions du moment, enregistrées avec les bilans et les prises (seulement si la météo est réelle)
   snapshot:()=>{ if(!current||mode!=="live") return null; const h=current.hours[0], m=current.meta; const tmv=measuredTemp(m);
     return {water:+(tmv??h.water).toFixed(1),water_measured:tmv!=null,air:Math.round(h.air),dp:+h.dp.toFixed(1),wind:Math.round(h.wind),cloud:Math.round(h.cloud),rain:+(h.rain||0).toFixed(1),phase:h.phase,hour:new Date().getHours(),lat:+m.lat.toFixed(3),lon:+m.lon.toFixed(3),water_type:waterType,flow:m.flow?.status||null}; },
-  refresh:()=>{ hist=null; histTry=0; loadHist(); } };
+  refresh:()=>{ hist=null; histTry=0; loadHist(); }, rerender:()=>render() };
+window.addEventListener("cdj-fav",()=>{ try{ render(); }catch(_){} });
 setDefaults();
 buildManual();
 locate(true);

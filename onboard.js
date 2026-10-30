@@ -44,6 +44,7 @@ async function maybeStart(force){
     let path=st.avatar;
     if(st.file){ const blob=await squareJpeg(st.file); path=A.me.id+"/avatar-"+Date.now()+".jpg"; const up=await A.sb.storage.from("avatars").upload(path,blob,{contentType:"image/jpeg"}); if(up.error) throw up.error; }
     const {error}=await A.sb.rpc("update_my_profile",{p_bio:st.bio,p_fav:st.fav,p_avatar:path}); if(error) throw error;
+      try{ if(A.me) A.me.fav_species=st.fav; localStorage.setItem("cdj-fav",JSON.stringify(st.fav||[])); window.dispatchEvent(new Event("cdj-fav")); }catch(_){}
     st.avatar=path;
     if(path&&window.CDJ_AVATARS){ window.CDJ_AVATARS[A.me.username]=A.sb.storage.from("avatars").getPublicUrl(path).data.publicUrl; }
   }
