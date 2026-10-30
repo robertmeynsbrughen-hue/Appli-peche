@@ -56,6 +56,7 @@ function day(){
   c.addEventListener("click",()=>{ setOpen(!open); if(open) setTimeout(()=>$("#v-conseils .conds")?.scrollIntoView({behavior:"smooth",block:"start"}),60); });
   sDay.append(c);
   const tg=el("button","linkbtn today-toggle"); tg.type="button"; tg.id="today-toggle"; tg.addEventListener("click",()=>setOpen(!open)); sDay.append(tg);
+  A.hooks.dayExtras?.(sDay,T);
   setOpen(open);
 }
 

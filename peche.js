@@ -340,6 +340,7 @@ async function spotSheet(s,editing){
     card.append(foot);
   }
   sh.append(card);
+  if(!editing) A.hooks.spotExtras?.(s,sh);
 
   // historique et heures de touches
   const hist=el("div","spot-hist"); hist.append(el("p","note","Chargement de l'historique…")); sh.append(hist);

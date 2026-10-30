@@ -1544,3 +1544,19 @@ create policy fe_select on public.fish_events for select using (public.is_member
 create policy fe_insert on public.fish_events for insert with check (user_id = auth.uid() and (public.is_member_of(group_id) or public.is_staff()));
 create policy fe_update on public.fish_events for update using (user_id = auth.uid() or public.can_moderate(group_id)) with check (user_id = auth.uid() or public.can_moderate(group_id));
 create policy fe_delete on public.fish_events for delete using (user_id = auth.uid() or public.can_moderate(group_id));
+
+-- ===== Lot 16 : orientation de la berge (vent et berge) =====
+alter table public.spots add column if not exists facing smallint check (facing between 0 and 359);
+create or replace function public.set_spot_facing(p_id bigint, p_facing int)
+returns void language plpgsql security definer set search_path = public as $$
+declare g bigint;
+begin
+  select group_id into g from public.spots where id = p_id;
+  if g is null then raise exception 'spot introuvable'; end if;
+  if not (public.is_member_of(g) or public.is_admin()) then raise exception 'non autorisé'; end if;
+  if p_facing is not null and (p_facing < 0 or p_facing > 359) then raise exception 'orientation invalide'; end if;
+  update public.spots set facing = p_facing, sheet_updated_at = now(), sheet_updated_by = auth.uid() where id = p_id;
+end;
+$$;
+revoke all on function public.set_spot_facing(bigint, int) from public, anon;
+grant execute on function public.set_spot_facing(bigint, int) to authenticated;

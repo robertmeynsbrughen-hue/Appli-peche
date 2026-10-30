@@ -722,7 +722,7 @@ function pinIcon(mine){ return L.divIcon({className:"",html:'<div class="spot-pi
 
 async function loadSpots(){
   if(!me||cur==null){ spots=[]; drawSpots(); return; }
-  let q=sb.from("spots").select("id,group_id,name,note,lat,lon,created_at,user_id,depth_m,distance_tours,bottom,details,sheet_updated_at,profiles!spots_user_id_fkey(username,is_admin)").order("created_at",{ascending:false});
+  let q=sb.from("spots").select("id,group_id,name,note,lat,lon,created_at,user_id,depth_m,distance_tours,bottom,details,sheet_updated_at,facing,profiles!spots_user_id_fkey(username,is_admin)").order("created_at",{ascending:false});
   if(cur!=="all") q=q.eq("group_id",cur);
   const {data,error}=await q;
   if(error){ console.error(error); toast("Spots : "+frError(error)); }

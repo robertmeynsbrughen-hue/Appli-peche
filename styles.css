@@ -1542,3 +1542,54 @@ html.night{filter:grayscale(1) sepia(1) saturate(6) hue-rotate(-50deg) brightnes
 .ag-link{font-size:.85rem;font-weight:600;color:var(--accent)}
 .calc-type{background:var(--surface-2);border-color:var(--line)}
 .calc-tt{display:block;font-size:1rem;margin-bottom:2px}
+
+/* ===== Lot 16 : prévisions sur la carte, vent et berge, image des conditions, album ===== */
+.fc-pin{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:700 13px/1 var(--font-mono,ui-monospace,monospace);color:#04121a;border:2px solid rgba(255,255,255,.9);box-shadow:0 0 0 3px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.45)}
+.fc-top{background:var(--best,#4aa8ff);box-shadow:0 0 0 3px rgba(74,168,255,.35),0 0 14px rgba(74,168,255,.6)}
+.fc-good{background:var(--accent,#2fd3c4)}
+.fc-mid{background:var(--amber,#ffb547)}
+.fc-low{background:var(--low,#ff9a4a);opacity:.85}
+.fc-closed{background:#55606a;color:#fff}
+.fc-bar{background:var(--surface);border:1px solid var(--line,rgba(255,255,255,.1));border-radius:14px;padding:10px 12px;display:grid;gap:8px;pointer-events:auto}
+.fc-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between}
+.fc-sel{max-width:60%;padding:6px 8px;border-radius:10px}
+.fc-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.fc-lg{display:inline-flex;align-items:center;gap:5px}
+.fc-dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+.fc-dot.fc-top{background:var(--best,#4aa8ff)} .fc-dot.fc-good{background:var(--accent)} .fc-dot.fc-mid{background:var(--amber)} .fc-dot.fc-low{background:var(--low,#ff9a4a)}
+.fc-bar .note{margin:0}
+.fc-pop-s{margin:4px 0;font-weight:600}
+.vent-berge{margin:14px 0 6px;padding:12px;border-radius:14px;background:var(--surface-2,rgba(255,255,255,.03));border:1px solid var(--line,rgba(255,255,255,.08))}
+.vent-berge .g-sub{margin-top:0}
+.vb-top{display:flex;gap:14px;align-items:center}
+.vb-compass{width:104px;height:104px;flex:none}
+.vb-ring{fill:none;stroke:var(--muted);stroke-opacity:.35;stroke-width:2}
+.vb-card{fill:var(--muted);font:600 11px system-ui;text-anchor:middle}
+.vb-bank{fill:#6b5a3e;fill-opacity:.75}
+.vb-look{fill:none;stroke:var(--fg,#eaf4f6);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.vb-me{fill:var(--accent)}
+.vb-wind{fill:none;stroke:var(--best,#4aa8ff);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.vb-txt{display:grid;gap:3px}
+.vb-k{font-size:1.1rem}
+.vb-face{color:var(--accent)} .vb-dos{color:var(--amber)} .vb-cote{color:var(--best,#4aa8ff)} .vb-calm{color:var(--muted)}
+.vb-adv{margin:10px 0 6px;line-height:1.45}
+.vb-next{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0}
+.vb-n{display:grid;gap:1px;text-align:center;padding:6px 4px;border-radius:10px;background:rgba(255,255,255,.04);font-size:.85rem}
+.vb-n.vb-face{background:rgba(47,211,196,.12)} .vb-n.vb-dos{background:rgba(255,181,71,.12)} .vb-n.vb-cote{background:rgba(74,168,255,.12)}
+.vb-n .note{font-size:.75rem}
+.vb-pick{display:grid;grid-template-columns:repeat(3,64px);gap:6px;justify-content:center;margin:8px 0}
+.vb-pick .btn{min-height:44px}
+.vb-mid{display:grid;place-items:center;font-size:1.4rem}
+.today-share{display:flex;align-items:center;gap:6px;margin:8px auto 0;align-self:center}
+.cond-prev{display:grid;place-items:center;margin:6px 0 10px}
+.cond-prev img{max-width:100%;max-height:58vh;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.sp-album{margin-top:14px}
+.sp-album-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.alb-item{position:relative;aspect-ratio:1;border:0;padding:0;border-radius:10px;background:#0d1620 center/cover no-repeat;overflow:hidden;cursor:pointer}
+.alb-cap{position:absolute;left:0;right:0;bottom:0;padding:14px 6px 5px;font-size:.78rem;font-weight:700;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.75));text-align:left}
+.alb-rank{position:absolute;top:4px;left:4px;font-size:1.1rem}
+.fc-pin{position:relative}
+.fc-w{position:absolute;right:-9px;top:-9px;font-style:normal;font-size:13px;line-height:1;background:var(--surface,#0d1620);border-radius:50%;padding:3px;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.fc-seg{display:flex}
+.fc-seg button{flex:1}
+.vb-water{fill:var(--best,#4aa8ff);fill-opacity:.13}

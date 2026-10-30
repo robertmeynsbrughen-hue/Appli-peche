@@ -297,8 +297,9 @@ function render(){
   try{
     const hr=k=>new Date(start.getTime()+k*36e5).getHours()+"h";
     window.CDJ_TODAY={live:mode==="live",place:meta.place,when:meta.when,water:now.water,water_measured:tm!=null,air:now.air,sky,wind:now.wind,trend,
-      top:results.filter(r=>!(r.sp.closed&&r.sp.closed(m))).slice(0,3).map(r=>({name:r.sp.name,pct:Math.round(r.peak*100),from:r.a>=0?hr(r.a):null,to:r.a>=0?hr(r.b+1):null})),
-      fav:results.filter(isFav).map(r=>({name:r.sp.name,pct:Math.round(r.peak*100),from:r.a>=0?hr(r.a):null,to:r.a>=0?hr(r.b+1):null,closed:!!(r.sp.closed&&r.sp.closed(m))}))};
+      h0:start.getHours(),moon:meta.moon||null,pressure:meta.pressure||null,clarity:(()=>{ try{ return CLARITY_TXT[getClarity(now,meta)]; }catch(_){ return null; } })(),
+      top:results.filter(r=>!(r.sp.closed&&r.sp.closed(m))).slice(0,3).map(r=>({name:r.sp.name,pct:Math.round(r.peak*100),from:r.a>=0?hr(r.a):null,to:r.a>=0?hr(r.b+1):null,s:r.series.map(v=>+v.toFixed(2)),b:r.best.map(Boolean)})),
+      fav:results.filter(isFav).map(r=>({name:r.sp.name,pct:Math.round(r.peak*100),from:r.a>=0?hr(r.a):null,to:r.a>=0?hr(r.b+1):null,closed:!!(r.sp.closed&&r.sp.closed(m)),s:r.series.map(v=>+v.toFixed(2)),b:r.best.map(Boolean)}))};
     window.dispatchEvent(new Event("cdj-today"));
   }catch(e){}
   const list=$("#list"); list.innerHTML="";
@@ -700,7 +701,11 @@ async function forecastDays(lat,lon,n=16){
   const r=await fetch(url); if(!r.ok) throw new Error("meteo"); const d=await r.json();
   const H=d.hourly, days=[...new Set(H.time.map(t=>t.slice(0,10)))];
   const today=new Date(); const todayKey=today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
-  const v=days.filter(k=>k>=todayKey).slice(0,n).map(k=>{
+  const v=days.filter(k=>k>=todayKey).slice(0,n).map(k=>dayOf(H,k,lat,lon));
+  fcCache.set(key,{ts:Date.now(),v});
+  return v;
+}
+function dayOf(H,k,lat,lon){
     const i0=H.time.indexOf(k+"T00:00");
     const past=H.temperature_2m.slice(Math.max(0,i0-120),i0+1).filter(x=>x!=null);
     const water=Math.max(2,Math.min(30,0.85*past.reduce((a,b)=>a+b,0)/past.length+1.5));
@@ -713,15 +718,34 @@ async function forecastDays(lat,lon,n=16){
       // créneau : heures consécutives proches du meilleur score
       let from=at, to=at; if(at!=null){ const ok=h=>{ const e=sc.find(z=>z[0]===h); return e&&e[1]>=best*0.85; }; while(ok(from-1)) from--; while(ok(to+1)) to++; to++; }
       const closed=!!(sp.closed&&sp.closed(date.getMonth()+1));
-      return {id:sp.id,name:sp.name,best:closed?0:best,at,from,to,closed};
+      const all=[]; for(let h=0;h<24;h++){ const i=i0+h; if(H.time[i]==null) break;
+        all.push(closed?0:scoreHour(sp,{phase:phase(h+.5,rise,set),water,air:H.temperature_2m[i],dp:(H.surface_pressure[i]??0)-(H.surface_pressure[i-3]??H.surface_pressure[i]),wind:H.wind_speed_10m[i],cloud:H.cloud_cover[i],rain:H.precipitation[i]||0})); }
+      return {id:sp.id,name:sp.name,best:closed?0:best,at,from,to,closed,all};
     });
     const rain=H.precipitation.slice(i0+5,i0+22).reduce((a,x)=>a+(x||0),0), wind=Math.max(...H.wind_speed_10m.slice(i0+5,i0+22).filter(x=>x!=null));
     return {k,date,water,per,rain,wind,top:Math.max(...per.map(p=>p.best)),moon:moon(date)};
-  });
-  fcCache.set(key,{ts:Date.now(),v});
-  return v;
 }
-window.CDJ_ADVICE={ forecastDays, moon, defaultPos:()=>DEFAULT_POS, current:()=>current?.meta?{lat:current.meta.lat,lon:current.meta.lon}:null, loadAt:(lat,lon,name)=>loadLive(lat,lon,name), species:()=>SPECIES.map(s=>s.name||s.id),
+// prévisions du jour pour plusieurs spots en une requête : score par espèce et vent heure par heure
+const manyCache=new Map();
+async function forecastSpots(points){
+  const out=new Array(points.length).fill(null), todo=[];
+  points.forEach((p,i)=>{ const c=manyCache.get(p.lat.toFixed(2)+","+p.lon.toFixed(2)); if(c&&Date.now()-c.ts<30*6e4) out[i]=c.v; else todo.push(i); });
+  for(let j=0;j<todo.length;j+=40){
+    const part=todo.slice(j,j+40);
+    const url="https://api.open-meteo.com/v1/forecast?latitude="+part.map(i=>points[i].lat.toFixed(3)).join(",")+"&longitude="+part.map(i=>points[i].lon.toFixed(3)).join(",")+
+      "&hourly=temperature_2m,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m,precipitation&past_days=5&forecast_days=2&timezone=auto";
+    const r=await fetch(url); if(!r.ok) throw new Error("meteo"); let d=await r.json(); if(!Array.isArray(d)) d=[d];
+    d.forEach((x,q)=>{
+      const i=part[q], p=points[i], H=x.hourly; if(!H) return;
+      const off=x.utc_offset_seconds||0, loc=new Date(Date.now()+off*1000).toISOString(), k=loc.slice(0,10);
+      let n0=H.time.indexOf(loc.slice(0,13)+":00"); if(n0<0) n0=0;
+      const v={day:dayOf(H,k,p.lat,p.lon),wind:H.time.slice(n0,n0+24).map((t,z)=>({h:Number(t.slice(11,13)),dir:H.wind_direction_10m[n0+z],speed:H.wind_speed_10m[n0+z]}))};
+      manyCache.set(p.lat.toFixed(2)+","+p.lon.toFixed(2),{ts:Date.now(),v}); out[i]=v;
+    });
+  }
+  return out;
+}
+window.CDJ_ADVICE={ forecastDays, forecastSpots, moon, defaultPos:()=>DEFAULT_POS, current:()=>current?.meta?{lat:current.meta.lat,lon:current.meta.lon}:null, loadAt:(lat,lon,name)=>loadLive(lat,lon,name), species:()=>SPECIES.map(s=>s.name||s.id),
   // conditions du moment, enregistrées avec les bilans et les prises (seulement si la météo est réelle)
   snapshot:()=>{ if(!current||mode!=="live") return null; const h=current.hours[0], m=current.meta; const tmv=measuredTemp(m);
     return {water:+(tmv??h.water).toFixed(1),water_measured:tmv!=null,air:Math.round(h.air),dp:+h.dp.toFixed(1),wind:Math.round(h.wind),cloud:Math.round(h.cloud),rain:+(h.rain||0).toFixed(1),phase:h.phase,hour:new Date().getHours(),lat:+m.lat.toFixed(3),lon:+m.lon.toFixed(3),water_type:waterType,flow:m.flow?.status||null,clarity:(()=>{ try{ return getClarity(h,m); }catch(_){ return null; } })()}; },

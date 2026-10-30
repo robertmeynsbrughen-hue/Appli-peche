@@ -32,6 +32,7 @@ function bar(){
   const wb=btn("💨 Vent","btn small"+(wind.on?" on":""),()=>{ wind.on=!wind.on; loadWind(); bar(); });
   const zb=btn("🚧 Zones","btn small"+(zones.on?" on":""),()=>{ zones.on=!zones.on; set("cdj-zones",zones.on?"1":"0"); loadZones(); bar(); });
   row.append(wb,zb,pb,rb,ob); box.append(row);
+  A.hooks.layersRow?.(row);
   // boutons flottants sur la carte : mesurer, tracer, spot ici
   const fabs=$("#map-fabs");
   if(fabs){
@@ -49,6 +50,7 @@ function bar(){
   if(st!==box) st.innerHTML="";
   if(ruler.on) st.append(rulerBar());
   if(wind.on) st.append(windBar());
+  A.hooks.layersStatus?.(st);
   if(zones.on&&(zones.draw||st===box)) st.append(zoneBar());
   if(zones.on&&!zones.draw&&st!==box) box.append(zoneBar());
   if(st!==box&&mode!=="fond"&&!ruler.on&&!zones.draw&&!track.on&&typeof A.cur==="number"&&!A.spots.some(x=>x.group_id===A.cur)){
@@ -589,6 +591,7 @@ window.CDJ_MAPMODE=mode;
   pb.addEventListener("click",()=>setP(pn.hidden));
   $("#layers-close")?.addEventListener("click",()=>setP(false));
 })();
+A.layersBar=()=>bar();
 A.track={start:o=>{ startTrack(false,o); }, stop:()=>stopTrack(), get on(){ return track.on; }};
 A.zones={get list(){ return zones.list; }, kinds:ZK, draw:k=>{
   if(!map) return toast("Ouvre la carte d'abord");
