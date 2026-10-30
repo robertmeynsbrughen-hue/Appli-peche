@@ -78,14 +78,22 @@ function line(){
 
 /* ---------- Quantité d'amorce ---------- */
 function bait(){
-  const {sh}=sheet("Quantité d'amorce","calc-sheet");
+  const {sh}=sheet("Amorce : quantité et type","calc-sheet");
   sh.append(el("p","note","Un point de départ, à ajuster selon les touches : mieux vaut amorcer peu et souvent que trop d'un coup, surtout en eau froide."));
-  const out=el("div","calc-out");
+  // les conditions du jour pré-remplissent les choix quand elles sont connues
+  const S=window.CDJ_ADVICE?.snapshot?.()||null;
+  const w0=S?.water!=null?(S.water<10?0:S.water<=18?1:2):1;
+  const p0=S?(S.water_type==="etang"?"etang":(S.flow==="haute"||S.flow==="crue")?"courant":"lente"):"etang";
+  const c0=S?.clarity==="trouble"?"trouble":S?.clarity==="claire"?"claire":"teintee";
+  const out=el("div","calc-out"), typ=el("div","calc-out calc-type");
   const t=seg("Pêche",[["carpe","Carpe"],["feeder","Feeder / coup"]],"carpe",up);
-  const w=seg("Eau",[[0,"Froide < 10 °C"],[1,"10–18 °C"],[2,"Chaude > 18 °C"]],1,up);
+  const w=seg("Eau",[[0,"Froide < 10 °C"],[1,"10–18 °C"],[2,"Chaude > 18 °C"]],w0,up);
+  const pst=seg("Poste",[["etang","Étang, lac"],["lente","Rivière lente"],["courant","Courant fort"]],p0,up);
+  const cl=seg("Couleur de l'eau",[["claire","Claire"],["teintee","Teintée"],["trouble","Trouble"]],c0,up);
   const h=seg("Durée",[[4,"4 h"],[12,"12 h"],[24,"24 h"],[48,"48 h"],[72,"72 h"]],24,up);
   const r=seg("Cannes",[[1,"1"],[2,"2"],[3,"3"],[4,"4"]],2,up);
-  sh.append(t,w,h,r,out);
+  if(S) sh.append(el("p","calc-tip","📡 Pré-réglé avec les conditions du jour : eau à "+num(S.water)+" °C"+(S.dp<=-1?", pression en baisse":S.dp>=1?", pression en hausse":"")+(S.clarity?", eau "+(S.clarity==="teintee"?"teintée":S.clarity)+" probable":"")+"."));
+  sh.append(t,w,pst,cl,h,r,out,typ);
   function up(){
     const T=t.val(), W=w.val(), H=h.val(), R=r.val();
     let lo,hi,unit;
@@ -104,6 +112,26 @@ function bait(){
       ul.append(el("li",null,W===0?"Eau froide : mélange fin et peu nourrissant.":"Eau chaude : mélange plus riche, plus collant si le courant est fort."));
     }
     out.append(ul);
+    // type d'amorce le plus adapté
+    const P=pst.val(), C=cl.val(), dp=S?.dp??0, items=[];
+    if(T==="carpe"){
+      items.push(W===0?"Appâts solubles et très attractifs, peu nourrissants : petites bouillettes (14–15 mm), sticks PVA de pellets fins, pop-ups de couleur vive.":W===1?"Mélange équilibré : bouillettes 16–20 mm, pellets de 4 à 8 mm, maïs ou tigernuts en appoint.":"Amorce nourrissante : bouillettes 20 mm et plus, graines préparées (chènevis, maïs, tigernuts), gros pellets.");
+      if(W===0) items.push("Évite les graines en quantité : elles rassasient vite des poissons qui mangent peu.");
+      if(P==="courant") items.push("Courant fort : bouillettes dures et pellets lourds qui coulent vite ; les graines légères partent avec le courant.");
+      else if(P==="lente") items.push("Rivière lente : amorce un peu en amont du poste, la nourriture dérive vers ton coup.");
+      else items.push("Étang : le spod ou la fronde permettent un amorçage précis et regroupé.");
+    }else{
+      items.push(W===0?"Mélange fin et peu nourrissant, couleur sombre, avec de la terre de rivière ; vers de vase ou petits asticots en esche.":W===1?"Mélange classique gardon–brème, sucré ou biscuité, avec du chènevis moulu.":"Mélange riche et nourrissant, avec pellets fins et graines ; gros asticots ou maïs en esche pour les brèmes et les carpes.");
+      if(P==="courant") items.push("Courant fort : mélange lourd et collant (ajoute de la terre ou de la colle), boulettes bien serrées.");
+      else if(P==="etang") items.push("Étang : mélange plus aérien qui forme un nuage, boulettes peu serrées.");
+      else items.push("Rivière lente : mélange moyennement collant, qui s'ouvre au fond en quelques minutes.");
+    }
+    if(C==="trouble") items.push("Eau trouble : appâts très odorants et visibles (fruités, épicés, couleurs vives ou fluo).");
+    else if(C==="claire") items.push("Eau claire : couleurs naturelles et discrètes (brun, beige), amorçage plus léger : les poissons voient tout.");
+    if(dp<=-1) items.push("Pression en baisse : les poissons sont souvent actifs, tu peux amorcer un peu plus"+(W===0?", tout en restant léger vu l'eau froide.":"."));
+    else if(dp>=1) items.push("Pression en hausse : poissons souvent prudents, reste léger et précis.");
+    typ.innerHTML=""; typ.append(el("b","calc-tt","🧪 Type d'amorce conseillé"));
+    const ul2=el("ul"); items.forEach(x=>ul2.append(el("li",null,x))); typ.append(ul2);
   }
   up();
 }
@@ -126,7 +154,7 @@ function conv(){
   sh.append(tb, el("p","note","Valeurs moyennes : elles varient selon les marques et le nombre de brins. Le diamètre réel d'une tresse est souvent plus gros que celui annoncé."));
 }
 
-const CALCS=[["⚖️","Poids de plomb","Selon le courant et la distance",lead],["🧵","Diamètre de fil","Tresse, nylon et bas de ligne par espèce",line],["🥣","Quantité d'amorce","Selon la durée, l'eau et les cannes",bait],["🔁","Conversions","Livres ↔ kilos, tresse PE",conv]];
+const CALCS=[["⚖️","Poids de plomb","Selon le courant et la distance",lead],["🧵","Diamètre de fil","Tresse, nylon et bas de ligne par espèce",line],["🥣","Amorce","Quantité et type selon les conditions",bait],["🔁","Conversions","Livres ↔ kilos, tresse PE",conv]];
 function calcList(){
   const {sh,close}=sheet("Calculateurs","tech-list");
   const g=el("div","tech-grid");

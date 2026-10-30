@@ -724,7 +724,7 @@ async function forecastDays(lat,lon,n=16){
 window.CDJ_ADVICE={ forecastDays, moon, defaultPos:()=>DEFAULT_POS, current:()=>current?.meta?{lat:current.meta.lat,lon:current.meta.lon}:null, loadAt:(lat,lon,name)=>loadLive(lat,lon,name), species:()=>SPECIES.map(s=>s.name||s.id),
   // conditions du moment, enregistrées avec les bilans et les prises (seulement si la météo est réelle)
   snapshot:()=>{ if(!current||mode!=="live") return null; const h=current.hours[0], m=current.meta; const tmv=measuredTemp(m);
-    return {water:+(tmv??h.water).toFixed(1),water_measured:tmv!=null,air:Math.round(h.air),dp:+h.dp.toFixed(1),wind:Math.round(h.wind),cloud:Math.round(h.cloud),rain:+(h.rain||0).toFixed(1),phase:h.phase,hour:new Date().getHours(),lat:+m.lat.toFixed(3),lon:+m.lon.toFixed(3),water_type:waterType,flow:m.flow?.status||null}; },
+    return {water:+(tmv??h.water).toFixed(1),water_measured:tmv!=null,air:Math.round(h.air),dp:+h.dp.toFixed(1),wind:Math.round(h.wind),cloud:Math.round(h.cloud),rain:+(h.rain||0).toFixed(1),phase:h.phase,hour:new Date().getHours(),lat:+m.lat.toFixed(3),lon:+m.lon.toFixed(3),water_type:waterType,flow:m.flow?.status||null,clarity:(()=>{ try{ return getClarity(h,m); }catch(_){ return null; } })()}; },
   refresh:()=>{ hist=null; histTry=0; loadHist(); }, rerender:()=>render() };
 window.addEventListener("cdj-fav",()=>{ try{ render(); }catch(_){} });
 setDefaults();
