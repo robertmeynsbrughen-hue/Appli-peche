@@ -33,7 +33,7 @@ function phase(h,rise,set){
   if(h>=rise+1.5&&h<set-1.5) return "jour";
   return "nuit";
 }
-const fmtH=x=>{const h=Math.floor(x),m=Math.round((x-h)*60);return String(h).padStart(2,"0")+"h"+String(m===60?0:m).padStart(2,"0")};
+const fmtH=x=>{const t=Math.round(x*60), h=Math.floor(t/60)%24, m=t%60; return String(h).padStart(2,"0")+"h"+String(m).padStart(2,"0")};
 
 // ---------- Espèces ----------
 const SPECIES=[

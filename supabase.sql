@@ -1659,3 +1659,124 @@ create policy structures_insert on public.structures for insert to authenticated
 drop policy if exists structures_delete on public.structures;
 create policy structures_delete on public.structures for delete to authenticated
   using (user_id = auth.uid() or public.can_moderate(group_id));
+-- ===== Lot 18 : sécurité (audit ChatGPT) =====
+-- 1. Les droits admin ne sont plus jamais donnés selon le pseudo : ils restent liés au compte existant.
+create or replace function public.create_profile(p_username text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'non connecté'; end if;
+  if exists (select 1 from public.profiles where id = auth.uid()) then return; end if;
+  if p_username is null or p_username !~ '^[A-Za-z0-9_]{3,20}$' then raise exception 'nom d''utilisateur manquant'; end if;
+  insert into public.profiles (id, username, is_admin) values (auth.uid(), p_username, false);
+end $$;
+
+-- 2. Codes d'invitation : essais limités (15 échecs par heure et par personne ou adresse IP)
+create table if not exists public.invite_attempts (
+  id bigint generated always as identity primary key,
+  who text not null,
+  at timestamptz not null default now()
+);
+create index if not exists invite_attempts_who on public.invite_attempts (who, at desc);
+alter table public.invite_attempts enable row level security;
+revoke all on public.invite_attempts from anon, authenticated;
+
+create or replace function public.invite_key() returns text
+language sql stable security definer set search_path = public as $$
+  select coalesce(auth.uid()::text,
+    'ip:' || coalesce(nullif(split_part(coalesce(current_setting('request.headers', true)::json ->> 'x-forwarded-for', ''), ',', 1), ''), 'inconnu'));
+$$;
+revoke all on function public.invite_key() from public, anon, authenticated;
+
+create or replace function public.invite_guard(p_ok boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare k text := public.invite_key();
+begin
+  if (select count(*) from public.invite_attempts where who = k and at > now() - interval '1 hour') >= 15 then
+    raise exception 'trop de tentatives';
+  end if;
+  if not p_ok then insert into public.invite_attempts (who) values (k); end if;
+end $$;
+revoke all on function public.invite_guard(boolean) from public, anon, authenticated;
+
+drop function if exists public.check_invite(text);
+create function public.check_invite(p_code text)
+returns table (name text, region text, require_approval boolean, full_group boolean)
+language plpgsql volatile security definer set search_path = public as $$
+declare ok boolean;
+begin
+  ok := exists (select 1 from public.groups g where g.invite_code = p_code);
+  perform public.invite_guard(ok);
+  return query select g.name, g.region, g.require_approval, public.group_is_full(g.id) from public.groups g where g.invite_code = p_code;
+end $$;
+revoke all on function public.check_invite(text) from public;
+grant execute on function public.check_invite(text) to anon, authenticated;
+
+create or replace function public.join_group(p_code text, p_username text default null)
+returns bigint language plpgsql security definer set search_path = public as $$
+declare g bigint; appr boolean;
+begin
+  if auth.uid() is null then raise exception 'non connecté'; end if;
+  select id, require_approval into g, appr from public.groups where invite_code = p_code;
+  perform public.invite_guard(g is not null);
+  if g is null then raise exception 'code invalide'; end if;
+  if exists (select 1 from public.memberships where group_id = g and user_id = auth.uid()) then return g; end if;
+  if public.group_is_full(g) and not public.is_admin() then raise exception 'groupe complet'; end if;
+  if not exists (select 1 from public.profiles where id = auth.uid()) then
+    if p_username is null or p_username !~ '^[A-Za-z0-9_]{3,20}$' then raise exception 'nom d''utilisateur manquant'; end if;
+    insert into public.profiles (id, username, is_admin) values (auth.uid(), p_username, false);
+  end if;
+  insert into public.memberships (group_id, user_id, status)
+    values (g, auth.uid(), case when appr and not public.is_admin() then 'pending' else 'active' end)
+    on conflict do nothing;
+  return g;
+end $$;
+
+-- 3. Codes de groupe : générés au hasard si laissés vides, 8 caractères minimum pour un nouveau code choisi
+create or replace function public.random_invite_code() returns text
+language plpgsql volatile set search_path = public as $$
+declare a text := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; s text := ''; i int;
+begin
+  for i in 1..10 loop s := s || substr(a, 1 + floor(random() * length(a))::int, 1); if i = 5 then s := s || '-'; end if; end loop;
+  return s;
+end $$;
+
+create or replace function public.manage_save_group(p_id bigint, p_name text, p_region text, p_code text)
+returns bigint language plpgsql security definer set search_path = public as $$
+declare r bigint; c text := nullif(trim(coalesce(p_code, '')), ''); old text;
+begin
+  if not exists (select 1 from public.profiles where id = auth.uid()) then raise exception 'non connecté'; end if;
+  if p_id is not null then select invite_code into old from public.groups where id = p_id; end if;
+  if c is null then
+    c := coalesce(old, public.random_invite_code());
+    while exists (select 1 from public.groups where invite_code = c and id is distinct from p_id) loop c := public.random_invite_code(); end loop;
+  elsif c is distinct from old and char_length(c) < 8 then
+    raise exception 'code trop court';
+  end if;
+  if p_id is null then
+    if not public.is_admin() and (select count(*) from public.memberships where user_id = auth.uid() and role = 'owner') >= 3 then
+      raise exception 'limite de groupes atteinte';
+    end if;
+    insert into public.groups (name, region, invite_code) values (p_name, nullif(p_region, ''), c) returning id into r;
+    insert into public.memberships (group_id, user_id, role) values (r, auth.uid(), 'owner')
+      on conflict (group_id, user_id) do update set role = 'owner';
+  else
+    if not public.can_manage(p_id) then raise exception 'non autorisé'; end if;
+    update public.groups set name = p_name, region = nullif(p_region, ''), invite_code = c where id = p_id returning id into r;
+  end if;
+  return r;
+end $$;
+
+-- nouveau code tiré au hasard (invalide les anciens liens d'invitation)
+create or replace function public.regen_group_code(p_id bigint) returns text
+language plpgsql security definer set search_path = public as $$
+declare c text;
+begin
+  if not public.can_manage(p_id) then raise exception 'non autorisé'; end if;
+  loop c := public.random_invite_code(); exit when not exists (select 1 from public.groups where invite_code = c); end loop;
+  update public.groups set invite_code = c where id = p_id;
+  return c;
+end $$;
+revoke all on function public.regen_group_code(bigint) from public, anon;
+grant execute on function public.regen_group_code(bigint) to authenticated;
+
+select cron.schedule('cdj-invite-menage', '55 3 * * *', $c$ delete from public.invite_attempts where at < now() - interval '1 day'; $c$);

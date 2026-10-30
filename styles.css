@@ -1658,3 +1658,7 @@ html.night{filter:grayscale(1) sepia(1) saturate(6) hue-rotate(-50deg) brightnes
 .recap-opts{display:grid;gap:6px;margin:4px 0 10px}
 .recap-snack{position:fixed;left:12px;right:12px;bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:3000;display:flex;align-items:center;gap:8px;justify-content:space-between;padding:10px 12px;border-radius:14px;background:var(--surface,#0d1620);border:1px solid rgba(47,211,196,.45);box-shadow:0 8px 24px rgba(0,0,0,.45)}
 #groupe-root .subbar button{flex:1 0 auto;min-width:auto;overflow:visible;text-overflow:clip;padding:6px 10px}
+/* envois hors ligne refusés */
+.queue-pill.bad{background:var(--low,#ff9a4a);color:#1a0d00}
+.queue-list{display:grid;gap:10px}
+.queue-item{display:grid;gap:4px;padding:10px 12px;border:1px solid var(--line,rgba(255,255,255,.1));border-radius:12px}

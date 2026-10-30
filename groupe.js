@@ -374,7 +374,8 @@ function renderManage(g,info,members,man){
     s.append(opt("Valider les publications","Les prises des membres apparaissent après validation d'un modérateur.","post_approval"));
     const f=el("form","g-edit");
     const mk=(label,val,attrs)=>{ const l=el("label","field",label); const i=el("input"); Object.assign(i,attrs); i.value=val||""; l.append(i); f.append(l); return i; };
-    const n=mk("Nom",g.name,{required:true,maxLength:40}), rg=mk("Région",g.region,{maxLength:40}), cd=mk("Code d'invitation",info.invite_code,{required:true,minLength:6,maxLength:40});
+    const n=mk("Nom",g.name,{required:true,maxLength:40}), rg=mk("Région",g.region,{maxLength:40}), cd=mk("Code d'invitation",info.invite_code,{required:true,minLength:8,maxLength:40});
+    { const rg2=el("button","linkbtn","🎲 Générer un nouveau code sûr"); rg2.type="button"; rg2.addEventListener("click",async()=>{ if(!confirm("Remplacer le code ? Les anciens liens d'invitation ne marcheront plus.")) return; const {data:c,error}=await A.sb.rpc("regen_group_code",{p_id:g.id}); if(error) return toast(frError(error)); cd.value=c; toast("Nouveau code : "+c); await A.loadGroups(); afterManage(); }); f.append(rg2); }
     const err=el("p","err"); err.hidden=true; f.append(err);
     const ok=el("button","btn","Enregistrer"); ok.type="submit"; f.append(ok);
     f.addEventListener("submit",async e=>{ e.preventDefault(); showErr(err);
