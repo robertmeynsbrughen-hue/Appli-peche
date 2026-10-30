@@ -121,7 +121,8 @@ function refreshUI(){
     e.hidden=!configured||member;
     e.textContent=!logged?"Connecte-toi dans l'onglet Profil pour voir le contenu de ton groupe."
       :pendingGroups.length?"Ta demande pour rejoindre « "+pendingGroups.map(g=>g.name).join(" », « ")+" » attend la validation d'un modérateur. Tu seras prévenu dès qu'elle sera acceptée."
-      :"Tu n'es dans aucun groupe pour l'instant. Rejoins-en un avec son code, ou crée le tien, dans l'onglet Profil.";
+      :"Tu n'es dans aucun groupe pour l'instant. Rejoins celui d'un pote avec son code, ou crée le tien.";
+    if(logged&&!member&&!pendingGroups.length&&!e.closest("#v-profil")){ const b=el("button","btn primary small","👥 Rejoindre ou créer un groupe"); b.type="button"; b.style.marginTop="10px"; b.addEventListener("click",()=>{ location.hash="#profil"; setTimeout(()=>{ document.querySelector('#profil-sub [data-s="reglages"]')?.click(); document.querySelector("#my-groups")?.scrollIntoView({behavior:"smooth",block:"start"}); },250); }); e.append(document.createElement("br"),b); }
   });
   $$("[data-need-member]").forEach(e=>e.hidden=!member);
   const canPost=member&&cur!=="all";
@@ -202,7 +203,7 @@ function setAuthMode(m){
   $("#a-email-lab").textContent=su?"E-mail":"E-mail (ou pseudo pour un ancien compte)";
   const em=$("#a-email"); em.type=su?"email":"text"; em.autocomplete=su?"email":"username";
   $("#a-user-wrap").hidden=!su; $("#a-user").required=su;
-  $("#a-code-wrap").hidden=!su; $("#a-code").required=su;
+  $("#a-code-wrap").hidden=!su; $("#a-code").required=false;
   $("#a-legacy").hidden=su; $("#a-forgot").hidden=su;
   const pw=$("#a-pass"); pw.autocomplete=su?"new-password":"current-password"; pw.minLength=su?8:6;
   pw.placeholder=su?"8 caractères minimum":"";
@@ -219,10 +220,9 @@ $("#auth-form").addEventListener("submit",async e=>{
   try{
     if(authMode==="signup"){
       if(!isMail(id)) throw new Error("email invalide");
-      const [{data:free,error:ue},{data:g,error:ce}]=await Promise.all([sb.rpc("username_available",{p_username:u}),sb.rpc("check_invite",{p_code:code})]);
+      const [{data:free,error:ue},{data:g,error:ce}]=await Promise.all([sb.rpc("username_available",{p_username:u}),code?sb.rpc("check_invite",{p_code:code}):Promise.resolve({data:null})]);
       if(ue) throw ue; if(free===false) throw new Error("pseudo pris");
-      if(ce) throw ce; if(!g||!g.length) throw new Error("code invalide");
-      if(g[0].full_group) throw new Error("groupe complet");
+      if(code){ if(ce) throw ce; if(!g||!g.length) throw new Error("code invalide"); if(g[0].full_group) throw new Error("groupe complet"); }
       const {data:su,error}=await sb.auth.signUp({email:id.toLowerCase(),password:p,options:{emailRedirectTo:siteUrl()}});
       if(error) throw error;
       if(!su.session){
@@ -232,9 +232,7 @@ $("#auth-form").addEventListener("submit",async e=>{
         $("#a-ok").hidden=false; setAuthMode("login"); $("#a-email").value=id; $("#a-ok").hidden=false;
         return;
       }
-      if(g[0].require_approval) setTimeout(()=>toast("Demande envoyée à « "+g[0].name+" » : un modérateur doit la valider"),900);
-      const {error:je}=await sb.rpc("join_group",{p_code:code,p_username:u});
-      if(je) throw je;
+      await finishProfile(u,code,g&&g[0]);
     }else{
       const email=isMail(id)?id.toLowerCase():emailOf(id);
       const {error}=await sb.auth.signInWithPassword({email,password:p});
@@ -244,13 +242,22 @@ $("#auth-form").addEventListener("submit",async e=>{
     await loadMe();
     if(!me){ // compte créé avec confirmation e-mail : on termine l'adhésion si on a les infos
       let pj=null; try{ pj=JSON.parse(localStorage.getItem("cdj-pending-join")||"null"); }catch(_){}
-      if(pj){ const {error:je}=await sb.rpc("join_group",{p_code:pj.code,p_username:pj.username}); if(!je){ try{ localStorage.removeItem("cdj-pending-join"); }catch(_){} await loadMe(); } else { $("#j-user").value=pj.username; $("#j-code").value=pj.code; } }
+      if(pj){ try{ await finishProfile(pj.username,pj.code); localStorage.removeItem("cdj-pending-join"); await loadMe(); }catch(_){ $("#j-user").value=pj.username; $("#j-code").value=pj.code||""; } }
     }
-    if(me){ toast("Bienvenue @"+me.username+" !"); location.hash="#fil"; }
+    if(me){ toast("Bienvenue @"+me.username+" !"); location.hash=groups.length?"#fil":"#conseils"; }
   }catch(err){ showErr($("#a-err"),frError(err)); }
   finally{ btn.disabled=false; }
 });
 
+// profil créé avec ou sans code de groupe
+async function finishProfile(u,code,info){
+  if(code){
+    if(info?.require_approval) setTimeout(()=>toast("Demande envoyée à « "+info.name+" » : un modérateur doit la valider"),900);
+    const {error}=await sb.rpc("join_group",{p_code:code,p_username:u}); if(error) throw error;
+  }else{
+    const {error}=await sb.rpc("create_profile",{p_username:u}); if(error) throw error;
+  }
+}
 // mot de passe oublié
 $("#a-forgot").addEventListener("click",()=>{ $("#auth-form").hidden=true; $("#forgot-form").hidden=false; const v=$("#a-email").value.trim(); if(isMail(v)) $("#f-email").value=v; showErr($("#f-err")); $("#f-ok").hidden=true; $("#f-email").focus(); });
 $("#f-back").addEventListener("click",()=>setAuthMode("login"));
@@ -267,8 +274,7 @@ $("#forgot-form").addEventListener("submit",async e=>{
 
 $("#join").addEventListener("submit",async e=>{
   e.preventDefault(); showErr($("#j-err"));
-  const {error}=await sb.rpc("join_group",{p_code:$("#j-code").value.trim(),p_username:$("#j-user").value.trim()});
-  if(error) return showErr($("#j-err"),frError(error));
+  try{ await finishProfile($("#j-user").value.trim(),$("#j-code").value.trim()); }catch(error){ return showErr($("#j-err"),frError(error)); }
   await loadMe();
 });
 

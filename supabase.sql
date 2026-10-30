@@ -1459,3 +1459,16 @@ begin
 end $$;
 revoke all on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
+
+-- Création de compte sans code de groupe
+create or replace function public.create_profile(p_username text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'non connecté'; end if;
+  if exists (select 1 from public.profiles where id = auth.uid()) then return; end if;
+  if p_username is null or p_username !~ '^[A-Za-z0-9_]{3,20}$' then raise exception 'nom d''utilisateur manquant'; end if;
+  insert into public.profiles (id, username, is_admin)
+    values (auth.uid(), p_username, lower(p_username) = lower((select admin_username from public.settings where id = 1)));
+end $$;
+revoke all on function public.create_profile(text) from public, anon;
+grant execute on function public.create_profile(text) to authenticated;
