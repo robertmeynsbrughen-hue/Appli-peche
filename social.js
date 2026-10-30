@@ -205,7 +205,7 @@ function setAuthMode(m){
   const em=$("#a-email"); em.type=su?"email":"text"; em.autocomplete=su?"email":"username";
   $("#a-user-wrap").hidden=!su; $("#a-user").required=su;
   $("#a-code-wrap").hidden=!su; $("#a-code").required=false;
-  $("#a-legacy").hidden=su; $("#a-forgot").hidden=su;
+  $("#a-legacy").hidden=su; $("#a-forgot").hidden=su; $("#a-terms").hidden=!su;
   const pw=$("#a-pass"); pw.autocomplete=su?"new-password":"current-password"; pw.minLength=su?8:6;
   pw.placeholder=su?"8 caractères minimum":"";
   $("#auth-form").hidden=false; $("#forgot-form").hidden=true;

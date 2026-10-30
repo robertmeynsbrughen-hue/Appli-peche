@@ -1481,3 +1481,17 @@ language sql security definer set search_path = public as $$
 $$;
 revoke all on function public.clear_pw_temp() from public, anon;
 grant execute on function public.clear_pw_temp() to authenticated;
+
+-- Suppression de compte : on purge aussi les sauvegardes hebdomadaires de l'appli
+create or replace function public.delete_my_account() returns void
+language plpgsql security definer set search_path = public, auth, backup as $$
+declare u text := auth.uid()::text;
+begin
+  if auth.uid() is null then raise exception 'non connecté'; end if;
+  if to_regclass('backup.snapshots') is not null then
+    delete from backup.snapshots where data->>'user_id' = u or (tbl = 'profiles' and data->>'id' = u);
+  end if;
+  delete from auth.users where id = auth.uid();
+end $$;
+revoke all on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;
