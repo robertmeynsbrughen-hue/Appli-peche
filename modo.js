@@ -80,6 +80,95 @@ function remaining(iso){
   if(h) return h+" h "+m+" min";
   return m+" min";
 }
+const stamp=iso=>iso?sameDay(iso):"—";
+const userAt=p=>p?.username?"@"+p.username:null;
+// Action sur une liste périmée : message clair + rafraîchissement.
+function stale(refresh,msg){
+  toast(msg||"Déjà traité par un autre modérateur — liste actualisée");
+  refresh();
+}
+
+/* ---------- État du schéma de sanctions ---------- */
+function schemaBanner(s,onRecheck){
+  const d=el("div","mod-health "+(s?.ready?"ok":"warn"));
+  d.setAttribute("role","status");
+  if(s?.ready){
+    d.append(el("b",null,"✔ Sanctions serveur actives"));
+    d.append(el("span",null,"Schéma "+s.version+" : la base bloque les nouvelles publications et les modifications de contenu des membres suspendus."));
+  }else if(s?.table){
+    d.append(el("b",null,"⚠ Garde-fous incomplets"));
+    d.append(el("span",null,"La table des sanctions existe, mais la migration 0007 n'est pas appliquée : les modifications de contenu ne sont pas encore bloquées. Applique migrations/0007_timeout_update_guards.sql."));
+  }else{
+    d.append(el("b",null,"⚠ Migration absente — sanctions inactives"));
+    d.append(el("span",null,"La base n'applique pas les sanctions. Applique migrations/0006_timeouts.sql puis 0007_timeout_update_guards.sql avant de sanctionner un membre."));
+  }
+  if(!s?.ready&&onRecheck){
+    const b=btn("Vérifier à nouveau","linkbtn",()=>onRecheck());
+    d.append(b);
+  }
+  return d;
+}
+// Fiche d'une sanction : qui, motif, dates, levée. Utilisée pour l'actif et l'historique.
+function sanctionCard(t,active){
+  const c=el("div","modo-item sanction");
+  const state=t.lifted_at?"levée":active?"active":new Date(t.ends_at).getTime()<=Date.now()?"expirée":"active";
+  const head=el("div","sanction-head");
+  head.append(el("span","badge "+(state==="active"?"wait":state==="expirée"?"":"owner"),state));
+  head.append(el("span","modo-meta","du "+stamp(t.starts_at)+" au "+stamp(t.ends_at)));
+  c.append(head);
+  c.append(el("p","modo-ex","Motif : "+t.reason));
+  c.append(el("div","post-date","Appliquée par "+(userAt(t.creator)||"un compte supprimé")+" · "+stamp(t.starts_at)));
+  if(active) c.append(el("div","post-date",remaining(t.ends_at)+" restantes"));
+  if(t.lifted_at){
+    c.append(el("div","post-date","Levée par "+(userAt(t.lifter)||"un compte supprimé")+" le "+stamp(t.lifted_at)+(t.lift_reason?" · "+t.lift_reason:"")));
+  }
+  return c;
+}
+
+/* ---------- Contexte des signalements ---------- */
+async function loadReportContext(R){
+  const ids=kind=>[...new Set(R.filter(r=>r.kind===kind).map(r=>Number(r.target_id)).filter(Boolean))];
+  const pIds=ids("post"), cIds=ids("comment"), mIds=ids("message");
+  const empty={data:[]};
+  const [pr,cr,mr]=await Promise.all([
+    pIds.length?A.sb.from("posts").select("id,species,length_cm,weight_kg,caption,bait,photo_path,photo_paths,status").in("id",pIds):Promise.resolve(empty),
+    cIds.length?A.sb.from("comments").select("id,post_id,body,created_at").in("id",cIds):Promise.resolve(empty),
+    mIds.length?A.sb.from("messages").select("id,group_id,body,photo_path,audio_path,audio_secs,created_at").in("id",mIds):Promise.resolve(empty),
+  ]);
+  const parentIds=[...new Set((cr.data||[]).map(c=>c.post_id).filter(Boolean))];
+  const par=parentIds.length?await A.sb.from("posts").select("id,species,length_cm,caption,photo_path,photo_paths").in("id",parentIds):empty;
+  const map=arr=>new Map((arr||[]).map(x=>[String(x.id),x]));
+  return {posts:map(pr.data),comments:map(cr.data),messages:map(mr.data),parents:map(par.data),errs:[pr.error,cr.error,mr.error,par.error].filter(Boolean)};
+}
+function reportContextText(r,ctx){
+  if(r.kind==="post"){
+    const p=ctx.posts.get(String(r.target_id));
+    if(!p) return {text:"Contenu introuvable (peut-être déjà supprimé)."};
+    const title=[p.species,p.length_cm?String(p.length_cm).replace(".",",")+" cm":null,p.weight_kg?String(p.weight_kg).replace(".",",")+" kg":null].filter(Boolean).join(" · ")||"Prise sans espèce";
+    return {text:title, note:[p.bait,p.caption].filter(Boolean).join(" — ")||null};
+  }
+  if(r.kind==="comment"){
+    const c=ctx.comments.get(String(r.target_id));
+    if(!c) return {text:"Commentaire introuvable (peut-être déjà supprimé)."};
+    const p=ctx.parents.get(String(c.post_id));
+    return {text:"« "+c.body+" »", note:p?"sous la prise "+(p.species||"sans espèce")+(p.caption?" — "+p.caption:""):null};
+  }
+  if(r.kind==="message"){
+    const m=ctx.messages.get(String(r.target_id));
+    if(!m) return {text:"Message introuvable (peut-être déjà supprimé)."};
+    const parts=[];
+    if(m.body) parts.push("« "+m.body+" »");
+    if(m.photo_path) parts.push("[photo]");
+    if(m.audio_path) parts.push("[vocal"+(m.audio_secs?" "+m.audio_secs+" s":"")+"]");
+    return {text:parts.join(" ")||"Message vide"};
+  }
+  return {text:r.excerpt||""};
+}
+function openReportContent(r,ctx){
+  if(r.kind==="post"){ A.openPost?.(Number(r.target_id)); return; }
+  if(r.kind==="comment"){ const c=ctx.comments.get(String(r.target_id)); A.openPost?.(Number(c?.post_id||r.target_id)); return; }
+  if(r.kind==="message"){ A.setGroup?.(Number(r.group_id)); location.hash="#fil"; setTimeout(()=>A.hooks?.openChat?.(),300); }
+}
 function queueRender(opts){
   clearTimeout(renderTimer);
   renderTimer=setTimeout(()=>render(opts||{}),80);
@@ -124,6 +213,14 @@ async function renderTodo(gmap, groupFilter){
 
   const refresh=()=>{ const y=window.scrollY; render({keepScroll:true,y}); };
 
+  // Contenu réellement signalé : permet de décider sans chercher ailleurs.
+  let ctx={posts:new Map(),comments:new Map(),messages:new Map(),parents:new Map(),errs:[]};
+  if(R.length){
+    try{ ctx=await loadReportContext(R); }
+    catch(e){ ctx.errs=[e]; }
+  }
+  ctx.errs.forEach(e=>box.append(errLine(e)));
+
   // signalements
   const ids=[...new Set(R.flatMap(r=>[r.user_id,r.author_id]).filter(Boolean))];
   const names=new Map();
@@ -144,14 +241,46 @@ async function renderTodo(gmap, groupFilter){
     const who=el("div"); who.append("Signalé par "); who.append(nameWithBadge(names.get(r.user_id)));
     if(r.author_id){ who.append(" · auteur "); who.append(nameWithBadge(names.get(r.author_id))); }
     c.append(who, el("b",null,r.reason));
-    if(r.excerpt) c.append(el("p","modo-ex",r.excerpt));
+    // Aperçu du contenu au moment de la décision (et non seulement à l'instant du signalement).
+    const info=reportContextText(r,ctx);
+    const cx=el("div","modo-ctx");
+    cx.append(el("b",null,(KIND[r.kind]||r.kind)+" signalé"));
+    cx.append(el("div",null,info.text));
+    if(info.note) cx.append(el("div","post-date",info.note));
+    c.append(cx);
+    const nav=el("div","actions");
+    const found=(r.kind==="post"&&ctx.posts.has(String(r.target_id)))
+      ||(r.kind==="comment"&&ctx.comments.has(String(r.target_id)))
+      ||(r.kind==="message"&&ctx.messages.has(String(r.target_id)));
+    if(found) nav.append(btn("Voir le contenu","linkbtn",()=>openReportContent(r,ctx)));
+    const author=names.get(r.author_id);
+    if(author?.username) nav.append(btn("Voir l'auteur","linkbtn",()=>A.openProfile?.(author.username)));
+    if(nav.children.length) c.append(nav);
+
     const act=el("div","actions");
-    const done=async st=>{ const {error}=await A.sb.from("reports").update({status:st,handled_by:A.me.id}).eq("id",r.id); if(error) return toast(frError(error)); refresh(); };
-    act.append(btn("Classer sans suite","btn small",()=>done("dismissed")));
+    // Mise à jour conditionnelle : si un autre modérateur a déjà traité le
+    // signalement, aucune ligne ne correspond et la liste est rafraîchie.
+    const done=async st=>{
+      const {data,error}=await A.sb.from("reports").update({status:st,handled_by:A.me.id}).eq("id",r.id).eq("status","open").select("id");
+      if(error){ toast(frError(error)); return false; }
+      if(!data||!data.length){ stale(refresh,"Signalement déjà traité par un autre modérateur — liste actualisée"); return false; }
+      return true;
+    };
+    act.append(btn("Classer sans suite","btn small",async()=>{
+      if(await done("dismissed")){ toast("Signalement classé"); refresh(); }
+    }));
     act.append(confirmBtn("Supprimer le contenu","Confirmer la suppression",async()=>{
-      const {error}=await A.sb.from(TABLE[r.kind]||"posts").delete().eq("id",r.target_id);
-      if(error) return toast(frError(error));
-      await done("done"); toast("Contenu supprimé"); A.loadFeed();
+      const {data:cur,error:ce}=await A.sb.from("reports").select("status").eq("id",r.id).maybeSingle();
+      if(ce) return toast(frError(ce));
+      if(!cur) return stale(refresh,"Signalement introuvable — liste actualisée");
+      if(cur.status!=="open") return stale(refresh,"Signalement déjà traité par un autre modérateur — liste actualisée");
+      const table=TABLE[r.kind];
+      if(table){
+        const {data:del,error}=await A.sb.from(table).delete().eq("id",r.target_id).select("id");
+        if(error) return toast(frError(error));
+        if(!del||!del.length) toast("Contenu déjà supprimé");
+      }
+      if(await done("done")){ toast("Contenu supprimé"); refresh(); A.loadFeed?.(); }
     },"btn small danger-btn"));
     c.append(act); box.append(c);
   });
@@ -164,11 +293,15 @@ async function renderTodo(gmap, groupFilter){
     c.append(t);
     const act=el("div","actions");
     act.append(confirmBtn("Refuser","Confirmer",async()=>{
-      const {error}=await A.sb.from("memberships").delete().eq("group_id",m.group_id).eq("user_id",m.user_id);
+      const {data,error}=await A.sb.from("memberships").delete().eq("group_id",m.group_id).eq("user_id",m.user_id).eq("status","pending").select("user_id");
       if(error) return toast(frError(error));
+      if(!data||!data.length) return stale(refresh,"Demande déjà traitée par un autre modérateur — liste actualisée");
       toast("Demande refusée"); refresh();
     },"btn small"));
     act.append(btn("Accepter","btn primary small",async()=>{
+      const {data:cur,error:ce}=await A.sb.from("memberships").select("status").eq("group_id",m.group_id).eq("user_id",m.user_id).maybeSingle();
+      if(ce) return toast(frError(ce));
+      if(!cur||cur.status!=="pending") return stale(refresh,"Demande déjà traitée par un autre modérateur — liste actualisée");
       const {error}=await A.sb.rpc("approve_member",{p_group:m.group_id,p_user:m.user_id});
       if(error) return toast(frError(error));
       toast("@"+(m.profiles?.username||"?")+" a rejoint le groupe"); await A.loadGroups(); refresh();
@@ -188,14 +321,22 @@ async function renderTodo(gmap, groupFilter){
     if(p.caption||p.bait) c.append(el("p","modo-ex",[p.bait,p.caption].filter(Boolean).join(" — ")));
     const act=el("div","actions");
     act.append(confirmBtn("Refuser","Confirmer",async()=>{
-      const all=(p.photo_paths&&p.photo_paths.length)?p.photo_paths:(p.photo_path?[p.photo_path]:[]);
-      const {error}=await A.sb.from("posts").delete().eq("id",p.id); if(error) return toast(frError(error));
+      const {data:cur,error:ce}=await A.sb.from("posts").select("status,photo_path,photo_paths").eq("id",p.id).maybeSingle();
+      if(ce) return toast(frError(ce));
+      if(!cur) return stale(refresh,"Publication déjà supprimée — liste actualisée");
+      if(cur.status!=="pending") return stale(refresh,"Publication déjà traitée par un autre modérateur — liste actualisée");
+      const all=(cur.photo_paths&&cur.photo_paths.length)?cur.photo_paths:(cur.photo_path?[cur.photo_path]:[]);
+      const {data:del,error}=await A.sb.from("posts").delete().eq("id",p.id).select("id"); if(error) return toast(frError(error));
+      if(!del||!del.length) return stale(refresh,"Publication déjà traitée — liste actualisée");
       if(all.length) await A.sb.storage.from("photos").remove(all);
-      toast("Publication refusée"); refresh(); A.loadFeed();
+      toast("Publication refusée"); refresh(); A.loadFeed?.();
     },"btn small"));
     act.append(btn("Valider","btn primary small",async()=>{
+      const {data:cur,error:ce}=await A.sb.from("posts").select("status").eq("id",p.id).maybeSingle();
+      if(ce) return toast(frError(ce));
+      if(!cur||cur.status!=="pending") return stale(refresh,"Publication déjà traitée par un autre modérateur — liste actualisée");
       const {error}=await A.sb.rpc("approve_post",{p_id:p.id}); if(error) return toast(frError(error));
-      toast("Publication validée"); refresh(); A.loadFeed();
+      toast("Publication validée"); refresh(); A.loadFeed?.();
     }));
     c.append(act); box.append(c);
   });
@@ -205,7 +346,7 @@ async function renderTodo(gmap, groupFilter){
 }
 
 /* ---------- 2. Membres de l'application ---------- */
-async function renderMembers(gmap){
+async function renderMembers(gmap,schema){
   const sec=section("Membres de l'application");
   const l=el("label","field","Rechercher un membre par pseudo");
   const inp=el("input"); inp.type="search"; inp.placeholder="@pseudo"; inp.autocomplete="off"; inp.value=ui.memberQuery;
@@ -245,7 +386,9 @@ async function renderMembers(gmap){
 
   const [mem,to]=await Promise.all([
     A.sb.from("memberships").select("group_id,role,status,joined_at").eq("user_id",p.id).order("joined_at"),
-    A.sb.from("moderation_timeouts").select("id,user_id,reason,starts_at,ends_at,created_by,lifted_at,lift_reason,creator:profiles!moderation_timeouts_created_by_fkey(username),lifter:profiles!moderation_timeouts_lifted_by_fkey(username)").eq("user_id",p.id).order("starts_at",{ascending:false}).limit(30),
+    schema&&schema.table===false
+      ? Promise.resolve({data:[],error:null})
+      : A.sb.from("moderation_timeouts").select("id,user_id,reason,starts_at,ends_at,created_by,lifted_at,lift_reason,creator:profiles!moderation_timeouts_created_by_fkey(username),lifter:profiles!moderation_timeouts_lifted_by_fkey(username)").eq("user_id",p.id).order("starts_at",{ascending:false}).limit(30),
   ]);
 
   card.append(el("h4","g-sub","Groupes et statut"));
@@ -264,45 +407,46 @@ async function renderMembers(gmap){
   card.append(gl);
 
   card.append(el("h4","g-sub","Sanctions"));
-  if(to.error){
+  if(schema&&schema.table===false){
+    card.append(el("p","note warn","Aucun timeout ne peut être appliqué : la table des sanctions n'existe pas dans la base. Applique migrations/0006_timeouts.sql puis migrations/0007_timeout_update_guards.sql."));
+  }else if(to.error){
     card.append(errLine(to.error));
-    card.append(el("p","note","La table des sanctions n'existe pas encore : applique la migration migrations/0006_timeouts.sql sur Supabase."));
+    card.append(el("p","note warn","Impossible de lire les sanctions. Vérifie l'état de la migration indiqué en haut de la page."));
   }else{
     const list=to.data||[];
-    if(!list.length) card.append(el("p","note","Aucune sanction enregistrée."));
     const active=list.find(t=>!t.lifted_at&&new Date(t.ends_at).getTime()>Date.now());
+    if(!list.length) card.append(el("p","note","Aucune sanction enregistrée."));
     if(active){
-      const c=el("div","modo-item");
-      c.append(el("b",null,"Timeout actif"));
-      c.append(el("div","modo-meta","Jusqu'au "+sameDay(active.ends_at)+" · "+remaining(active.ends_at)+" restantes"));
-      c.append(el("p","modo-ex","Motif : "+active.reason));
-      if(active.creator?.username) c.append(el("div","post-date","Appliqué par @"+active.creator.username));
+      const c=sanctionCard(active,true);
       const canLift=A.me.is_admin||(!p.is_admin&&!p.is_controller);
       if(canLift){
         const act=el("div","actions");
         act.append(confirmBtn("Lever le timeout","Confirmer la levée",async()=>{
           const {error}=await A.sb.rpc("lift_timeout",{p_id:active.id});
-          if(error) return toast(frError(error));
+          if(error){
+            if(error.code==="42883"||error.code==="PGRST202") await A.checkTimeoutSchema?.(true);
+            return toast(frError(error));
+          }
           toast("Timeout levé"); render({keepScroll:true,y:window.scrollY});
         },"btn small"));
         c.append(act);
       }
       card.append(c);
     }
-    list.filter(t=>t.id!==active?.id).forEach(t=>{
-      const c=el("div","modo-item");
-      const state=t.lifted_at?"levée":new Date(t.ends_at).getTime()<=Date.now()?"expirée":"active";
-      c.append(el("div","modo-meta","Timeout du "+sameDay(t.starts_at)+" au "+sameDay(t.ends_at)+" · "+state));
-      c.append(el("p","modo-ex","Motif : "+t.reason));
-      if(t.creator?.username) c.append(el("div","post-date","Appliqué par @"+t.creator.username));
-      if(t.lifted_at) c.append(el("div","post-date","Levé le "+sameDay(t.lifted_at)+(t.lifter?.username?" par @"+t.lifter.username:"")+(t.lift_reason?" · "+t.lift_reason:"")));
-      card.append(c);
-    });
+    const past=list.filter(t=>t.id!==active?.id);
+    if(past.length){
+      card.append(el("h4","g-sub","Historique des sanctions ("+past.length+")"));
+      past.forEach(t=>card.append(sanctionCard(t,false)));
+    }
   }
 
   const canTimeout=p.id!==A.me.id&&(A.me.is_admin||(!p.is_admin&&!p.is_controller));
+  const ready=schema?!!schema.ready:true;
   if(!canTimeout){
     card.append(el("p","note",p.id===A.me.id?"Tu ne peux pas te suspendre toi-même.":"Seul le développeur peut suspendre un membre du staff."));
+  }else if(!ready){
+    card.append(el("h4","g-sub","Appliquer un timeout"));
+    card.append(el("p","note warn","Formulaire désactivé : la base n'applique pas encore complètement les sanctions. Applique les migrations indiquées en haut de la page, puis clique sur « Vérifier à nouveau »."));
   }else{
     card.append(el("h4","g-sub","Appliquer un timeout"));
     const f=el("form","mod-form");
@@ -316,7 +460,11 @@ async function renderMembers(gmap){
     f.addEventListener("submit",async e=>{
       e.preventDefault(); showErr(err); ok.disabled=true;
       const {error}=await A.sb.rpc("apply_timeout",{p_user:p.id,p_minutes:Number(sel.value),p_reason:reason.value.trim()});
-      if(error){ showErr(err,frError(error)); ok.disabled=false; return; }
+      if(error){
+        showErr(err,frError(error)); ok.disabled=false;
+        if(error.code==="42883"||error.code==="PGRST202") await A.checkTimeoutSchema?.(true);
+        return;
+      }
       toast("Timeout appliqué à @"+p.username); render({keepScroll:true,y:window.scrollY});
     });
     card.append(f);
@@ -427,15 +575,23 @@ async function renderGroups(groups){
       const act=el("div","actions");
       if(p.status==="pending"){
         act.append(btn("Valider","btn primary small",async()=>{
+          const {data:cur,error:ce}=await A.sb.from("posts").select("status").eq("id",p.id).maybeSingle();
+          if(ce) return toast(frError(ce));
+          if(!cur||cur.status!=="pending") return stale(loadPosts,"Publication déjà traitée par un autre modérateur — liste actualisée");
           const {error}=await A.sb.rpc("approve_post",{p_id:p.id}); if(error) return toast(frError(error));
-          toast("Publication validée"); await loadPosts(); updateBadge(); A.loadFeed();
+          toast("Publication validée"); await loadPosts(); updateBadge(); A.loadFeed?.();
         }));
       }
       act.append(confirmBtn("Supprimer","Confirmer la suppression",async()=>{
-        const all=(p.photo_paths&&p.photo_paths.length)?p.photo_paths:(p.photo_path?[p.photo_path]:[]);
-        const {error}=await A.sb.from("posts").delete().eq("id",p.id); if(error) return toast(frError(error));
+        const {data:row,error:de}=await A.sb.from("posts").select("status,photo_path,photo_paths").eq("id",p.id).maybeSingle();
+        if(de) return toast(frError(de));
+        if(!row) return stale(loadPosts,"Publication déjà supprimée — liste actualisée");
+        const all=(row.photo_paths&&row.photo_paths.length)?row.photo_paths:(row.photo_path?[row.photo_path]:[]);
+        const {data:del,error}=await A.sb.from("posts").delete().eq("id",p.id).select("id");
+        if(error) return toast(frError(error));
+        if(!del||!del.length) return stale(loadPosts,"Publication déjà supprimée — liste actualisée");
         if(all.length) await A.sb.storage.from("photos").remove(all);
-        toast("Publication supprimée"); await loadPosts(); updateBadge(); A.loadFeed();
+        toast("Publication supprimée"); await loadPosts(); updateBadge(); A.loadFeed?.();
       },"btn small danger-btn"));
       c.append(act); list.append(c);
     });
@@ -513,9 +669,19 @@ async function render(opts){
   head.append(el("p","note",A.me.is_admin?"Vue développeur : tous les groupes et les compteurs de l'appli.":"Vue contrôleur : tous les groupes de l'appli."));
   root.append(head);
 
+  // État réel des garde-fous serveur : visible avant toute sanction.
+  let schema=null;
+  try{ schema=await A.checkTimeoutSchema?.(); }
+  catch(e){ schema={table:false,version:null,ready:false,checked:true}; }
+  if(mySeq!==seq) return;
+  root.append(schemaBanner(schema,async()=>{
+    try{ await A.checkTimeoutSchema?.(true); }catch(e){}
+    render({keepScroll:true,y:window.scrollY});
+  }));
+
   try{
     const todo=await renderTodo(gmap,nav?.section==="todo"?(Number(nav.group)||null):null); if(mySeq!==seq) return; todo.id="mod-todo"; root.append(todo);
-    const members=await renderMembers(gmap); if(mySeq!==seq) return; members.id="mod-members"; root.append(members);
+    const members=await renderMembers(gmap,schema); if(mySeq!==seq) return; members.id="mod-members"; root.append(members);
     const gs=await renderGroups(groups); if(mySeq!==seq) return; gs.id="mod-groups"; root.append(gs);
     if(A.me.is_admin){ const cs=await renderControllers(); if(mySeq!==seq) return; cs.id="mod-controllers"; root.append(cs); }
   }catch(e){

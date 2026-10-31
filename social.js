@@ -96,9 +96,12 @@ const isTimedOut=()=>!!myTimeout&&new Date(myTimeout.ends_at).getTime()>Date.now
 const timeoutText=()=>{
   if(!myTimeout) return "";
   const d=new Date(myTimeout.ends_at);
-  return "Compte suspendu jusqu'au "+d.toLocaleString("fr-FR",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"})+(myTimeout.reason?" — motif : "+myTimeout.reason:"")+". Les publications, commentaires et messages (texte, photo, vocal) sont bloqués.";
+  return "Compte suspendu jusqu'au "+d.toLocaleString("fr-FR",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"})+(myTimeout.reason?" — motif : "+myTimeout.reason:"")+". Les publications, commentaires, messages (texte, photo, vocal) et modifications de contenu sont bloqués.";
 };
 let timeoutTable=true;   // passe à false si la migration 0006 n'est pas encore appliquée
+// État lisible du schéma de sanctions, affiché dans la console de modération.
+// Il évite de croire qu'un membre est suspendu alors que la base ne l'applique pas.
+let timeoutSchema={table:false,version:null,ready:false,checked:false};
 async function loadTimeout(){
   if(!me){ myTimeout=null; return null; }
   if(!timeoutTable) return myTimeout;
@@ -113,6 +116,26 @@ async function loadTimeout(){
     myTimeout=error?null:(data||null);
   }catch(e){ myTimeout=null; }
   return myTimeout;
+}
+// Vérifie que la base applique réellement les sanctions :
+//   * table présente (0006) ;
+//   * fonction de version présente (0007, garde-fous UPDATE et contenus).
+// Renvoie {table,version,ready,checked}. L'appel est mis en cache pour la session.
+async function checkTimeoutSchema(force){
+  if(!me) return (timeoutSchema={table:false,version:null,ready:false,checked:true});
+  if(timeoutSchema.checked&&!force) return timeoutSchema;
+  let table=true;
+  try{
+    const {error}=await sb.from("moderation_timeouts").select("id").limit(1);
+    if(error&&(error.code==="42P01"||/does not exist/i.test(error.message||""))) table=false;
+  }catch(e){ table=false; }
+  timeoutTable=table;
+  if(!table) return (timeoutSchema={table:false,version:null,ready:false,checked:true});
+  let version=null;
+  const {data,error}=await sb.rpc("timeout_schema_version");
+  if(!error) version=String(data||"").trim()||null;
+  // 42883 / PGRST202 : la fonction n'existe pas encore (0007 non appliquée).
+  return (timeoutSchema={table:true,version,ready:!!version,checked:true});
 }
 const staffBadge=()=>me?.is_admin?el("span","badge","Développeur"):me?.is_controller?el("span","badge controller","Contrôle"):null;
 const curGroup=()=>groups.find(g=>g.id===cur);
@@ -1039,7 +1062,8 @@ window.CDJ={
   el, toast, showErr, ago, frError, confirmBtn, userLabel, roleBadge, avatar, compress,
   roleOf, canManage, canModerate, isManager, isStaff, groupName, setGroup, loadGroups, loadFeed, refreshUI, hooks, RATING, loadLeaflet, markDirty,
   get myTimeout(){ return myTimeout; }, get myTimeoutText(){ return timeoutText(); },
-  isTimedOut, loadTimeout, openProfilSub,
+  get timeoutSchema(){ return timeoutSchema; },
+  isTimedOut, loadTimeout, checkTimeoutSchema, openProfilSub,
 };
 
 // ---------- Démarrage ----------

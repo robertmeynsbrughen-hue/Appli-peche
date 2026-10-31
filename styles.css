@@ -814,6 +814,18 @@ nav.tabs a{position:relative}
 .modo-ex{margin:0;padding:8px 10px;background:var(--surface-2);border-radius:10px;font-size:.92rem;overflow-wrap:anywhere}
 .modo-count{font-family:var(--f-mono);font-size:.8rem;background:var(--warn-soft);color:var(--warn);border-radius:99px;padding:2px 9px}
 .modo-count.zero{background:var(--surface-2);color:var(--muted)}
+/* État du schéma de sanctions, affiché en haut de la console. */
+.mod-health{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-size:.88rem}
+.mod-health b{font-family:var(--f-display);font-size:.95rem;letter-spacing:.03em}
+.mod-health span{color:var(--muted);flex:1 1 240px}
+.mod-health.ok{border-color:var(--accent);background:var(--accent-soft)}
+.mod-health.ok b{color:var(--accent)}
+.mod-health.warn{border-color:var(--amber);background:var(--amber-soft)}
+.mod-health.warn b{color:var(--amber)}
+.sanction-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.sanction-head .badge{margin-left:0}
+.modo-ctx{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border-left:3px solid var(--amber);border-radius:8px;background:var(--surface-2);font-size:.92rem;overflow-wrap:anywhere}
+.modo-ctx>b{font-size:.76rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 /* ---- Console de modération (Profil > Modération) ---- */
 #moderation-content{display:flex;flex-direction:column;gap:22px}
 .mod-card{display:flex;flex-direction:column;gap:10px}

@@ -8,6 +8,21 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.66.8 · 31 octobre 2026 · fiabilité + sécurité
+-----------------------------------------------
+La console de modération affiche désormais l'état réel des garde-fous serveur :
+sanctions actives, migration incomplète ou migration absente. Tant que la base
+n'applique pas les sanctions, le formulaire de timeout est désactivé pour ne pas
+faire croire à une suspension effective. La migration `0007_timeout_update_guards.sql`
+étend le blocage aux modifications de contenu existant (prises, commentaires,
+messages, notes de groupe) et aux autres contenus partagés (sondages, sorties,
+spots, traces, signalements). L'historique des sanctions indique qui a sanctionné,
+le motif, les dates, et qui a levé la sanction avec son motif. Les signalements
+affichent le contenu réel et permettent d'ouvrir directement la publication ou
+la fiche de l'auteur. Les actions de modération vérifient l'état courant et
+signalent clairement un élément déjà traité par un autre modérateur avant de
+rafraîchir la liste.
+
 0.66.7 · 31 octobre 2026 · ajout + sécurité
 --------------------------------------------
 La modération globale est réunie dans Profil > Modération : éléments à traiter
