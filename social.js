@@ -791,7 +791,15 @@ function openMap(){
   if(typeof L==="undefined"){ loadLeaflet().then(()=>{ if(!$("#v-carte").hidden) openMap(); }).catch(()=>toast("Carte indisponible : vérifie ta connexion")); return; }
   if(!map){
     const pos=window.CDJ_POS;
-    map=L.map("map").setView(pos?[pos.lat,pos.lon]:[46.6,2.4],pos?12:6);
+    // Sans position connue, on demande la géolocalisation au lieu d'ouvrir sur
+    // la France entière : la carte doit partir de l'utilisateur.
+    const startPos=pos||window.CDJ_ADVICE?.current?.()||null;
+    map=L.map("map").setView(startPos?[startPos.lat,startPos.lon]:[46.6,2.4],startPos?13:6);
+    if(!startPos&&navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(
+        p=>{ if(map&&spots.length===0) map.setView([p.coords.latitude,p.coords.longitude],13); },
+        ()=>{}, {enableHighAccuracy:false,timeout:8000,maximumAge:600000});
+    }
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,
       attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
     layer=L.layerGroup().addTo(map);
