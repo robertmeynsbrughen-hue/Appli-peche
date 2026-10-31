@@ -1,11 +1,19 @@
 RIVIO — JOURNAL DES MISES À JOUR
 ==============================
 
-Ce fichier ne contient pas de code. Il raconte, en une ou deux lignes par version,
-ce qui a changé et pourquoi. Une entrée par version livrable.
+Ce fichier suit les versions numérotées du dépôt depuis 0.36. Il résume les
+changements livrés, sans remplacer l'historique détaillé des commits Git.
 
-Format : version · date · nature (ajout / correctif / sécurité / entretien)
+Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
+mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
+elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.66.6 · 31 octobre 2026 · ajout + correctif
+---------------------------------------------
+Ajout de la modération dans le profil : gestion des membres, des demandes
+d'adhésion et des groupes selon le rôle. Le chat staff et plusieurs éléments
+d'interface sont corrigés. Les invitations par lien sont mises en avant et le
+code de groupe historique est masqué dans l'interface.
 
 0.66.5 · 31 octobre 2026 · ajout + sécurité
 ---------------------------------------------
@@ -23,6 +31,16 @@ départ supprime le groupe.
 Libellés visibles harmonisés autour de « Développeur » sans modifier les noms
 techniques des rôles stockés en base.
 
+0.66.2 · 31 octobre 2026 · correctif
+------------------------------------
+La carte se centre sur la position de l'utilisateur à son ouverture, lorsque
+la localisation est disponible.
+
+0.66.1 · 31 octobre 2026 · entretien
+------------------------------------
+Décision et consigne de gestion documentées : si le responsable est le dernier
+membre du groupe et le quitte, le groupe est supprimé. Cette version consigne
+principalement une règle de comportement ; elle n'ajoute pas d'écran utilisateur.
 
 0.66 · 31 octobre 2026 · ajout
 -----------------------------
@@ -48,20 +66,18 @@ Fil et sorties : deux chargements secondaires (bilans de sortie, réponses des
 participants) ignoraient leurs erreurs. L'information manquait sans que rien ne
 l'indique ; un avertissement discret le signale désormais.
 
-
 0.64 · 31 octobre 2026 · correctif + sécurité
 ---------------------------------------------
 Fil, sorties, sondages et plusieurs écrans : les requêtes qui joignent le profil
 de l'auteur échouaient (jointure ambiguë côté base). Le fil n'affichait donc
 aucune publication. Douze requêtes corrigées, vérifiées une par une contre l'API.
 
-Fichiers de notifications restaurés : notify-lib.js et score-lib.js ne sont pas
-du code mort, ils composent la fonction Supabase « notify » déployée. Leur
-suppression en 0.63 était une erreur.
+Fichiers de notifications restaurés : notify-lib.js et score-lib.js composent
+la fonction Supabase « notify » déployée. Leur suppression en 0.63 était une
+erreur.
 
 Documentation : le guide d'installation renvoie vers migrations/ au lieu de
 supabase.sql, avec l'avertissement de ne plus appliquer l'ancien script.
-
 
 0.63 · 31 octobre 2026 · sécurité + correctifs
 ----------------------------------------------
@@ -84,7 +100,137 @@ profondeurs (jusqu'à 288 millions d'opérations).
 Entretien : schéma de la base reconstruit depuis la production dans migrations/,
 cache des photos du fil, déconnexion unifiée.
 
-
 0.62 · 30 octobre 2026 · ajout
 ------------------------------
 Boîte à outils en lanceur : chaque tuile ouvre son outil, avec retour à la liste.
+
+0.61 · 31 octobre 2026 · performance + fiabilité
+-------------------------------------------------
+Navigation à cinq entrées, profil dans l'en-tête et boîte à outils enrichie.
+Démarrage et changements d'onglet accélérés. Relecture de sécurité et fiabilité :
+codes cryptographiques, contrôle d'accès, chargements ordonnés, file hors ligne
+protégée entre onglets et Leaflet chargé uniquement quand la carte est ouverte.
+
+0.60 · 31 octobre 2026 · sécurité + correctifs
+----------------------------------------------
+Sécurité renforcée pour l'administration et les codes d'invitation. Les envois
+hors ligne refusés sont conservés ; arrondi des heures corrigé.
+
+0.59 · 31 octobre 2026 · ajout
+------------------------------
+Assistant de montage, conditions gagnantes, bulletin d'eau, rubrique
+Environnement, carte des structures et récapitulatif de sortie.
+
+0.58 · 30 octobre 2026 · ajout
+------------------------------
+Carte des prévisions, vent et berge, image des conditions et album par espèce.
+
+0.57 · 30 octobre 2026 · ajout
+------------------------------
+Calculateur d'amorce et conseil adapté au type d'eau, au poste, à la couleur
+de l'eau et à la pression, prérempli avec les conditions du jour.
+
+0.56 · 30 octobre 2026 · ajout
+------------------------------
+Sondeur remanié, calculateurs de pêche (plomb, fil, amorce et conversions) et
+agenda du groupe avec ouvertures et fermetures.
+
+0.55 · 30 octobre 2026 · performance
+------------------------------------
+Logo d'en-tête allégé (50 Ko à 9 Ko), icône 512 retirée du préchargement,
+histoires du fil chargées à l'ouverture du fil, historique des bilans et photos
+de profil mis en cache pendant une heure.
+
+0.54 · 30 octobre 2026 · amélioration
+-------------------------------------
+Espèce favorite affichée en premier, puis espèce la mieux adaptée au moment.
+
+0.53 · 30 octobre 2026 · amélioration
+-------------------------------------
+Meilleur créneau mis en évidence et faible activité (moins de 50 %) affichée
+en orange.
+
+0.52 · 30 octobre 2026 · amélioration
+-------------------------------------
+Légende ajoutée aux barres d'activité dans « Espèces du moment ».
+
+0.51 · 30 octobre 2026 · identité
+---------------------------------
+L'application adopte le nom Rivio.
+
+0.50 · 30 octobre 2026 · ajout
+------------------------------
+Centre de notifications, invitations par lien et QR code, fiches techniques
+par espèce, mode découverte sans compte, mode nuit rouge automatique et carte
+de chaleur issue des bilans.
+
+0.49 · 30 octobre 2026 · confidentialité
+-----------------------------------------
+Politique de confidentialité et parcours de suppression de compte. Manifeste
+complété pour le Play Store et suppression de compte purgée des sauvegardes.
+
+0.48 · 30 octobre 2026 · amélioration
+-------------------------------------
+Récupération du mot de passe oubliée.
+
+0.47 · 30 octobre 2026 · sécurité
+---------------------------------
+Réinitialisation du mot de passe par l'équipe, avec mot de passe provisoire et
+changement obligatoire à la connexion suivante.
+
+0.46 · 30 octobre 2026 · amélioration
+-------------------------------------
+Ajout d'une adresse e-mail aux anciens comptes, avec message en cas d'échec du
+serveur d'e-mails.
+
+0.45 · 30 octobre 2026 · amélioration
+-------------------------------------
+Création de compte sans code de groupe obligatoire, avec parcours pour rejoindre
+ou créer un groupe.
+
+0.44 · 30 octobre 2026 · comptes
+--------------------------------
+Gestion des comptes par e-mail : changement d'adresse et de mot de passe,
+mot de passe oublié et suppression du compte.
+
+0.43 · 30 octobre 2026 · ajout
+------------------------------
+Fiches de nœuds en catégories, nœud Albright et section carpe avec huit bas de
+ligne à fabriquer.
+
+0.42 · 30 octobre 2026 · ajout
+------------------------------
+Minuteur par canne, carnet d'amorçage, photo du mois et alerte orage.
+
+0.41 · 30 octobre 2026 · ajout
+------------------------------
+Suivi des poissons relâchés ou gardés, alertes de fraie et zones de frai.
+
+0.40 · 30 octobre 2026 · correctif + ajout
+------------------------------------------
+Correctifs urgents du bilan, du chat et de l'onglet Groupe après la 0.39.
+Réveil de pêche par notification, ajout à l'agenda et heure de départ à copier.
+
+0.39 · 30 octobre 2026 · ajout + correctif
+------------------------------------------
+Calendrier, réveil de pêche, nœuds, montages, conseils sur les leurres et poids
+estimé dans le bilan. Le réveil et ses notifications ont été finalisés dans
+cette version ; les régressions rencontrées au premier déploiement ont été
+corrigées.
+
+0.38 · 29 octobre 2026 · correctif + sécurité
+---------------------------------------------
+Correction des panneaux en double au retour sur Profil, des ouvertures en double
+et des chargements croisés du fil. Astuce des spots actualisée et fonctions
+internes réservées aux comptes connectés.
+
+0.37 · 29 octobre 2026 · correctif
+----------------------------------
+Correction du débordement de couleur de fond et affichage unique de la prochaine
+sortie.
+
+0.36 · 29 octobre 2026 · refonte + ajout
+----------------------------------------
+Refonte de l'application : fiche de prise, réactions par appui long, pseudos
+cliquables, lecture à une main, partage depuis la galerie, chat dans l'en-tête
+et numéro de version 0.x.
