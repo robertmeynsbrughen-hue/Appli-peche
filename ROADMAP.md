@@ -49,8 +49,18 @@ salon privé qui fuit est pire que pas de salon.
 
 ---
 
-## Décision en attente
+## Décision tranchée — départ d'un responsable seul dans son groupe
 
-Sur le point 4 : que se passe-t-il quand un responsable est seul dans son
-groupe et veut partir ? Proposition : on lui propose la suppression du groupe,
-avec la même confirmation que le point 3.
+Si le responsable est le **dernier membre actif** de son groupe, quitter le
+groupe **supprime le groupe**. Pas de transmission possible, donc pas de groupe
+orphelin sans responsable.
+
+Conséquences à implémenter (0.67.4) :
+
+- le départ est refusé tant qu'il reste d'autres membres et qu'aucun successeur
+  n'a été désigné ;
+- si le responsable est seul, l'interface annonce clairement que partir
+  supprimera le groupe, avec la même confirmation par saisie du nom qu'au
+  point 3 ;
+- la suppression effective réutilise la même fonction que le point 3, pour
+  n'avoir qu'un seul chemin de suppression dans le code.
