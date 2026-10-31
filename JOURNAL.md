@@ -8,6 +8,17 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.67 · 31 octobre 2026 · ajout
+------------------------------
+Les repères nationaux de pêche affichent leurs sources Légifrance et un
+avertissement visible : ils sont indicatifs et ne remplacent pas les arrêtés
+locaux, réserves temporaires ou règles propres aux parcours. Correction des
+tailles minimales nationales du brochet (50 cm) et du sandre (40 cm), et du
+premier jour de fermeture du brochet après le dernier dimanche de janvier.
+L'encadré AAPPMA propose un menu des fédérations départementales, présélectionne
+celle du secteur détecté et ouvre son site officiel. Les liens sont repris de
+l'annuaire national Génération Pêche.
+
 0.66.10 · 31 octobre 2026 · ajout
 --------------------------------
 Un carnet de sortie personnel est disponible dans Profil > Moi : une sortie,

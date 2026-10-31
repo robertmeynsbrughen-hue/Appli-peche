@@ -17,9 +17,11 @@ function nthWeekday(y,m,wd,n){ const d=new Date(y,m,1); while(d.getDay()!==wd) d
 const DAY=864e5;
 function pikeStatus(now){
   const y=now.getFullYear(), t=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-  const close=lastWeekday(y,0,0), open=lastWeekday(y,3,6);
+  const closeDate=year=>{ const d=lastWeekday(year,0,0); d.setDate(d.getDate()+1); return d; };
+  const close=closeDate(y); // fermeture à partir du lundi suivant le dernier dimanche de janvier
+  const open=lastWeekday(y,3,6);
   if(t>=close&&t<open) return {open:false,next:open};
-  const nextClose=t<close?close:lastWeekday(y+1,0,0);
+  const nextClose=t<close?close:closeDate(y+1);
   return {open:true,next:nextClose};
 }
 const openRegl=new Set((()=>{ try{ return JSON.parse(localStorage.getItem("cdj-regl-open")||"[]"); }catch(e){ return []; } })());
@@ -28,21 +30,26 @@ function renderRegl(){
   const now=new Date(), today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   const st=pikeStatus(now), days=Math.round((st.next-today)/DAY);
   box.innerHTML="";
-  const h=el("div","g-sec-head"); const t=el("h2",null,"Réglementation"); t.id="regl-title"; h.append(t, el("span","note","2e catégorie"));
+  const h=el("div","g-sec-head"); const t=el("h2",null,"Réglementation"); t.id="regl-title"; h.append(t, el("span","note","repères nationaux · 2e catégorie"));
   box.append(h);
+  const reserve=el("div","regl-reserve");
+  reserve.append(el("b",null,"À titre indicatif — vérifie les règles du lieu avant de pêcher."),el("p","note","Ce résumé présente le socle national hors ligne. Il ne détermine pas la catégorie du cours d’eau et n’intègre pas les arrêtés préfectoraux, réserves temporaires ni règles propres à un parcours. Les règles locales peuvent être plus strictes et seuls les textes en vigueur font foi."));
+  const sources=el("div","regl-sources");
+  [["Code de l’environnement · périodes (R. 436-6 à R. 436-8)","https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006074220/LEGISCTA000006159415/"],["Tailles minimales (R. 436-18 et R. 436-19)","https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006074220/LEGISCTA000006188898/"],["Quotas (R. 436-21)","https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000038416184/"],["Règles locales · fédérations départementales", "https://www.service-public.gouv.fr/particuliers/vosdroits/F2117"]].forEach(([label,url])=>{ const a=el("a","linkbtn",label); a.href=url; a.target="_blank"; a.rel="noopener noreferrer"; sources.append(a); });
+  reserve.append(sources); box.append(reserve);
   const alert=el("div","regl-alert"+(st.open?"":" closed"));
   alert.append(el("span","regl-ico",st.open?"✅":"⛔"));
   const at=el("div");
   if(st.open){
-    at.append(el("b",null,"Carnassiers ouverts"), el("div","note","Fermeture du brochet le "+dlong(st.next)+(days<=45?" (dans "+pl(days,"jour")+")":"")));
+    at.append(el("b",null,"Brochet ouvert · règle nationale"), el("div","note","Fermeture le "+dlong(st.next)+(days<=45?" (dans "+pl(days,"jour")+")":"")+". Le sandre et le black-bass peuvent avoir des dates locales différentes."));
   }else{
-    at.append(el("b",null,"Brochet fermé"), el("div","note","Ouverture le "+dlong(st.next)+" : dans "+pl(days,"jour")+". Pêche aux leurres et vifs souvent interdite aussi pendant cette période."));
+    at.append(el("b",null,"Brochet fermé · règle nationale"), el("div","note","Réouverture le "+dlong(st.next)+" : dans "+pl(days,"jour")+". Pendant cette fermeture, les leurres, vifs et poissons morts susceptibles de capturer le brochet sont interdits en 2e catégorie."));
   }
   alert.append(at); box.append(alert);
   const rows=[
-    ["Brochet",st.open?"Ouvert":"Fermé","60 cm",st.open,["Fermé du dernier dimanche de janvier au dernier samedi d'avril (2e catégorie).","Taille mini 60 cm ; certains départements imposent une fenêtre 60 à 80 cm.","2 brochets maximum par jour, compris dans les 3 carnassiers.","Pendant la fermeture, les leurres et les vifs sont souvent interdits aussi."]],
-    ["Sandre",st.open?"Ouvert*":"Fermé*","50 cm",st.open,["Dates fixées par l'arrêté du département, souvent les mêmes que le brochet, parfois plus tard.","Taille mini 50 cm.","Compte dans les 3 carnassiers par jour."]],
-    ["Black-bass",st.open?"Ouvert*":"Fermé*","30 cm*",st.open,["Taille mini nationale 30 cm, parfois 40 cm selon le département.","Dates parfois différentes du brochet : vérifie l'arrêté.","Compte dans les 3 carnassiers par jour."]],
+    ["Brochet",st.open?"Ouvert · national":"Fermé · national","50 cm",st.open,["En 2e catégorie : ouvert du 1er janvier au dernier dimanche de janvier, puis du dernier samedi d'avril au 31 décembre.","Taille minimale nationale : 50 cm. Le préfet peut la relever, par exemple à 60 cm.","2 brochets maximum par jour, compris dans les 3 carnassiers.","Pendant la fermeture, les leurres, vifs et poissons morts susceptibles de le capturer sont interdits en 2e catégorie."]],
+    ["Sandre","Ouvert · national","40 cm",true,["Le socle national ne prévoit pas de fermeture spécifique en 2e catégorie ; un arrêté local peut en fixer une.","Taille minimale nationale : 40 cm. Le préfet peut la relever, par exemple à 50 cm.","Compte dans les 3 carnassiers par jour."]],
+    ["Black-bass","Ouvert · national","30 cm",true,["Le socle national ne prévoit pas de fermeture spécifique en 2e catégorie ; un arrêté local peut en fixer une.","Taille minimale nationale : 30 cm. Le préfet peut la relever, par exemple à 40 cm.","Compte dans les 3 carnassiers par jour."]],
     ["Perche","Toute l'année","—",true,["Ouverte toute l'année en 2e catégorie.","Pas de taille nationale, certains départements en fixent une."]],
     ["Silure","Toute l'année","—",true,["Ouvert toute l'année, sans taille ni quota national.","Matériel costaud obligatoire, manipule-le avec précaution."]],
     ["Chevesne","Toute l'année","—",true,["Ouvert toute l'année, sans taille nationale."]],
@@ -63,7 +70,7 @@ function renderRegl(){
   const y=now.getFullYear();
   const o1=nthWeekday(y,2,6,2), c1=nthWeekday(y,8,0,3);
   box.append(el("p","note","Quota : 3 carnassiers (brochet, sandre, black-bass) par jour et par pêcheur, dont 2 brochets au maximum. 1re catégorie : ouverte du "+o1.toLocaleDateString("fr-FR",{day:"numeric",month:"long"})+" au "+c1.toLocaleDateString("fr-FR",{day:"numeric",month:"long"})+" en "+y+"."));
-  box.append(el("p","note","* Règles nationales indicatives. L'arrêté de ton département et le règlement de ton AAPPMA peuvent être plus stricts : vérifie-les avant de garder un poisson."));
+  box.append(el("p","note","Socle national du Code de l’environnement, consulté le 31 octobre 2026. Aucun arrêté local ni parcours n’a été déterminé par l’application : vérifie les règles auprès de la fédération départementale et de la préfecture avant ta sortie."));
 }
 
 /* ---------- Session carpe (onglet Fil) ---------- */
