@@ -301,12 +301,22 @@ $("#join-more").addEventListener("submit",async e=>{
   else{ setGroup(gid); toast("Groupe rejoint : "+groupName(gid)); }
 });
 
+// Nettoyage de session, partagé par la déconnexion manuelle et par l'expiration
+// du jeton. Avant, les deux chemins vidaient des choses différentes : le second
+// oubliait myRoles, cur et spots, ce qui laissait des rôles et un groupe fantômes.
+function resetState(){
+  me=null; hasSession=false; groups=[]; pendingGroups=[]; myRoles=new Map(); roles=new Map();
+  spots=[]; cur=null;
+  if(layer) layer.clearLayers();
+  try{ localStorage.removeItem("cdj-grp"); }catch(_){}
+  hooks.groupChanged?.();
+}
+
 $("#logout").addEventListener("click",async()=>{
   try{ const sub=pushSupported()?await currentSub():null; if(sub) await sb.rpc("delete_push_sub",{p_endpoint:sub.endpoint}); }catch(e){}
   await sb.auth.signOut();
   try{ localStorage.removeItem("cdj-fav"); window.dispatchEvent(new Event("cdj-fav")); }catch(_){}
-  me=null; hasSession=false; groups=[]; pendingGroups=[]; myRoles=new Map(); roles=new Map(); spots=[]; cur=null; if(layer) layer.clearLayers();
-  hooks.groupChanged?.();
+  resetState();
   refreshUI(); route();
 });
 
@@ -603,6 +613,22 @@ $("#composer").addEventListener("submit",async e=>{
 $("#feed-refresh").addEventListener("click",()=>loadFeed());
 
 let feedSeq=0;
+// Les URLs signées du stockage changeaient à chaque chargement : même photo,
+// nouvelle URL, donc aucun cache navigateur et jusqu'à 360 images retéléchargées
+// par ouverture du fil. On garde la signature 45 min (elle est valable 1 h).
+const signedCache=new Map();
+async function signedPhotoUrls(paths){
+  const now=Date.now();
+  const missing=[...new Set(paths)].filter(p=>{ const c=signedCache.get(p); return !c||c.exp<now; });
+  if(missing.length){
+    const {data:signed}=await sb.storage.from("photos").createSignedUrls(missing,3600);
+    (signed||[]).forEach(s=>{ if(s.signedUrl) signedCache.set(s.path,{url:s.signedUrl,exp:Date.now()+45*60*1000}); });
+    if(signedCache.size>600){ for(const [k,v] of signedCache) if(v.exp<Date.now()) signedCache.delete(k); }
+  }
+  const urls={};
+  for(const p of paths){ const c=signedCache.get(p); if(c) urls[p]=c.url; }
+  return urls;
+}
 async function loadFeed(){
   if(!me||!groups.length||cur==null) return;
   const seq=++feedSeq;
@@ -620,11 +646,7 @@ async function loadFeed(){
   if(error){ feed.innerHTML=""; feed.append(el("p","err",frError(error))); return; }
   const allPaths=p=>(p.photo_paths&&p.photo_paths.length)?p.photo_paths:(p.photo_path?[p.photo_path]:[]);
   const paths=data.flatMap(allPaths);
-  const urls={};
-  if(paths.length){
-    const {data:signed}=await sb.storage.from("photos").createSignedUrls(paths,3600);
-    (signed||[]).forEach(s=>{ if(s.signedUrl) urls[s.path]=s.signedUrl; });
-  }
+  const urls=paths.length?await signedPhotoUrls(paths):{};
   if(seq!==feedSeq) return;
   feed.innerHTML="";
   const items=[...data,...(sess||[]).map(x=>({...x,_kind:"session"}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
@@ -947,7 +969,7 @@ async function init(){
     sb.from=t=>{ const q=f(t); ["insert","update","upsert","delete"].forEach(m=>{ if(typeof q[m]==="function"){ const o=q[m].bind(q); q[m]=(...a)=>{ markDirty(); return o(...a); }; } }); return q; };
     sb.rpc=(n,...a)=>{ if(!/^(check_|username_available|manage_groups|manage_members)/.test(n)) markDirty(); return r(n,...a); }; }
 
-  sb.auth.onAuthStateChange(ev=>{ if(ev==="SIGNED_OUT"){ markDirty(); me=null; hasSession=false; groups=[]; refreshUI(); } });
+  sb.auth.onAuthStateChange(ev=>{ if(ev==="SIGNED_OUT"){ markDirty(); resetState(); refreshUI(); } });
   try{ await loadMe(); }catch(e){}
   markDirty(); route();
 }
