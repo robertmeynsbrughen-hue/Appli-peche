@@ -148,7 +148,7 @@ function refreshUI(){
   $("#map-bar").hidden=!member;
   $("#map").hidden=!member;
   $("#auth").hidden=!configured||hasSession;
-  $("#join").hidden=!(configured&&hasSession&&!me);
+  $("#join").hidden=!(configured&&hasSession&&!me&&!profileError);
   $("#me").hidden=!logged;
   $("#my-groups").hidden=!logged;
   $("#tab-groupe").hidden=!member;
@@ -310,11 +310,47 @@ $("#logout").addEventListener("click",async()=>{
   refreshUI(); route();
 });
 
+// Échec persistant du chargement du profil : on ne présente pas « Terminer mon
+// profil » à quelqu'un dont le compte existe, on propose de réessayer.
+let profileError=false;
+function showProfileError(){
+  let b=document.getElementById("me-error");
+  if(!b){
+    b=el("div","me-error"); b.id="me-error";
+    const t=el("span","","Connexion instable : ton profil n'a pas pu être chargé.");
+    const r=el("button","btn small","Réessayer"); r.type="button";
+    r.addEventListener("click",()=>{ b.remove(); profileError=false; loadMe(); });
+    b.append(t,r);
+  }
+  if(!b.isConnected){ const host=document.querySelector("#v-conseils .wrap")||document.querySelector(".wrap")||document.body; host.prepend(b); }
+}
+function hideProfileError(){ document.getElementById("me-error")?.remove(); }
+
 async function loadMe(){ markDirty();
-  const {data:{session}}=await sb.auth.getSession();
+  const sres=await sb.auth.getSession();
+  const session=sres?.data?.session||null;
+  // Un échec de getSession() ne doit pas déconnecter l'utilisateur : tant qu'on
+  // n'a pas de preuve formelle de déconnexion, on garde l'état courant.
+  if(sres?.error&&!session&&me){ refreshUI(); return; }
   hasSession=!!session;
   if(!session){ me=null; groups=[]; refreshUI(); return; }
-  const {data}=await sb.from("profiles").select("id,username,is_admin,is_controller,pw_temp,fav_species").eq("id",session.user.id).maybeSingle();
+  // Ce select peut échouer ponctuellement (réseau qui saute, RLS lente). Avant,
+  // `me` passait à null et l'appli affichait « Terminer mon profil » à un membre
+  // dont le compte existe : on réessaie, et en dernier recours on conserve le
+  // profil déjà chargé plutôt que d'effacer la session affichée.
+  let data=null, error=null;
+  for(let i=0;i<3;i++){
+    const r=await sb.from("profiles").select("id,username,is_admin,is_controller,pw_temp,fav_species").eq("id",session.user.id).maybeSingle();
+    data=r.data; error=r.error;
+    if(!error) break;
+    if(i<2) await new Promise(res=>setTimeout(res,400*(i+1)));
+  }
+  if(error){
+    if(me){ refreshUI(); return; }
+    profileError=true; showProfileError();
+    refreshUI(); return;
+  }
+  profileError=false; hideProfileError();
   me=data||null;
   try{ const f=JSON.stringify(me?.fav_species||[]); if(localStorage.getItem("cdj-fav")!==f){ localStorage.setItem("cdj-fav",f); window.dispatchEvent(new Event("cdj-fav")); } }catch(_){}
   if(me){
