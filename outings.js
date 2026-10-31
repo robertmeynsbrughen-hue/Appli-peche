@@ -18,7 +18,7 @@ async function render(host,gid){
   const since=new Date(Date.now()-12*36e5).toISOString();
   const {data:outs,error}=await A.sb.from("outings").select("id,group_id,user_id,title,place,spot_id,start_at,notes,profiles!outings_user_id_fkey(username,is_admin)").eq("group_id",gid).gte("start_at",since).order("start_at").limit(20);
   const ids=(outs||[]).map(o=>o.id);
-  const {data:rs}=ids.length?await A.sb.from("outing_rsvps").select("outing_id,user_id,status,seats,needs_ride,brings,profiles(username,is_admin)").in("outing_id",ids):{data:[]};
+  const {data:rs,error:rsErr}=ids.length?await A.sb.from("outing_rsvps").select("outing_id,user_id,status,seats,needs_ride,brings,profiles(username,is_admin)").in("outing_id",ids):{data:[]};
   if(s!==seq||!host.isConnected) return;
   host.innerHTML="";
   const sec=el("section","g-sec");
@@ -26,6 +26,9 @@ async function render(host,gid){
   const hd=el("div","g-sec-head"); hd.append(el("h2",null,"Sorties prévues"),add); sec.append(hd);
   const f=form(gid,host); f.hidden=true; sec.append(f);
   if(error){ sec.append(el("p","err",frError(error))); host.append(sec); return; }
+  // Même logique que le fil : une réponse manquante doit se voir, sinon « qui
+  // vient » paraît vide alors que la requête a simplement échoué.
+  if(rsErr) sec.append(el("p","warn small","Les réponses des participants n'ont pas pu être chargées : la liste ci-dessous est incomplète."));
   if(!outs?.length) sec.append(el("p","empty small","Aucune sortie prévue. Lance « Samedi 6h au lac » et le groupe sera prévenu."));
   (outs||[]).forEach(o=>sec.append(card(o,(rs||[]).filter(r=>r.outing_id===o.id),host,gid)));
   host.append(sec);

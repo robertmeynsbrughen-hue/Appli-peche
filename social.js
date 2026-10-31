@@ -307,6 +307,9 @@ $("#join-more").addEventListener("submit",async e=>{
 function resetState(){
   me=null; hasSession=false; groups=[]; pendingGroups=[]; myRoles=new Map(); roles=new Map();
   spots=[]; cur=null;
+  // Sans ça, un échec de chargement du profil survenu avant la déconnexion
+  // laissait le bandeau « Connexion instable » affiché après coup.
+  profileError=false; hideProfileError();
   if(layer) layer.clearLayers();
   try{ localStorage.removeItem("cdj-grp"); }catch(_){}
   hooks.groupChanged?.();
@@ -641,7 +644,7 @@ async function loadFeed(){
   let qs=sb.from("sessions").select("id,group_id,user_id,species,caught,length_cm,lure,color,rating,created_at,duration_min,distance_m,bites,released,profiles(username,is_admin)")
     .order("created_at",{ascending:false}).limit(40);
   if(cur!=="all"){ q=q.eq("group_id",cur); qs=qs.eq("group_id",cur); }
-  const [{data,error},{data:sess}]=await Promise.all([q,qs]);
+  const [{data,error},{data:sess,error:sessErr}]=await Promise.all([q,qs]);
   if(seq!==feedSeq) return;   // un chargement plus récent a pris le relais : pas de doublon
   if(error){ feed.innerHTML=""; feed.append(el("p","err",frError(error))); return; }
   const allPaths=p=>(p.photo_paths&&p.photo_paths.length)?p.photo_paths:(p.photo_path?[p.photo_path]:[]);
@@ -649,6 +652,9 @@ async function loadFeed(){
   const urls=paths.length?await signedPhotoUrls(paths):{};
   if(seq!==feedSeq) return;
   feed.innerHTML="";
+  // Une erreur sur les sessions ne doit pas passer inaperçue : sans ce message,
+  // des bilans de sortie manquaient simplement, sans que personne ne le sache.
+  if(sessErr) feed.append(el("p","warn small","Les bilans de sortie n'ont pas pu être chargés."));
   const items=[...data,...(sess||[]).map(x=>({...x,_kind:"session"}))].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   if(!items.length){ const e=el("div","empty-state"); e.append(el("div","es-ico","🎣"),el("b",null,"Le fil est encore vide"),el("p",null,"Sois le premier : partage une prise avec sa photo, ou un bilan rapide de ta dernière sortie."));
     const a=el("div","actions"); const b1=el("button","btn primary","📸 Partager une prise"); b1.type="button"; b1.addEventListener("click",()=>document.querySelector('#post-mode [data-m="post"]')?.click());

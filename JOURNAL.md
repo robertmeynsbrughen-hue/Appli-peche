@@ -7,6 +7,16 @@ ce qui a changé et pourquoi. Une entrée par version livrable.
 Format : version · date · nature (ajout / correctif / sécurité / entretien)
 
 
+0.64.1 · 31 octobre 2026 · correctif
+-----------------------------------
+Déconnexion : le bandeau « Connexion instable » pouvait survivre à la
+déconnexion et masquer des options. Il est retiré en même temps que la session.
+
+Fil et sorties : deux chargements secondaires (bilans de sortie, réponses des
+participants) ignoraient leurs erreurs. L'information manquait sans que rien ne
+l'indique ; un avertissement discret le signale désormais.
+
+
 0.64 · 31 octobre 2026 · correctif + sécurité
 ---------------------------------------------
 Fil, sorties, sondages et plusieurs écrans : les requêtes qui joignent le profil
