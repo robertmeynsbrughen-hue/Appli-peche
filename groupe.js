@@ -289,7 +289,7 @@ async function renderGroupe(){
   if(mod&&todoN){
     const box=el("button","todo todo-link"); box.type="button";
     box.append(el("span",null,"🛡️ "+todoN+" élément"+(todoN>1?"s":"")+" à traiter"),el("span","todo-go","Modération ›"));
-    box.addEventListener("click",()=>{ location.hash="#profil"; setTimeout(()=>document.querySelector('#profil-sub [data-s="moderation"]')?.click(),300); });
+    box.addEventListener("click",()=>{ location.hash="#modo"; });
     root.append(box);
   }
 

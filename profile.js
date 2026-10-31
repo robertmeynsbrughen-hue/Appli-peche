@@ -191,23 +191,6 @@ let loaded=false;
 A.hooks.change=()=>{ prevChange?.(); if(A.me&&!loaded){ loaded=true; loadAvatars(); } if(!A.me){ loaded=false; mine=null; const b=$("#pub-profile"); if(b) b.hidden=true; } };
 A.openProfile=openProfile;
 if(A.me){ loaded=true; loadAvatars(); if(!$("#v-profil").hidden) loadMine(); }
-/* Gestion de l'ouverture directe de l'onglet Modération via URL ?mod=moderation */
-(function(){
-  function checkModParam(){
-    if(!A.me||!(A.me.is_admin||A.me.is_controller)) return;
-    try{
-      const params=new URLSearchParams(location.search);
-      if(params.get("mod")==="moderation"){
-        setTimeout(()=>{
-          const tab=document.querySelector('#profil-sub [data-s="moderation"]');
-          if(tab){ tab.click(); }
-        },300);
-      }
-    }catch(e){}
-  }
-  window.addEventListener("hashchange",checkModParam);
-  checkModParam();
-})();
 /* ---------- Onglet Modération (Admin / Contrôleur) ---------- */
 function loadModeration(){
   const box=$("#moderation-content"); if(!box) return;
