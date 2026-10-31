@@ -283,13 +283,13 @@ async function renderGroupe(){
   }
   root.append(head);
 
-  // À traiter : renvoi vers l'onglet Modération (dans Profil)
+  // À traiter : renvoi vers l'onglet Modération
   const pendingMembers=(members.data||[]).filter(m=>m.status==="pending");
   const todoN=pendingMembers.length+(info?.pending_posts||0);
   if(mod&&todoN){
     const box=el("button","todo todo-link"); box.type="button";
     box.append(el("span",null,"🛡️ "+todoN+" élément"+(todoN>1?"s":"")+" à traiter"),el("span","todo-go","Modération ›"));
-    box.addEventListener("click",()=>{ location.hash="#profil"; setTimeout(()=>document.querySelector('#profil-sub [data-s="moderation"]')?.click(),300); });
+    box.addEventListener("click",()=>{ location.hash="#modo"; });
     root.append(box);
   }
 
