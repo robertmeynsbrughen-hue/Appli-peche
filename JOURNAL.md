@@ -8,6 +8,12 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.67.1 · 31 octobre 2026 · correctif
+------------------------------------
+Restaure la feuille de style complète après une publication qui l'avait rendue
+illisible par le navigateur. Incrémente le cache du service worker pour forcer
+le rechargement des styles sur les appareils déjà connectés.
+
 0.67 · 31 octobre 2026 · ajout
 ------------------------------
 Les repères nationaux de pêche affichent leurs sources Légifrance et un
@@ -300,3 +306,4 @@ sortie.
 Refonte de l'application : fiche de prise, réactions par appui long, pseudos
 cliquables, lecture à une main, partage depuis la galerie, chat dans l'en-tête
 et numéro de version 0.x.
+
