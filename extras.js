@@ -116,6 +116,7 @@ function drawSocial(box,p,reac,coms,open){
     f.append(i,s);
     f.addEventListener("submit",async e=>{
       e.preventDefault(); const body=i.value.trim(); if(!body) return;
+      if(A.isTimedOut?.()) return toast(A.myTimeoutText||"Compte suspendu : commentaire impossible pour l'instant.");
       s.disabled=true;
       const {data,error}=await A.sb.from("comments").insert({post_id:p.id,user_id:A.me.id,body}).select("id,post_id,user_id,body,created_at").single();
       s.disabled=false;

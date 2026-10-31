@@ -24,7 +24,7 @@ function bindBar(bar,host,key,def,onChange){
 
 /* ---------- Profil ---------- */
 const pv=$("#v-profil"), pbar=$("#profil-sub");
-bindBar(pbar,pv,"cdj-sub-profil","moi");
+bindBar(pbar,pv,"cdj-sub-profil","moi",v=>{ A.hooks.profilSub?.(v); });
 function syncProfil(){
   const logged=!!A.me;
   pbar.hidden=!logged;
@@ -87,55 +87,29 @@ if(fab&&!fab.classList.contains("in-head")){
   fab.title="Chat du groupe (fais-moi glisser pour me déplacer)";
 }
 
-/* ---------- Contrôleurs de l'appli (réglages du développeur) ---------- */
-async function ctrlPanel(){
-  const box=$("#ctrl-panel"); if(!box) return;
-  if(!A.me?.is_admin){ box.hidden=true; return; }
-  box.hidden=false;
-  const {data}=await A.sb.rpc("list_controllers");
-  const names=(data||[]).map(x=>x.username);
-  window.CDJ_CTRL=new Set(names);
-  box.innerHTML="";
-  box.append(el("h2",null,"Contrôleurs de l'appli"));
-  box.append(el("p","note","Un contrôleur modère tous les groupes : il voit tout, valide ou supprime les publications, les commentaires et les messages, et peut retirer un simple membre. Il ne peut pas changer les rôles ni les réglages des groupes."));
-  const list=el("div","list tight");
-  if(!names.length) list.append(el("p","note","Aucun contrôleur pour l'instant."));
-  names.forEach(n=>{
-    const r=el("div","mrow"); r.append(A.userLabel(n,false));
-    const b=el("button","linkbtn danger","Retirer"); b.type="button";
-    b.addEventListener("click",async()=>{ const {error}=await A.sb.rpc("set_controller",{p_username:n,p_on:false}); if(error) return A.toast(A.frError(error)); A.toast("@"+n+" n'est plus contrôleur"); ctrlPanel(); });
-    r.append(b); list.append(r);
-  });
-  box.append(list);
-  const f=el("form","actions"); f.style.alignItems="flex-end";
-  const l=el("label","field","Nommer un contrôleur"); l.style.flex="1"; l.style.minWidth="160px";
-  const i=el("input"); i.required=true; i.placeholder="Pseudo du membre"; i.autocomplete="off"; l.append(i);
-  const ok=el("button","btn primary","Nommer"); ok.type="submit";
-  f.append(l,ok);
-  f.addEventListener("submit",async e=>{
-    e.preventDefault(); const n=i.value.trim().replace(/^@/,""); if(!n) return;
-    const {error}=await A.sb.rpc("set_controller",{p_username:n,p_on:true});
-    if(error) return A.toast(/introuvable/.test(error.message)?"Pseudo introuvable":A.frError(error));
-    A.toast("@"+n+" est maintenant contrôleur"); ctrlPanel();
-  });
-  box.append(f);
-}
-
 /* ---------- Onglet Modération (visible seulement pour admin/contrôleur) ---------- */
 function syncModerationTab(){
   const modTab=document.querySelector('#profil-sub [data-s="moderation"]');
+  const modPanel=document.querySelector("#moderation-panel");
   if(!modTab) return;
   const isStaff=!!(A.me?.is_admin||A.me?.is_controller);
   modTab.hidden=!isStaff;
+  // Le panneau garde l'attribut hidden dans le HTML : on le lève pour le staff,
+  // sinon la console resterait invisible malgré l'onglet affiché.
+  if(modPanel) modPanel.hidden=!isStaff;
+  // Après une déconnexion ou un retrait de rôle, on ne laisse pas traîner les
+  // données de modération dans le DOM.
+  if(!isStaff){ const content=document.querySelector("#moderation-content"); if(content) content.innerHTML=""; }
   // Si l'onglet est masqué et qu'on était dessus, revenir à "moi"
   if(!isStaff&&document.querySelector('#v-profil').dataset.s==="moderation"){
     document.querySelector('#profil-sub [data-s="moi"]')?.click();
   }
 }
 const prev=A.hooks.change;
-let ctrlDone=false;
-A.hooks.change=()=>{ prev?.(); syncProfil(); syncModerationTab(); if(A.me?.is_admin&&!ctrlDone){ ctrlDone=true; ctrlPanel(); } if(!A.me){ ctrlDone=false; const b=$("#ctrl-panel"); if(b) b.hidden=true; } };
+A.hooks.change=()=>{ prev?.(); syncProfil(); syncModerationTab(); A.hooks.profilSub?.(pv?.dataset.s); };
 syncProfil();
 syncModerationTab();
-if(A.me?.is_admin){ ctrlDone=true; ctrlPanel(); }
+// Les anciens liens #modo et les notifications de modération arrivent avec une
+// demande d'ouverture de la sous-section : on l'applique une fois le profil prêt.
+if(window.CDJ_WANT_MOD) setTimeout(()=>A.openProfilSub?.("moderation"),0);
 })();

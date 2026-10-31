@@ -7,6 +7,25 @@ const root=$("#groupe-root");
 let lastGroup;
 const isMember=()=>!!A.me&&A.cur!=null&&A.cur!=="all"&&A.myRoles.has(A.cur);
 const canChat=()=>!!A.me&&A.cur!=null&&A.cur!=="all"&&(A.myRoles.has(A.cur)||A.me.is_admin||A.me.is_controller);
+const blocked=()=>{
+  if(!A.isTimedOut?.()) return false;
+  toast(A.myTimeoutText||"Compte suspendu : cette action est bloquée jusqu'à la fin de la sanction.");
+  return true;
+};
+// Envoi refusé par le serveur (policy de stockage) alors que le panneau de chat
+// était déjà ouvert : on recharge la sanction pour afficher la date de fin.
+const uploadErr=async e=>{
+  const msg=frError(e);
+  if(/suspendu|sanction temporaire/i.test(msg)){
+    await A.loadTimeout?.();
+    return toast(A.myTimeoutText||msg);
+  }
+  // La policy de stockage peut renvoyer une erreur générique : on recharge la
+  // sanction avant d'afficher le message.
+  await A.loadTimeout?.();
+  if(A.isTimedOut?.()) return toast(A.myTimeoutText||msg);
+  toast(msg);
+};
 const chatVisible=()=>!!A.me&&((A.me.is_admin||A.me.is_controller)||A.groups.length>0&&canChat());
 const store={ get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } },
               set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
@@ -243,6 +262,97 @@ $("#bilan").addEventListener("submit",async e=>{
 renderBilan();
 
 /* ================= Onglet Groupe ================= */
+// Modération propre au groupe (responsables et modérateurs locaux). Les rôles
+// globaux utilisent la console de Profil > Modération.
+const TODO_TABLE={post:"posts",comment:"comments",message:"messages"};
+const TODO_KIND={post:"Prise",comment:"Commentaire",message:"Message du chat"};
+function groupTodo(gid,pendingMembers){
+  const s=section("À traiter");
+  const box=el("div","list tight");
+  s.append(box);
+  const reload=()=>{ renderGroupe(); A.hooks.modo?.(); };
+  if(!pendingMembers.length) box.append(el("p","empty small","Aucune demande d'adhésion en attente."));
+  pendingMembers.forEach(m=>{
+    const c=el("div","modo-item");
+    const t=el("div"); t.append(userLabel(m.username,m.is_admin)); t.append(" veut rejoindre le groupe");
+    c.append(t);
+    const act=el("div","actions");
+    act.append(confirmBtn("Refuser","Confirmer",async()=>{
+      const {error}=await A.sb.from("memberships").delete().eq("group_id",gid).eq("user_id",m.user_id);
+      if(error) return toast(frError(error));
+      toast("Demande refusée"); reload();
+    },"btn small"));
+    act.append(btn("Accepter","btn primary small",async()=>{
+      const {error}=await A.sb.rpc("approve_member",{p_group:gid,p_user:m.user_id});
+      if(error) return toast(frError(error));
+      toast("@"+(m.username||"?")+" a rejoint le groupe"); await A.loadGroups(); reload();
+    }));
+    c.append(act); box.append(c);
+  });
+  const live=el("div","list tight"); live.append(el("p","note","Chargement des publications et signalements…")); box.append(live);
+  (async()=>{
+    const [posts,reps]=await Promise.all([
+      A.sb.from("posts").select("id,user_id,species,length_cm,weight_kg,caption,bait,photo_path,photo_paths,created_at,profiles!posts_user_id_fkey(username,is_admin)").eq("group_id",gid).eq("status","pending").order("created_at").limit(50),
+      A.sb.from("reports").select("id,user_id,author_id,kind,target_id,excerpt,reason,created_at").eq("group_id",gid).eq("status","open").order("created_at",{ascending:false}).limit(50),
+    ]);
+    if(!s.isConnected) return;
+    live.innerHTML="";
+    const P=posts.data||[], R=reps.data||[];
+    live.append(el("h4","g-sub","Publications à valider ("+P.length+")"));
+    if(posts.error) live.append(el("p","err",frError(posts.error)));
+    if(!P.length&&!posts.error) live.append(el("p","empty small","Aucune publication en attente."));
+    const paths=P.flatMap(p=>(p.photo_paths&&p.photo_paths.length)?[p.photo_paths[0]]:(p.photo_path?[p.photo_path]:[]));
+    const urls=await signed(paths);
+    if(!s.isConnected) return;
+    P.forEach(p=>{
+      const c=el("div","modo-item");
+      const top=el("div"); top.append(userLabel(p.profiles?.username,p.profiles?.is_admin)); top.append(" · "+ago(p.created_at));
+      c.append(top);
+      const ph=(p.photo_paths&&p.photo_paths.length)?p.photo_paths[0]:p.photo_path;
+      if(ph&&urls[ph]){ const im=el("img","modo-img"); im.src=urls[ph]; im.alt="Photo de la prise"; im.loading="lazy"; c.append(im); }
+      c.append(el("div",null,[p.species,p.length_cm?String(p.length_cm).replace(".",",")+" cm":null,p.weight_kg?String(p.weight_kg).replace(".",",")+" kg":null].filter(Boolean).join(" · ")||"Sans espèce"));
+      if(p.caption||p.bait) c.append(el("p","modo-ex",[p.bait,p.caption].filter(Boolean).join(" — ")));
+      const act=el("div","actions");
+      act.append(confirmBtn("Refuser","Confirmer",async()=>{
+        const all=(p.photo_paths&&p.photo_paths.length)?p.photo_paths:(p.photo_path?[p.photo_path]:[]);
+        const {error}=await A.sb.from("posts").delete().eq("id",p.id); if(error) return toast(frError(error));
+        if(all.length) await A.sb.storage.from("photos").remove(all);
+        toast("Publication refusée"); reload();
+      },"btn small"));
+      act.append(btn("Valider","btn primary small",async()=>{
+        const {error}=await A.sb.rpc("approve_post",{p_id:p.id}); if(error) return toast(frError(error));
+        toast("Publication validée"); reload();
+      }));
+      c.append(act); live.append(c);
+    });
+    live.append(el("h4","g-sub","Signalements ("+R.length+")"));
+    if(reps.error) live.append(el("p","err",frError(reps.error)));
+    if(!R.length&&!reps.error) live.append(el("p","empty small","Aucun signalement en attente."));
+    const ids=[...new Set(R.flatMap(r=>[r.user_id,r.author_id]).filter(Boolean))];
+    const names=new Map();
+    if(ids.length){ const {data}=await A.sb.from("profiles").select("id,username,is_admin").in("id",ids); (data||[]).forEach(p=>names.set(p.id,p)); }
+    if(!s.isConnected) return;
+    R.forEach(r=>{
+      const c=el("div","modo-item");
+      c.append(el("div","modo-meta",(TODO_KIND[r.kind]||r.kind)+" · "+ago(r.created_at)));
+      const who=el("div"); who.append("Signalé par "); who.append(userLabel(names.get(r.user_id)?.username,names.get(r.user_id)?.is_admin));
+      if(r.author_id){ who.append(" · auteur "); who.append(userLabel(names.get(r.author_id)?.username,names.get(r.author_id)?.is_admin)); }
+      c.append(who, el("b",null,r.reason));
+      if(r.excerpt) c.append(el("p","modo-ex",r.excerpt));
+      const act=el("div","actions");
+      const done=async st=>{ const {error}=await A.sb.from("reports").update({status:st,handled_by:A.me.id}).eq("id",r.id); if(error) return toast(frError(error)); reload(); };
+      act.append(btn("Classer sans suite","btn small",()=>done("dismissed")));
+      act.append(confirmBtn("Supprimer le contenu","Confirmer la suppression",async()=>{
+        const {error}=await A.sb.from(TODO_TABLE[r.kind]).delete().eq("id",r.target_id);
+        if(error) return toast(frError(error));
+        await done("done"); toast("Contenu supprimé"); A.loadFeed();
+      },"btn small danger-btn"));
+      c.append(act); live.append(c);
+    });
+  })();
+  return s;
+}
+
 let renderSeq=0;
 async function renderGroupe(){
   const seq=++renderSeq;
@@ -283,20 +393,15 @@ async function renderGroupe(){
   }
   root.append(head);
 
-  // À traiter : renvoi vers l'onglet Modération
+  // Modération locale du groupe. Les rôles globaux (développeur, contrôleur)
+  // passent par Profil > Modération : le bouton « à traiter » ne les concerne plus.
   const pendingMembers=(members.data||[]).filter(m=>m.status==="pending");
-  const todoN=pendingMembers.length+(info?.pending_posts||0);
-  if(mod&&todoN){
-    const box=el("button","todo todo-link"); box.type="button";
-    box.append(el("span",null,"🛡️ "+todoN+" élément"+(todoN>1?"s":"")+" à traiter"),el("span","todo-go","Modération ›"));
-    box.addEventListener("click",()=>{ location.hash="#modo"; });
-    root.append(box);
-  }
-
   const sub=(n,k)=>{ n.dataset.sub=k; return n; };
+  if(mod&&!A.isStaff()) root.append(sub(groupTodo(gid,pendingMembers),"activite"));
   root.append(sub(renderMemos(gid,memos.data||[],memoUrls,mod),"infos"));
   root.append(sub(renderPolls(gid,polls.data||[],votes.data||[],mod),"infos"));
   root.append(sub(renderStats(sess.data||[]),"infos"));
+  if(man&&info) root.append(sub(renderManage(g,info,members.data||[],man),"membres"));
   const ex=sub(el("div","g-extras"),"activite"); root.append(ex); A.hooks.groupeExtras?.(ex,gid,mod);
 
   A.hooks.groupeRendered?.(root);
@@ -745,8 +850,9 @@ function voiceNode(url,secs){
 }
 // envoi d'une photo
 const picker=el("input"); picker.type="file"; picker.accept="image/*"; picker.hidden=true; document.body.append(picker);
-$("#chat-photo").addEventListener("click",()=>{ if(!navigator.onLine) return toast("Pas de réseau : la photo ne peut pas partir pour l'instant"); picker.value=""; picker.click(); });
+$("#chat-photo").addEventListener("click",()=>{ if(blocked()) return; if(!navigator.onLine) return toast("Pas de réseau : la photo ne peut pas partir pour l'instant"); picker.value=""; picker.click(); });
 picker.addEventListener("change",async()=>{
+  if(blocked()){ picker.value=""; return; }
   const f=picker.files?.[0], scope=chatScope; if(!f||(scope==="group"&&!chatGid)||(scope==="staff"&&!isAdmin())) return;
   const gid=chatGid, inp=$("#chat-input"), body=inp.value.trim()||null, bt=$("#chat-photo"), bucket=scope==="staff"?"staff-media":"photos";
   bt.disabled=true; toast("Envoi de la photo…");
@@ -760,7 +866,7 @@ picker.addEventListener("change",async()=>{
     if(error){ await A.sb.storage.from(bucket).remove([path]); throw error; }
     if(body) inp.value="";
     await addMsg({...data,_scope:scope,profiles:{username:A.me.username,is_admin:A.me.is_admin,is_controller:A.me.is_controller}}); scope==="staff"?markStaffSeen():markSeen();
-  }catch(e){ toast(frError(e)); }
+  }catch(e){ await uploadErr(e); }
   finally{ bt.disabled=false; }
 });
 // message vocal
@@ -773,6 +879,7 @@ function recUI(on){
 }
 function stopRec(cancel){ if(!rec) return; rec.cancel=cancel; try{ rec.mr.stop(); }catch(e){ rec.stream.getTracks().forEach(x=>x.stop()); rec=null; recUI(false); } }
 $("#chat-mic").addEventListener("click",async()=>{
+  if(blocked()) return;
   if(rec||(chatScope==="group"&&!chatGid)||(chatScope==="staff"&&!isAdmin())) return;
   if(!navigator.onLine) return toast("Pas de réseau : le vocal ne peut pas partir pour l'instant");
   if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder) return toast("L'enregistrement audio n'est pas pris en charge sur ce téléphone");
@@ -803,7 +910,7 @@ $("#chat-mic").addEventListener("click",async()=>{
       if(error){ await A.sb.storage.from(bucket).remove([path]); throw error; }
       urlCache.set(bucket+"|"+path,URL.createObjectURL(blob));
       await addMsg({...data,_scope:scope,profiles:{username:A.me.username,is_admin:A.me.is_admin,is_controller:A.me.is_controller}}); scope==="staff"?markStaffSeen():markSeen();
-    }catch(e){ toast(frError(e)); }
+    }catch(e){ await uploadErr(e); }
   };
   mr.start(250); recUI(true);
   if(navigator.vibrate) try{ navigator.vibrate(30); }catch(e){}
@@ -905,6 +1012,7 @@ $("#chat-close").addEventListener("click",closeChat);
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!panel.hidden) closeChat(); });
 $("#chat-form").addEventListener("submit",async e=>{
   e.preventDefault();
+  if(blocked()) return;
   const inp=$("#chat-input"), body=inp.value.trim(), scope=chatScope, gid=chatGid; if(!body||(scope==="group"&&!gid)||(scope==="staff"&&!isAdmin())) return;
   inp.value=""; sugg.hidden=true;
   const row={user_id:A.me.id,body}; if(scope==="group") row.group_id=gid;

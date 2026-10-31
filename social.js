@@ -6,6 +6,7 @@ const C=window.CDJ_CONFIG||{};
 const configured=typeof C.SUPABASE_URL==="string"&&C.SUPABASE_URL.startsWith("https://")&&C.SUPABASE_KEY&&!/COLLE/.test(C.SUPABASE_KEY);
 const DOMAIN=C.EMAIL_DOMAIN||"coupdujour.app";
 let sb=null, me=null, hasSession=false;
+let myTimeout=null;                 // sanction temporaire active de mon compte
 let groups=[], cur=null;            // cur : id de groupe ou "all" (admin)
 let pendingGroups=[];               // groupes où ma demande attend une validation
 let roles=new Map();                // id de groupe -> Map(utilisateur -> "owner" | "moderator")
@@ -28,6 +29,9 @@ function ago(iso){
 const emailOf=u=>u.trim().toLowerCase()+"@"+DOMAIN;
 function frError(e){
   const m=(e&&e.message)||String(e);
+  // Les messages de sanction sont déjà rédigés en français côté base : on les
+  // laisse passer tels quels et on évite le faux positif « timeout » ci-dessous.
+  if(/suspendu|suspendue|sanction temporaire/i.test(m)) return m;
   if(/pseudo legacy/i.test(m)) return "Pseudo ou mot de passe incorrect. Si tu as ajouté un e-mail à ton compte, connecte-toi avec ton e-mail.";
   if(/Invalid login/i.test(m)) return "E-mail ou mot de passe incorrect.";
   if(/pseudo pris/i.test(m)) return "Ce pseudo est déjà pris, choisis-en un autre.";
@@ -88,37 +92,91 @@ const isStaff=()=>!!me&&(me.is_admin||me.is_controller);
 const canManage=gid=>!!me&&(me.is_admin||myRoles.get(gid)==="owner");
 const canModerate=gid=>!!me&&(isStaff()||myRoles.get(gid)==="owner"||myRoles.get(gid)==="moderator");
 const isManager=()=>!!me&&(isStaff()||[...myRoles.values()].some(r=>r!=="member"));
+const isTimedOut=()=>!!myTimeout&&new Date(myTimeout.ends_at).getTime()>Date.now();
+const timeoutText=()=>{
+  if(!myTimeout) return "";
+  const d=new Date(myTimeout.ends_at);
+  return "Compte suspendu jusqu'au "+d.toLocaleString("fr-FR",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"})+(myTimeout.reason?" — motif : "+myTimeout.reason:"")+". Les publications, commentaires et messages (texte, photo, vocal) sont bloqués.";
+};
+let timeoutTable=true;   // passe à false si la migration 0006 n'est pas encore appliquée
+async function loadTimeout(){
+  if(!me){ myTimeout=null; return null; }
+  if(!timeoutTable) return myTimeout;
+  try{
+    const {data,error}=await sb.from("moderation_timeouts")
+      .select("id,user_id,reason,starts_at,ends_at,created_by")
+      .eq("user_id",me.id).is("lifted_at",null).gt("ends_at",new Date().toISOString())
+      .order("ends_at",{ascending:false}).limit(1).maybeSingle();
+    // Table absente tant que la migration 0006 n'est pas appliquée : on ne bloque
+    // pas l'appli et on arrête d'interroger une table inexistante à chaque tick.
+    if(error&&(error.code==="42P01"||/does not exist/i.test(error.message||""))) timeoutTable=false;
+    myTimeout=error?null:(data||null);
+  }catch(e){ myTimeout=null; }
+  return myTimeout;
+}
 const staffBadge=()=>me?.is_admin?el("span","badge","Développeur"):me?.is_controller?el("span","badge controller","Contrôle"):null;
 const curGroup=()=>groups.find(g=>g.id===cur);
 const hooks={};   // points d'accroche pour groupe.js
 const groupName=id=>{ const g=groups.find(x=>x.id===id); return g?g.name:"?"; };
 
+// Profil : la modération globale vit dans Profil > Modération. On garde un
+// sélecteur de sous-onglet accessible depuis les anciens liens et notifications.
+function openProfilSub(v){
+  const want=window.CDJ_WANT_MOD;
+  // Les rôles locaux n'ont pas la console globale : leur modération reste dans
+  // l'écran du groupe concerné.
+  if(v==="moderation"&&!isStaff()){
+    window.CDJ_WANT_MOD=null;
+    if(!me){ location.hash="#profil"; return; }
+    if(want&&want.group) setGroup(want.group);
+    // Les rôles locaux retrouvent « À traiter » dans l'onglet Activité du groupe.
+    try{ localStorage.setItem("cdj-sub-groupe","activite"); }catch(e){}
+    location.hash="#groupe"; return;
+  }
+  try{ localStorage.setItem("cdj-sub-profil",v); }catch(e){}
+  const b=document.querySelector('#profil-sub [data-s="'+v+'"]');
+  if(b&&!b.hidden){ b.click(); return; }
+  const pv=document.querySelector("#v-profil"); if(pv) pv.dataset.s=v;
+  // Repli : le bouton est absent ou masqué, on déclenche quand même le rendu.
+  hooks.profilSub?.(v);
+}
+
 // ---------- Navigation ----------
-const VIEWS=["conseils","fil","carte","groupe","modo","profil"];
+const VIEWS=["conseils","fil","carte","groupe","profil"];
 // fraîcheur des onglets : on ne recharge un onglet que si des données ont changé ou s'il date de plus de 2 min
 const fresh={}, scrollPos={}; let curView=null, dirtyAt=0;
 const markDirty=()=>{ dirtyAt=Date.now(); };
 const needs=v=>{ const t=fresh[v]; return !t||t<dirtyAt||Date.now()-t>120000; };
 function route(){
   if(curView) scrollPos[curView]=window.scrollY;
-  let h=location.hash.slice(1);
+  let raw=location.hash.slice(1), qs="";
+  const qi=raw.indexOf("?");
+  if(qi>=0){ qs=raw.slice(qi+1); raw=raw.slice(0,qi); }
+  const params=new URLSearchParams(qs);
+  let h=raw;
   if(h==="admin") h="groupe";
   if(h==="chat"){ h="fil"; setTimeout(()=>hooks.openChat?.(),300); }
+  // Ancien onglet #modo : redirection vers Profil > Modération.
+  if(h==="modo"){ h="profil"; window.CDJ_WANT_MOD={section:"todo"}; }
+  const mod=params.get("mod");
+  if(mod) window.CDJ_WANT_MOD={section:mod,group:Number(params.get("g"))||null,item:Number(params.get("id"))||null};
   let v=VIEWS.includes(h)?h:"conseils";
-  if(v==="modo"&&!(me&&isManager())) v=me?"groupe":"conseils";
   VIEWS.forEach(n=>{ $("#v-"+n).hidden=n!==v; });
   $$("nav.tabs a").forEach(a=>a.setAttribute("aria-current",a.dataset.v===v?"page":"false"));
   const again=v===curView; curView=v;
   if(v==="carte") openMap();
-  const load=v==="fil"||v==="groupe"||v==="profil"||v==="modo";
+  const load=v==="fil"||v==="groupe"||v==="profil";
   if(load&&(again||needs(v))){
     fresh[v]=Date.now();
     if(v==="fil") loadFeed();
     if(v==="groupe") hooks.groupe?.();
     if(v==="profil") hooks.profil?.();
-    if(v==="modo") hooks.modo?.();
     window.scrollTo(0,0);
   }else window.scrollTo(0,scrollPos[v]||0);
+  if(window.CDJ_WANT_MOD){
+    try{ history.replaceState(null,"",location.pathname+location.search+"#profil"); }catch(e){}
+    setTimeout(()=>window.CDJ?.openProfilSub?.("moderation"),0);
+  }
 }
 window.addEventListener("hashchange",route);
 
@@ -152,7 +210,6 @@ function refreshUI(){
   $("#me").hidden=!logged;
   $("#my-groups").hidden=!logged;
   $("#tab-groupe").hidden=!member;
-  $("#tab-modo").hidden=!(member&&isManager());
   $("#create-group").hidden=!logged;
   if(me){ const h=$("#me-name"); h.textContent="@"+me.username; const sb2=staffBadge(); if(sb2) h.append(sb2); }
   if(!member){ $("#feed").innerHTML=""; }
@@ -306,7 +363,7 @@ $("#join-more").addEventListener("submit",async e=>{
 // oubliait myRoles, cur et spots, ce qui laissait des rôles et un groupe fantômes.
 function resetState(){
   me=null; hasSession=false; groups=[]; pendingGroups=[]; myRoles=new Map(); roles=new Map();
-  spots=[]; cur=null;
+  spots=[]; cur=null; myTimeout=null;
   // Sans ça, un échec de chargement du profil survenu avant la déconnexion
   // laissait le bandeau « Connexion instable » affiché après coup.
   profileError=false; hideProfileError();
@@ -370,7 +427,7 @@ async function loadMe(){ markDirty();
     me.real={is_admin:!!me.is_admin,is_controller:!!me.is_controller};
     if(userView){ me.is_admin=false; me.is_controller=false; }
     sb.rpc("list_controllers").then(({data})=>{ window.CDJ_CTRL=new Set((data||[]).map(x=>x.username)); });
-    await loadGroups(); loadSpots(); loadStats(); syncPush();
+    await loadTimeout(); await loadGroups(); loadSpots(); loadStats(); syncPush();
   }
   refreshUI();
 }
@@ -575,6 +632,7 @@ $("#m-ok").addEventListener("click",()=>{
 window.addEventListener("resize",()=>{ if(!$("#measure").hidden&&M.img) mLayout(); });
 $("#composer").addEventListener("submit",async e=>{
   e.preventDefault(); if(!me||cur==="all"||cur==null) return;
+  if(isTimedOut()) return showErr($("#p-err"),timeoutText());
   const cap=$("#p-caption").value.trim();
   if(!pics.length&&!cap&&!$("#p-bait").value.trim()) return showErr($("#p-err"),"Ajoute une photo ou une légende.");
   const btn=$("#p-submit"); btn.disabled=true; btn.textContent="Envoi…"; showErr($("#p-err"));
@@ -980,6 +1038,8 @@ window.CDJ={
   get curGroup(){ return curGroup(); }, get myRoles(){ return myRoles; }, get spots(){ return spots; }, loadSpots, get map(){ return map; }, get pics(){ return pics; }, focusSpot,
   el, toast, showErr, ago, frError, confirmBtn, userLabel, roleBadge, avatar, compress,
   roleOf, canManage, canModerate, isManager, isStaff, groupName, setGroup, loadGroups, loadFeed, refreshUI, hooks, RATING, loadLeaflet, markDirty,
+  get myTimeout(){ return myTimeout; }, get myTimeoutText(){ return timeoutText(); },
+  isTimedOut, loadTimeout, openProfilSub,
 };
 
 // ---------- Démarrage ----------

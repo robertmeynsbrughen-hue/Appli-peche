@@ -8,6 +8,22 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.66.7 · 31 octobre 2026 · ajout + sécurité
+--------------------------------------------
+La modération globale est réunie dans Profil > Modération : éléments à traiter
+(signalements, adhésions, publications), recherche de membres, groupes et
+publications, et gestion des contrôleurs par le développeur. Un développeur ou
+un contrôleur peut appliquer une sanction temporaire (10 min, 1 h, 24 h ou
+7 jours) avec un motif obligatoire, et la lever avant terme. La sanction bloque
+côté serveur les nouvelles prises, commentaires et messages de chat, y compris
+les photos et vocaux, même depuis un chat déjà ouvert ; la lecture et la
+connexion restent possibles. Nécessite la migration `0006_timeouts.sql`,
+à appliquer séparément. L'ancien onglet Modo et ses notifications pointent
+désormais vers la bonne section du profil. La suppression d'un groupe gérée
+par le développeur rejoint cette console, et l'ancien panneau de modération
+redondant du profil est retiré ; les responsables et modérateurs de groupe
+gardent leurs outils locaux dans l'écran du groupe.
+
 0.66.6 · 31 octobre 2026 · ajout + correctif
 ---------------------------------------------
 Ajout de la modération dans le profil : gestion des membres, des demandes
