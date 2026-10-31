@@ -81,7 +81,7 @@ supabase.sql, avec l'avertissement de ne plus appliquer l'ancien script.
 
 0.63 · 31 octobre 2026 · sécurité + correctifs
 ----------------------------------------------
-Sécurité : cinq règles d'accès à la base empêchaient pas un membre de déplacer
+Sécurité : cinq règles d'accès à la base ne bloquaient pas un membre qui déplaçait
 une de ses lignes dans un groupe dont il n'est pas membre (fausse annonce de
 pêche, position inventée). Règles durcies, appliquées en production.
 
