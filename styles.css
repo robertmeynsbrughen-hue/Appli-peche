@@ -826,6 +826,18 @@ nav.tabs a{position:relative}
 .sanction-head .badge{margin-left:0}
 .modo-ctx{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border-left:3px solid var(--amber);border-radius:8px;background:var(--surface-2);font-size:.92rem;overflow-wrap:anywhere}
 .modo-ctx>b{font-size:.76rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+/* ---- Recours contre une sanction (profil et console) ---- */
+.appeal-form,.appeal-reply-form{display:flex;flex-direction:column;gap:10px}
+.appeal-form label.field,.appeal-reply-form label.field{margin:0}
+.appeal-form textarea,.appeal-reply-form textarea{font:inherit;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;resize:vertical;min-height:84px;width:100%}
+.appeal-reply-form{border-top:1px solid var(--line);padding-top:10px}
+.appeal-reply{background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:8px;padding:8px 10px;overflow-wrap:anywhere}
+.appeal-reply b{font-family:var(--f-display);font-size:.78rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.appeal-reply p{margin:4px 0 0}
+.badge.accepted{background:var(--accent)}
+.badge.rejected{background:var(--warn)}
+.timeout-banner .timeout-appeal{align-self:flex-start;color:inherit;font-weight:700;text-decoration:underline;padding:2px 0}
+#sanction-panel{display:flex;flex-direction:column;gap:12px}
 /* ---- Console de modération (Profil > Modération) ---- */
 #moderation-content{display:flex;flex-direction:column;gap:22px}
 .mod-card{display:flex;flex-direction:column;gap:10px}

@@ -8,6 +8,18 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.66.9 · 31 octobre 2026 · ajout
+--------------------------------
+Un membre suspendu peut demander un réexamen de sa sanction depuis son profil,
+sans retrouver le droit d'écrire : la lecture reste possible, mais les
+publications, commentaires et messages restent bloqués pendant tout l'examen.
+La demande apparaît dans Profil > Modération. Un développeur ou un contrôleur
+peut y répondre et, s'il le juge justifié, lever la sanction ; sinon il la
+maintient. La réponse est notifiée au membre, qui retrouve l'historique de ses
+recours dans son profil. Un seul recours est possible par sanction, et le
+membre ne peut jamais traiter son propre recours. Nécessite la migration
+`0008_sanction_appeals.sql`, à appliquer séparément.
+
 0.66.8 · 31 octobre 2026 · fiabilité + sécurité
 -----------------------------------------------
 La console de modération affiche désormais l'état réel des garde-fous serveur :

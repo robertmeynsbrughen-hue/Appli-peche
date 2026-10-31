@@ -196,6 +196,11 @@ function route(){
     if(v==="profil") hooks.profil?.();
     window.scrollTo(0,0);
   }else window.scrollTo(0,scrollPos[v]||0);
+  // Une notification de recours ouvre directement le panneau concerné.
+  if(v==="profil"&&params.get("appeal")){
+    try{ history.replaceState(null,"",location.pathname+location.search+"#profil"); }catch(e){}
+    setTimeout(()=>{ window.CDJ?.openProfilSub?.("moi"); setTimeout(()=>document.getElementById("sanction-panel")?.scrollIntoView({behavior:"smooth",block:"start"}),300); },200);
+  }
   if(window.CDJ_WANT_MOD){
     try{ history.replaceState(null,"",location.pathname+location.search+"#profil"); }catch(e){}
     setTimeout(()=>window.CDJ?.openProfilSub?.("moderation"),0);
