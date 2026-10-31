@@ -58,4 +58,3 @@ self.addEventListener("notificationclick",e=>{
     return clients.openWindow(url);
   }));
 });
-

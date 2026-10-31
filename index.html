@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 7947)
-Total output lines: 544
-
 <!doctype html>
 <html lang="fr">
 <head>
@@ -180,7 +177,195 @@ body{margin:0}
             <option value="">—</option>
             <option>Brochet</option><option>Sandre</option><option>Perche</option>
             <option>Black-bass</option><option>Silure</option><option>Carpe</option><option>Chevesne</option>
-            <optgroup label="Autres espèces"><option>Aspe</option><option>Truite fario</option><option>Barbeau</option><option>Tanche</option><option>Brème</option><option>Gardon</opti…2947 tokens truncated…es" id="account-panel" hidden>
+            <optgroup label="Autres espèces"><option>Aspe</option><option>Truite fario</option><option>Barbeau</option><option>Tanche</option><option>Brème</option><option>Gardon</option><option>Rotengle</option><option>Carassin</option><option>Ablette</option><option>Vandoise</option><option>Amour blanc</option></optgroup>
+            <option>Autre</option>
+          </select></label>
+        <label class="field">Spot
+          <select id="p-spot"><option value="">Aucun</option></select></label>
+      </div>
+      <button type="button" class="btn" id="p-measure" hidden>📏 Mesurer le poisson sur la 1re photo</button>
+      <div class="reco" id="p-reco" hidden></div>
+      <div class="row2">
+        <label class="field">Longueur (cm)
+          <input id="p-len" type="number" min="1" max="300" step="0.5" inputmode="decimal"></label>
+        <label class="field">Poids (kg)
+          <input id="p-wt" type="number" min="0" max="150" step="0.01" inputmode="decimal"></label>
+      </div>
+      <p class="note" id="p-wt-note" hidden></p>
+      <div class="field rel-field"><span>Le poisson</span>
+        <div class="seg rel-seg" id="p-rel" role="radiogroup" aria-label="Relâché ou gardé">
+          <button type="button" data-v="1" aria-pressed="false">♻️ Relâché</button>
+          <button type="button" data-v="0" aria-pressed="false">🍽️ Gardé</button>
+        </div></div>
+      <p class="note fraie-hint" id="p-fraie" hidden></p>
+      <label class="field">Appât et amorçage
+        <textarea id="p-bait" maxlength="300" placeholder="Ex. : bouillette krill 20 mm, amorçage 2 kg de graines et pellets"></textarea></label>
+      <label class="field">Légende
+        <textarea id="p-caption" maxlength="500" placeholder="Conditions, poste, anecdote…"></textarea></label>
+      <p class="err" id="p-err" hidden></p>
+      <div class="actions"><button class="btn primary" type="submit" id="p-submit">Publier</button></div>
+    </form>
+
+    <div class="map-bar" id="feed-bar" hidden>
+      <div class="label">Fil du groupe</div>
+      <button type="button" class="linkbtn" id="feed-refresh">Actualiser</button>
+    </div>
+    <div class="list" id="feed"></div>
+  </section>
+
+  <!-- ========== CARTE ========== -->
+  <section class="view" id="v-carte" hidden>
+    <div class="setup" data-setup hidden>La carte des spots n'est pas encore branchée : il faut renseigner le fichier config.js (voir le guide LISEZMOI).</div>
+    <div class="empty" data-need-login hidden>Connecte-toi dans l'onglet Profil pour voir les spots du groupe.</div>
+    <div class="subbar" id="carte-sub" role="tablist" hidden>
+      <button type="button" data-s="carte" aria-selected="true">Surface</button>
+      <button type="button" data-s="fond" aria-selected="false">Fond</button>
+    </div>
+    <div class="map-bar" id="map-bar" hidden>
+      <button type="button" class="btn primary" id="spot-here">Spot à ma position</button>
+      <span class="note">ou touche la carte à l'endroit voulu</span>
+    </div>
+    <div class="map-stage" id="map-stage">
+      <div id="map" hidden></div>
+      <button type="button" class="map-fab layers-btn" id="layers-btn" aria-expanded="false" aria-controls="layers-panel">🗂️ Calques</button>
+      <div class="layers-panel" id="layers-panel" hidden>
+        <div class="lp-head"><b>Calques et outils</b><button type="button" class="icon-btn" id="layers-close" aria-label="Fermer">✕</button></div>
+        <div class="map-layers" id="map-layers" hidden></div>
+        <div class="map-tools" id="map-tools" hidden></div>
+      </div>
+      <div class="map-fabs" id="map-fabs"></div>
+      <div class="map-status" id="map-status"></div>
+    </div>
+    <form class="panel" id="spot-form" hidden>
+      <h2>Nouveau spot</h2>
+      <p class="note" id="spot-coords"></p>
+      <label class="field">Nom du spot
+        <input id="s-name" maxlength="60" required placeholder="Ex. : la fosse du pont"></label>
+      <label class="field">Notes
+        <textarea id="s-note" maxlength="400" placeholder="Accès, profondeur, espèces, période…"></textarea></label>
+      <p class="err" id="s-err" hidden></p>
+      <div class="actions">
+        <button class="btn primary" type="submit">Enregistrer le spot</button>
+        <button class="btn" type="button" id="s-cancel">Annuler</button>
+      </div>
+    </form>
+    <div class="map-below" id="map-below" hidden></div>
+    <div class="panel fond-panel" id="fond-panel" hidden></div>
+    <p class="note">Les spots ne sont visibles que par les membres du groupe.</p>
+  </section>
+
+  <!-- ========== PROFIL ========== -->
+  <section class="view" id="v-profil" hidden>
+    <div class="setup" data-setup hidden>Les comptes ne sont pas encore branchés : il faut renseigner le fichier config.js (voir le guide LISEZMOI).</div>
+
+    <div id="auth" hidden>
+      <div class="seg" id="auth-mode" style="margin-bottom:12px">
+        <button type="button" data-m="login" aria-pressed="true">Connexion</button>
+        <button type="button" data-m="signup" aria-pressed="false">Créer un compte</button>
+      </div>
+      <form class="panel" id="auth-form">
+        <h2 id="auth-title">Connexion</h2>
+        <label class="field"><span id="a-email-lab">E-mail</span>
+          <input id="a-email" type="text" inputmode="email" autocomplete="username" autocapitalize="off" spellcheck="false" required placeholder="ton@email.fr"></label>
+        <label class="field" id="a-user-wrap" hidden>Pseudo (visible par le groupe)
+          <input id="a-user" autocomplete="nickname" autocapitalize="off" pattern="[A-Za-z0-9_]{3,20}" placeholder="3 à 20 lettres, chiffres ou _"></label>
+        <label class="field">Mot de passe
+          <input id="a-pass" type="password" autocomplete="current-password" required minlength="6"></label>
+        <label class="field" id="a-code-wrap" hidden>Lien d'invitation (facultatif)
+          <input id="a-code" autocomplete="off" placeholder="Si un pote t'a donné un lien"></label>
+        <p class="note" id="a-terms" hidden>En créant un compte, tu acceptes la <a href="confidentialite.html" target="_blank" rel="noopener">politique de confidentialité</a>.</p>
+        <p class="note" id="a-legacy">Ancien compte sans e-mail ? Entre ton pseudo à la place de l'e-mail.</p>
+        <p class="err" id="a-err" hidden></p>
+        <p class="ok-msg" id="a-ok" hidden></p>
+        <div class="actions"><button class="btn primary" type="submit" id="a-submit">Se connecter</button>
+          <button type="button" class="linkbtn" id="a-forgot">Mot de passe oublié ?</button></div>
+      </form>
+      <form class="panel" id="forgot-form" hidden>
+        <h2>Mot de passe oublié</h2>
+        <p class="note">Entre l'e-mail de ton compte : tu reçois un lien pour choisir un nouveau mot de passe.</p>
+        <p class="note">Pas d'e-mail reçu ? Demande au développeur ou au modérateur de ton groupe : il peut te donner un mot de passe provisoire depuis l'appli.</p>
+        <label class="field">E-mail<input id="f-email" type="email" autocomplete="email" required placeholder="ton@email.fr"></label>
+        <p class="err" id="f-err" hidden></p>
+        <p class="ok-msg" id="f-ok" hidden></p>
+        <div class="actions"><button class="btn primary" type="submit" id="f-submit">Recevoir le lien</button>
+          <button type="button" class="linkbtn" id="f-back">Retour à la connexion</button></div>
+      </form>
+    </div>
+
+    <form class="panel" id="join" hidden>
+      <h2>Terminer mon profil</h2>
+      <p class="note">Ton compte existe mais ton profil n'est pas terminé. Choisis ton pseudo ; le lien d'invitation est facultatif.</p>
+      <label class="field">Pseudo<input id="j-user" required pattern="[A-Za-z0-9_]{3,20}" autocapitalize="off"></label>
+      <label class="field" hidden>Code d'un groupe (facultatif)<input id="j-code"></label>
+      <p class="err" id="j-err" hidden></p>
+      <div class="actions"><button class="btn primary" type="submit">Rejoindre</button></div>
+    </form>
+
+    <div class="subbar" id="profil-sub" hidden role="tablist" aria-label="Rubriques du profil">
+      <button type="button" role="tab" data-s="moi">Moi</button>
+      <button type="button" role="tab" data-s="collection">Collection</button>
+      <button type="button" role="tab" data-s="matos">Matos</button>
+      <button type="button" role="tab" data-s="reglages">Réglages</button>
+      <button type="button" role="tab" data-s="moderation">Modération</button>
+    </div>
+
+    <div class="panel me-card" id="me" hidden data-sub="moi">
+      <div class="me-top"><span class="avatar big" id="me-av" aria-hidden="true"></span>
+        <div><h2 id="me-name"></h2><p class="note" id="me-stats"></p></div></div>
+    </div>
+
+    <div class="panel" id="pub-profile" hidden data-sub="moi"></div>
+    <div class="panel" id="sanction-panel" hidden data-sub="moi"></div>
+    <div class="panel" id="logbook" hidden data-sub="moi"></div>
+    <div class="panel" id="carnet" hidden data-sub="moi"></div>
+    <div class="panel" id="dex" hidden data-sub="collection"></div>
+    <div class="panel" id="gear" hidden data-sub="matos"></div>
+    <div class="panel" id="lures" hidden data-sub="matos"></div>
+    <div class="panel" id="bait-stock" hidden data-sub="matos"></div>
+    <div class="panel" id="knots" hidden data-sub="matos"></div>
+
+    <div class="panel" id="theme-panel" data-sub="reglages"></div>
+
+    <div class="panel" id="my-groups" hidden data-sub="reglages">
+      <h2>Mes groupes</h2>
+      <div class="list" id="my-groups-list"></div>
+      <form id="join-more" class="actions" style="align-items:flex-end">
+        <label class="field" style="flex:1;min-width:160px">Rejoindre un autre groupe
+          <input id="jm-code" required placeholder="Lien d'invitation ou code"></label>
+        <button class="btn primary" type="submit">Rejoindre</button>
+      </form>
+      <p class="err" id="jm-err" hidden></p>
+    </div>
+
+    <div class="panel" id="permit-panel" hidden data-sub="reglages"></div>
+    <div class="panel" id="nearby-panel" hidden data-sub="reglages"></div>
+    <div class="panel" id="push-panel" hidden data-sub="reglages">
+      <h2>Notifications</h2>
+      <p class="note" id="push-status"></p>
+      <div class="actions"><button class="btn primary" type="button" id="push-btn" hidden></button></div>
+    </div>
+
+    <div class="panel" id="alerts" hidden data-sub="reglages"></div>
+
+    <form class="panel" id="create-group" hidden data-sub="reglages">
+      <h2>Créer un groupe</h2>
+      <p class="note">Tu en deviendras responsable : tu partages le lien d'invitation avec tes potes et tu peux modérer le groupe.</p>
+      <div class="row2">
+        <label class="field">Nom<input id="cg-name" required minlength="2" maxlength="40" placeholder="Ex. : Les carpistes du Lot"></label>
+        <label class="field">Région<input id="cg-region" maxlength="40" placeholder="Ex. : Lot-et-Garonne"></label>
+      </div>
+      <label class="field" hidden>Code d'invitation (facultatif)<input id="cg-code" minlength="8" maxlength="40" autocomplete="off" placeholder="Laisse vide : code sûr généré pour toi"></label>
+      <p class="err" id="cg-err" hidden></p>
+      <div class="actions"><button class="btn primary" type="submit">Créer le groupe</button></div>
+    </form>
+
+    <div class="panel" data-sub="reglages">
+      <h2>Installer l'appli</h2>
+      <p class="note">Android (Chrome) : menu ⋮ puis « Ajouter à l'écran d'accueil » ou « Installer l'application ».<br>iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
+      <p class="note app-version">Version <span id="app-version">0.67.2</span> · bêta · <a href="confidentialite.html">Confidentialité</a></p>
+    </div>
+
+    <div class="panel" data-sub="reglages" id="account-panel" hidden>
       <h2>Compte</h2>
       <div id="account-box"></div>
       <div class="actions"><button class="btn" type="button" id="logout">Se déconnecter</button></div>
@@ -356,4 +541,3 @@ if("serviceWorker" in navigator){
 <script src="invite.js"></script>
 </body>
 </html>
-

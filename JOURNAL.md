@@ -312,4 +312,3 @@ sortie.
 Refonte de l'application : fiche de prise, réactions par appui long, pseudos
 cliquables, lecture à une main, partage depuis la galerie, chat dans l'en-tête
 et numéro de version 0.x.
-
