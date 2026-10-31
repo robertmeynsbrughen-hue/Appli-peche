@@ -33,7 +33,7 @@ function frError(e){
   if(/pseudo pris/i.test(m)) return "Ce pseudo est déjà pris, choisis-en un autre.";
   if(/email invalide|invalid format|validate email/i.test(m)) return "Cette adresse e-mail n'est pas valide.";
   if(/already registered|already exists/i.test(m)) return "Un compte existe déjà avec cet e-mail : connecte-toi, ou utilise « Mot de passe oublié ».";
-  if(/not authorized|Email address not authorized/i.test(m)) return "L'envoi d'e-mails n'est pas encore activé sur le serveur. Réessaie plus tard ou préviens l'admin.";
+  if(/not authorized|Email address not authorized/i.test(m)) return "L'envoi d'e-mails n'est pas encore activé sur le serveur. Réessaie plus tard ou préviens le développeur.";
   if(/deadline|timeout|504|sending.*email|smtp/i.test(m)) return "Le serveur d'e-mails ne répond pas pour l'instant. Réessaie dans quelques minutes.";
   if(/trop de tentatives/i.test(m)) return "Trop d'essais de code d'invitation : réessaie dans une heure.";
   if(/code trop court/i.test(m)) return "Le code doit faire au moins 8 caractères. Laisse le champ vide pour un code généré automatiquement.";
@@ -48,7 +48,7 @@ function frError(e){
   if(/Email not confirmed/i.test(m)) return "Confirme d'abord ton e-mail : ouvre le lien reçu par mail (pense aux spams).";
   if(/row-level security/i.test(m)) return "Action non autorisée dans ce groupe.";
   if(/limite de groupes/i.test(m)) return "Tu es déjà responsable de 3 groupes, c'est le maximum.";
-  if(/seul l'admin peut changer le responsable/i.test(m)) return "Seul l'admin peut changer le responsable du groupe.";
+  if(/seul l'admin peut changer le responsable/i.test(m)) return "Seul le développeur peut changer le responsable du groupe.";
   if(/seuls les modérateurs peuvent épingler/i.test(m)) return "Seuls les modérateurs peuvent épingler un mémo.";
   if(/non autoris/i.test(m)) return "Tu n'as pas les droits pour faire ça dans ce groupe.";
   if(/Email signups are disabled/i.test(m)) return "Les inscriptions sont désactivées dans Supabase (fournisseur Email).";
@@ -69,7 +69,7 @@ function roleBadge(role){ return ROLE_LABEL[role]?el("span","badge "+role,ROLE_L
 function userLabel(name,isAdmin,role){
   const s=el("span","post-user","@"+(name||"?"));
   if(name){ s.dataset.user=name; s.tabIndex=0; s.setAttribute("role","link"); s.title="Voir le profil de @"+name; }
-  if(isAdmin) s.append(el("span","badge","Admin"));
+  if(isAdmin) s.append(el("span","badge","Développeur"));
   else if(name&&window.CDJ_CTRL?.has(name)) s.append(el("span","badge controller","Contrôle"));
   else if(role===true||role==="owner") s.append(roleBadge("owner"));
   else if(role==="moderator") s.append(roleBadge("moderator"));
@@ -88,7 +88,7 @@ const isStaff=()=>!!me&&(me.is_admin||me.is_controller);
 const canManage=gid=>!!me&&(me.is_admin||myRoles.get(gid)==="owner");
 const canModerate=gid=>!!me&&(isStaff()||myRoles.get(gid)==="owner"||myRoles.get(gid)==="moderator");
 const isManager=()=>!!me&&(isStaff()||[...myRoles.values()].some(r=>r!=="member"));
-const staffBadge=()=>me?.is_admin?el("span","badge","Admin"):me?.is_controller?el("span","badge controller","Contrôle"):null;
+const staffBadge=()=>me?.is_admin?el("span","badge","Développeur"):me?.is_controller?el("span","badge controller","Contrôle"):null;
 const curGroup=()=>groups.find(g=>g.id===cur);
 const hooks={};   // points d'accroche pour groupe.js
 const groupName=id=>{ const g=groups.find(x=>x.id===id); return g?g.name:"?"; };
@@ -180,7 +180,7 @@ function openSwitcher(){
     if(!disabled) b.addEventListener("click",()=>{ closeSheet(); setGroup(val); });
     list.append(b);
   };
-  if(isStaff()) item("Tous les groupes",me.is_admin?"Vue d'ensemble admin":"Vue d'ensemble contrôleur","all");
+  if(isStaff()) item("Tous les groupes",me.is_admin?"Vue d'ensemble développeur":"Vue d'ensemble contrôleur","all");
   groups.forEach(g=>item(g.name,g.region||"",g.id,isStaff()?null:roleBadge(myRoles.get(g.id))));
   pendingGroups.forEach(g=>item(g.name,"Demande en attente de validation",null,null,true));
   $("#gs-sheet").hidden=false;
@@ -401,7 +401,7 @@ async function loadGroups(){
 function viewToggle(){
   const b=$("#view-toggle"); if(!b) return;
   b.hidden=!canSwitchView;
-  const realLabel=me?.real?.is_admin?"Admin":me?.real?.is_controller?"Contrôle":"Modo";
+  const realLabel=me?.real?.is_admin?"Développeur":me?.real?.is_controller?"Contrôle":"Modo";
   b.innerHTML=""; b.classList.toggle("on",userView);
   b.append(el("span","vt-eye",userView?"👤":"🛡️"),el("span","vt-t",userView?"Membre":realLabel));
   b.title=userView?"Tu vois l'appli comme un membre. Touche pour revenir en vue "+realLabel.toLowerCase():"Voir l'appli comme un simple membre";
@@ -424,13 +424,22 @@ async function loadStats(){
 function renderMyGroups(){
   const box=$("#my-groups-list"); if(!box) return; box.innerHTML="";
   if(!me) return;
-  if(me.is_admin) box.append(el("p","note","En tant qu'admin tu vois tous les groupes, même sans en être membre. Bascule de l'un à l'autre depuis l'en-tête."));
+  if(me.is_admin) box.append(el("p","note","En tant que développeur tu vois tous les groupes, même sans en être membre. Bascule de l'un à l'autre depuis l'en-tête."));
   const mine=groups.filter(g=>myRoles.has(g.id));
   if(!mine.length&&!pendingGroups.length&&!me.is_admin){ box.append(el("p","note","Aucun groupe pour l'instant.")); return; }
-  const leave=(g,label)=>confirmBtn(label,"Confirmer",async()=>{
-    await sb.from("memberships").delete().eq("group_id",g.id).eq("user_id",me.id);
-    await loadGroups(); loadSpots(); loadFeed(); hooks.groupChanged?.();
-  });
+  const leave=(g,label,pending=false)=>{
+    const owner=roleOf(g.id,me.id)==="owner"||myRoles.get(g.id)==="owner";
+    if(!pending&&owner){
+      const b=el("button","btn small danger",label); b.type="button";
+      b.addEventListener("click",()=>hooks.leaveGroup?.(g)); return b;
+    }
+    return confirmBtn(label,"Confirmer",async()=>{
+      if(!pending&&hooks.leaveGroup){ await hooks.leaveGroup(g); return; }
+      const {error}=await sb.from("memberships").delete().eq("group_id",g.id).eq("user_id",me.id);
+      if(error) return toast(frError(error));
+      await loadGroups(); loadSpots(); loadFeed(); hooks.groupChanged?.();
+    });
+  };
   mine.forEach(g=>{
     const r=el("div","mrow");
     const nm=el("button","linkbtn plain",g.name+(g.region?" · "+g.region:"")); nm.type="button";
@@ -442,7 +451,7 @@ function renderMyGroups(){
   pendingGroups.forEach(g=>{
     const r=el("div","mrow");
     const nm=el("span",null,g.name); nm.append(el("span","badge wait","En attente"));
-    r.append(nm, leave(g,"Annuler"));
+    r.append(nm, leave(g,"Annuler",true));
     box.append(r);
   });
 }

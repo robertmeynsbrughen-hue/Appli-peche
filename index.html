@@ -283,7 +283,7 @@ body{margin:0}
       <form class="panel" id="forgot-form" hidden>
         <h2>Mot de passe oublié</h2>
         <p class="note">Entre l'e-mail de ton compte : tu reçois un lien pour choisir un nouveau mot de passe.</p>
-        <p class="note">Pas d'e-mail reçu ? Demande à l'admin ou au modérateur de ton groupe : il peut te donner un mot de passe provisoire depuis l'appli.</p>
+        <p class="note">Pas d'e-mail reçu ? Demande au développeur ou au modérateur de ton groupe : il peut te donner un mot de passe provisoire depuis l'appli.</p>
         <label class="field">E-mail<input id="f-email" type="email" autocomplete="email" required placeholder="ton@email.fr"></label>
         <p class="err" id="f-err" hidden></p>
         <p class="ok-msg" id="f-ok" hidden></p>
@@ -359,7 +359,7 @@ body{margin:0}
     <div class="panel" data-sub="reglages">
       <h2>Installer l'appli</h2>
       <p class="note">Android (Chrome) : menu ⋮ puis « Ajouter à l'écran d'accueil » ou « Installer l'application ».<br>iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
-      <p class="note app-version">Version <span id="app-version">0.66.2</span> · bêta · <a href="confidentialite.html">Confidentialité</a></p>
+      <p class="note app-version">Version <span id="app-version">0.66.5</span> · bêta · <a href="confidentialite.html">Confidentialité</a></p>
     </div>
 
     <div class="panel" data-sub="reglages" id="account-panel" hidden>
@@ -458,6 +458,10 @@ body{margin:0}
   <div class="chat-head">
     <div><h2 id="chat-title">Chat</h2><div class="note" id="chat-sub"></div></div>
     <button type="button" class="icon-btn" id="chat-close" aria-label="Fermer le chat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="chat-scopes" id="chat-scopes" role="tablist" aria-label="Portée du chat" hidden>
+    <button type="button" class="chat-scope on" data-scope="group" role="tab" aria-selected="true">Groupes</button>
+    <button type="button" class="chat-scope" data-scope="staff" role="tab" aria-selected="false">Équipe staff</button>
   </div>
   <div class="chat-groups" id="chat-groups" role="tablist" aria-label="Groupes" hidden></div>
   <div class="chat-msgs" id="chat-msgs" aria-live="polite"></div>

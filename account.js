@@ -115,7 +115,7 @@ async function legacyEmail(email){
 let tempShown=false;
 function passSheet(temp){
   const {sh,close}=sheet(temp===true?"Choisis ton mot de passe":"Changer de mot de passe");
-  if(temp===true) sh.append(el("p","note","Tu t'es connecté avec un mot de passe provisoire donné par l'admin. Choisis maintenant le tien : le provisoire ne sera plus utile."));
+  if(temp===true) sh.append(el("p","note","Tu t'es connecté avec un mot de passe provisoire donné par le développeur. Choisis maintenant le tien : le provisoire ne sera plus utile."));
   const f=el("form","acc-form"); const pw=pwFields(); const err=el("p","err"); err.hidden=true;
   const ok=el("button","btn primary","Enregistrer"); ok.type="submit";
   f.append(...pw.nodes,err,el("div","actions")); f.lastChild.append(ok);

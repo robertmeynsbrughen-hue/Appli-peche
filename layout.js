@@ -87,7 +87,7 @@ if(fab&&!fab.classList.contains("in-head")){
   fab.title="Chat du groupe (fais-moi glisser pour me déplacer)";
 }
 
-/* ---------- Contrôleurs de l'appli (réglages de l'admin) ---------- */
+/* ---------- Contrôleurs de l'appli (réglages du développeur) ---------- */
 async function ctrlPanel(){
   const box=$("#ctrl-panel"); if(!box) return;
   if(!A.me?.is_admin){ box.hidden=true; return; }

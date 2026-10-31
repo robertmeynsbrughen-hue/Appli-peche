@@ -6,8 +6,8 @@ const $=s=>document.querySelector(s);
 const root=$("#groupe-root");
 let lastGroup;
 const isMember=()=>!!A.me&&A.cur!=null&&A.cur!=="all"&&A.myRoles.has(A.cur);
-const canChat=()=>!!A.me&&A.cur!=null&&A.cur!=="all"&&(A.myRoles.has(A.cur)||A.me.is_admin);
-const chatVisible=()=>!!A.me&&A.groups.length>0&&(canChat()||!!A.me.is_admin);
+const canChat=()=>!!A.me&&A.cur!=null&&A.cur!=="all"&&(A.myRoles.has(A.cur)||A.me.is_admin||A.me.is_controller);
+const chatVisible=()=>!!A.me&&((A.me.is_admin||A.me.is_controller)||A.groups.length>0&&canChat());
 const store={ get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } },
               set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} } };
 const waterType=()=>{ try{ const w=localStorage.getItem("cdj-water"); return ["etang","riviere","canal"].includes(w)?w:null; }catch(e){ return null; } };
@@ -22,6 +22,140 @@ async function signed(paths){
   const urls={}; if(!paths.length) return urls;
   const {data}=await A.sb.storage.from("photos").createSignedUrls(paths,3600);
   (data||[]).forEach(s=>{ if(s.signedUrl) urls[s.path]=s.signedUrl; }); return urls;
+}
+
+function askGroupName(g,title,explanation){
+  return new Promise(resolve=>{
+    const back=el("div","sheet-back group-confirm-back");
+    const box=el("div","sheet group-confirm");
+    const id="group-confirm-"+Date.now();
+    box.setAttribute("role","dialog"); box.setAttribute("aria-modal","true"); box.setAttribute("aria-labelledby",id);
+    const heading=el("h2",null,title); heading.id=id; box.append(heading,el("p","note",explanation));
+    const form=el("form");
+    const label=el("label","field","Nom exact du groupe : "+g.name);
+    const input=el("input"); input.autocomplete="off"; input.maxLength=40; input.required=true; input.setAttribute("aria-label","Saisis le nom exact du groupe");
+    label.append(input); form.append(label);
+    const actions=el("div","actions");
+    const cancel=btn("Annuler","btn",()=>finish(null));
+    const submit=btn("Confirmer","btn danger",null); submit.type="submit"; submit.disabled=true;
+    actions.append(cancel,submit); form.append(actions); box.append(form); back.append(box);
+    const key=e=>{ if(e.key==="Escape") finish(null); };
+    const finish=value=>{ document.removeEventListener("keydown",key); back.remove(); resolve(value); };
+    input.addEventListener("input",()=>{ submit.disabled=input.value!==g.name; });
+    form.addEventListener("submit",e=>{ e.preventDefault(); if(input.value===g.name) finish(input.value); });
+    back.addEventListener("click",e=>{ if(e.target===back) finish(null); });
+    document.addEventListener("keydown",key); document.body.append(back); input.focus();
+  });
+}
+
+function chooseSuccessor(g,candidates){
+  return new Promise(resolve=>{
+    const back=el("div","sheet-back group-confirm-back"), box=el("div","sheet group-confirm");
+    const id="group-successor-"+Date.now();
+    box.setAttribute("role","dialog"); box.setAttribute("aria-modal","true"); box.setAttribute("aria-labelledby",id);
+    const heading=el("h2",null,"Transmettre la responsabilité"); heading.id=id;
+    box.append(heading,el("p","note","Choisis un membre actif de « "+g.name+" ». La transmission et ton départ seront faits ensemble."));
+    const form=el("form"), label=el("label","field","Nouveau responsable");
+    const select=el("select"); select.required=true; select.setAttribute("aria-labelledby",id);
+    select.append(new Option("Choisir un membre…",""));
+    candidates.forEach(m=>select.append(new Option("@"+(m.profiles?.username||"membre"),m.user_id)));
+    label.append(select); form.append(label);
+    const actions=el("div","actions"), cancel=btn("Annuler","btn",()=>finish(null));
+    const submit=btn("Quitter et transmettre","btn primary",null); submit.type="submit"; submit.disabled=true;
+    select.addEventListener("change",()=>{ submit.disabled=!select.value; });
+    actions.append(cancel,submit); form.append(actions); box.append(form); back.append(box);
+    const key=e=>{ if(e.key==="Escape") finish(null); };
+    const finish=value=>{ document.removeEventListener("keydown",key); back.remove(); resolve(value); };
+    form.addEventListener("submit",e=>{ e.preventDefault(); if(select.value) finish(select.value); });
+    back.addEventListener("click",e=>{ if(e.target===back) finish(null); });
+    document.addEventListener("keydown",key); document.body.append(back); select.focus();
+  });
+}
+
+const GROUP_CLEANUP_KEY="cdj-group-photo-cleanups";
+const groupCleanupRuns=new Map();
+function pendingGroupCleanup(){ const q=store.get(GROUP_CLEANUP_KEY,[]); return Array.isArray(q)?q.map(String):[]; }
+function queueGroupCleanup(gid){ const q=pendingGroupCleanup(); if(!q.includes(String(gid))) q.push(String(gid)); store.set(GROUP_CLEANUP_KEY,q); }
+function finishGroupCleanupQueue(gid){ store.set(GROUP_CLEANUP_KEY,pendingGroupCleanup().filter(x=>x!==String(gid))); }
+async function groupPhotoPaths(gid){
+  const files=[], storage=A.sb.storage.from("photos");
+  async function walk(prefix){
+    let offset=0;
+    while(true){
+      const {data,error}=await storage.list(prefix,{limit:100,offset});
+      if(error) throw error;
+      const rows=data||[];
+      for(const item of rows){
+        if(!item.name) continue;
+        const path=prefix+"/"+item.name;
+        if(item.id==null&&!item.metadata) await walk(path);
+        else files.push(path);
+      }
+      if(rows.length<100) break;
+      offset+=rows.length;
+    }
+  }
+  await walk(String(gid)); return files;
+}
+function cleanupDeletedGroup(gid){
+  const key=String(gid), existing=groupCleanupRuns.get(key);
+  if(existing) return existing;
+  const run=(async()=>{
+    const paths=await groupPhotoPaths(gid), storage=A.sb.storage.from("photos");
+    for(let i=0;i<paths.length;i+=100){
+      const {error}=await storage.remove(paths.slice(i,i+100));
+      if(error) throw error;
+    }
+    const {error}=await A.sb.rpc("finish_group_delete_cleanup",{p_group:Number(gid)});
+    if(error) throw error;
+    finishGroupCleanupQueue(gid);
+  })();
+  groupCleanupRuns.set(key,run);
+  return run.finally(()=>groupCleanupRuns.delete(key));
+}
+async function retryGroupPhotoCleanups(){
+  if(!A.me||!navigator.onLine) return;
+  for(const gid of pendingGroupCleanup()){
+    try{ await cleanupDeletedGroup(gid); }
+    catch(_){ /* Le droit de nettoyage temporaire permet un nouvel essai plus tard. */ }
+  }
+}
+async function removeGroup(g,givenName){
+  if(!navigator.onLine) return toast("Connecte-toi à Internet avant de supprimer ce groupe.");
+  const confirmation=givenName??await askGroupName(g,"Supprimer le groupe ?","Cette action est définitive : les publications, adhésions et invitations du groupe seront supprimées.");
+  if(confirmation==null) return;
+  const {error}=await A.sb.rpc("delete_group",{p_group:g.id,p_confirmation:confirmation});
+  if(error) return toast(frError(error));
+  queueGroupCleanup(g.id);
+  await A.loadGroups(); A.hooks.modo?.(); A.hooks.groupe?.();
+  try{ await cleanupDeletedGroup(g.id); toast("Groupe supprimé"); }
+  catch(_){ toast("Groupe supprimé. Nettoyage des photos en attente ; il sera retenté à ta prochaine ouverture."); }
+}
+async function leaveGroup(g){
+  if(!navigator.onLine) return toast("Connecte-toi à Internet avant de quitter ce groupe.");
+  const owner=A.roleOf(g.id,A.me.id)==="owner"||A.myRoles.get(g.id)==="owner";
+  let successor=null, confirmation=null;
+  if(owner){
+    const {data,error}=await A.sb.from("memberships").select("user_id,role,profiles(username)").eq("group_id",g.id).eq("status","active");
+    if(error) return toast(frError(error));
+    const candidates=(data||[]).filter(m=>m.user_id!==A.me.id);
+    if(candidates.length){ successor=await chooseSuccessor(g,candidates); if(!successor) return; }
+    else{
+      confirmation=await askGroupName(g,"Supprimer le groupe ?","Tu es son dernier membre actif. Quitter supprimera définitivement le groupe et son contenu.");
+      if(confirmation==null) return;
+    }
+  }
+  const {data,error}=await A.sb.rpc("leave_group",{p_group:g.id,p_successor:successor,p_confirmation:confirmation});
+  if(error) return toast(frError(error));
+  if(data==="deleted"){
+    queueGroupCleanup(g.id);
+    await A.loadGroups(); A.hooks.modo?.(); A.hooks.groupe?.();
+    try{ await cleanupDeletedGroup(g.id); toast("Groupe supprimé"); }
+    catch(_){ toast("Groupe supprimé. Nettoyage des photos en attente ; il sera retenté à ta prochaine ouverture."); }
+    return;
+  }
+  toast(successor?"Tu as transmis la responsabilité et quitté le groupe.":"Tu as quitté le groupe.");
+  await A.loadGroups(); A.hooks.groupChanged?.(); A.hooks.groupe?.();
 }
 
 /* ================= Bilan rapide ================= */
@@ -134,7 +268,7 @@ async function renderGroupe(){
 
   // En-tête du groupe
   const head=el("div","g-head");
-  const t=el("div"); const h=el("h1",null,g.name); const rb=A.me.is_admin?el("span","badge","Admin"):A.me.is_controller?el("span","badge controller","Contrôle"):roleBadge(A.myRoles.get(gid)); if(rb) h.append(rb);
+  const t=el("div"); const h=el("h1",null,g.name); const rb=A.me.is_admin?el("span","badge","Développeur"):A.me.is_controller?el("span","badge controller","Contrôle"):roleBadge(A.myRoles.get(gid)); if(rb) h.append(rb);
   const nb=info?Number(info.members):cnt.count, wait=info?Number(info.pending_members||0):0;
   const full=nb+wait>=MAXM;
   const cap=nb!=null?nb+"/"+MAXM+" membres"+(wait?" · "+wait+" en attente":"")+(full?" · complet":""):"";
@@ -383,6 +517,11 @@ function renderManage(g,info,members,man){
       if(error) return showErr(err,frError(error)); toast("Groupe modifié"); await A.loadGroups(); afterManage(); });
     s.append(f);
   }
+  if(man){
+    const del=btn("🗑 Supprimer le groupe","btn small danger",()=>removeGroup(g));
+    del.setAttribute("aria-label","Supprimer définitivement le groupe "+g.name);
+    s.append(el("p","note","Suppression définitive du groupe et de ses données."),del);
+  }
   return s;
 }
 
@@ -391,7 +530,7 @@ async function adminOverview(seq){
   const {data,error}=await A.sb.rpc("manage_groups");
   if(seq!==renderSeq) return;
   root.innerHTML="";
-  const s=section("Tous les groupes",el("span","note","vue admin"));
+  const s=section("Tous les groupes",el("span","note","vue développeur"));
   if(error){ s.append(el("p","err",frError(error))); root.append(s); return; }
   (data||[]).forEach(g=>{
     const c=el("div","gcard");
@@ -406,6 +545,7 @@ async function adminOverview(seq){
     if(flags.childNodes.length) c.append(flags);
     const code=el("div","note","Code : "); code.append(el("span","code",g.invite_code)); c.append(code);
     c.append(btn("Ouvrir ce groupe","btn small",()=>A.setGroup(g.id)));
+    if(A.me.is_admin) c.append(btn("🗑 Supprimer le groupe","btn small danger",()=>removeGroup(g)));
     s.append(c);
   });
   root.append(s);
@@ -413,19 +553,22 @@ async function adminOverview(seq){
 
 /* ================= Chat de groupe ================= */
 // Membre : chat du groupe sélectionné. Admin : onglets pour passer d'un groupe à l'autre dans le chat.
-const fab=$("#chat-fab"), panel=$("#chat-panel"), box=$("#chat-msgs"), badge=$("#chat-badge"), tabs=$("#chat-groups");
-let chatGid=null, channel=null, msgs=[], names=new Map(), unread=new Map(), poll=null, subKey="";
+const fab=$("#chat-fab"), panel=$("#chat-panel"), box=$("#chat-msgs"), badge=$("#chat-badge"), tabs=$("#chat-groups"), scopes=$("#chat-scopes");
+let chatGid=null, chatScope="group", channel=null, staffChannel=null, msgs=[], names=new Map(), unread=new Map(), staffUnread=0, poll=null, subKey="", staffSubKey="";
 const seenKey=g=>"cdj-chat-seen-"+g;
+const staffSeenKey="cdj-chat-staff-seen";
 const isAdmin=()=>!!(A.me?.is_admin||A.me?.is_controller);   // admin ou contrôleur : voit tous les chats
 const chatGroups=()=>isAdmin()?A.groups:A.groups.filter(g=>A.myRoles.has(g.id));
-const totalUnread=()=>isAdmin()?[...unread.values()].reduce((a,b)=>a+b,0):(unread.get(chatGid)||0);
+const totalUnread=()=> (isAdmin()?[...unread.values()].reduce((a,b)=>a+b,0):(unread.get(chatGid)||0))+(isAdmin()?staffUnread:0);
 function renderFab(){
   fab.hidden=!chatVisible()||!panel.hidden;
   const n=totalUnread(); badge.hidden=!n; badge.textContent=n>9?"9+":String(n);
 }
 function renderTabs(){
+  scopes.hidden=!isAdmin();
+  scopes.querySelectorAll("[data-scope]").forEach(b=>{ const on=b.dataset.scope===chatScope; b.classList.toggle("on",on); b.setAttribute("aria-selected",String(on)); });
   tabs.innerHTML=""; tabs.hidden=!isAdmin();
-  if(!isAdmin()) return;
+  if(!isAdmin()||chatScope==="staff") { tabs.hidden=true; return; }
   chatGroups().forEach(gr=>{
     const b=btn("","chat-tab"+(gr.id===chatGid?" on":""),()=>switchChat(gr.id));
     b.append(el("span",null,gr.name));
@@ -440,28 +583,49 @@ async function countUnread(gids){
     const {count}=await A.sb.from("messages").select("id",{count:"exact",head:true}).eq("group_id",gid).gt("created_at",seen).neq("user_id",A.me.id);
     unread.set(gid,count||0);
   }));
+  if(isAdmin()){
+    const seen=store.get(staffSeenKey,new Date(Date.now()-7*864e5).toISOString());
+    const {count}=await A.sb.from("staff_messages").select("id",{count:"exact",head:true}).gt("created_at",seen).neq("user_id",A.me.id);
+    staffUnread=count||0;
+  }
   renderFab(); renderTabs();
 }
 // Abonnement temps réel : tous les groupes pour l'admin, le groupe courant pour un membre
 function subscribe(){
   const gids=isAdmin()?chatGroups().map(g=>g.id):(canChat()?[A.cur]:[]);
   const key=(A.me?.id||"")+"|"+gids.join(",");
-  if(key===subKey) return;
-  subKey=key;
-  if(channel){ A.sb?.removeChannel(channel); channel=null; }
-  unread=new Map();
-  if(!gids.length){ renderFab(); return; }
-  const opts={event:"INSERT",schema:"public",table:"messages"};
-  if(!isAdmin()) opts.filter="group_id=eq."+gids[0];
-  channel=A.sb.channel("chat-"+key).on("postgres_changes",opts,async ({new:m})=>{
-    if(!gids.includes(m.group_id)) return;
-    if(!panel.hidden&&m.group_id===chatGid){ await addMsg(m); markSeen(); }
-    else if(m.user_id!==A.me.id){ unread.set(m.group_id,(unread.get(m.group_id)||0)+1); renderFab(); renderTabs(); }
-  }).subscribe();
-  countUnread(gids);
+  if(key!==subKey){
+    subKey=key;
+    if(channel){ A.sb?.removeChannel(channel); channel=null; }
+    unread=new Map();
+    if(gids.length){
+      const opts={event:"INSERT",schema:"public",table:"messages"};
+      if(!isAdmin()) opts.filter="group_id=eq."+gids[0];
+      channel=A.sb.channel("chat-"+key).on("postgres_changes",opts,async ({new:m})=>{
+        if(!gids.includes(m.group_id)) return;
+        if(!panel.hidden&&chatScope==="group"&&m.group_id===chatGid){ m._scope="group"; await addMsg(m); markSeen(); }
+        else if(m.user_id!==A.me.id){ unread.set(m.group_id,(unread.get(m.group_id)||0)+1); renderFab(); renderTabs(); }
+      }).subscribe();
+    }
+    countUnread(gids);
+  }
+  const skey=isAdmin()?(A.me?.id||""):"";
+  if(skey!==staffSubKey){
+    staffSubKey=skey;
+    if(staffChannel){ A.sb?.removeChannel(staffChannel); staffChannel=null; }
+    if(skey){
+      staffChannel=A.sb.channel("staff-chat-"+skey).on("postgres_changes",{event:"INSERT",schema:"public",table:"staff_messages"},async ({new:m})=>{
+        if(!isAdmin()) return;
+        m._scope="staff";
+        if(!panel.hidden&&chatScope==="staff"){ await addMsg(m); markStaffSeen(); }
+        else if(m.user_id!==A.me.id){ staffUnread++; renderFab(); }
+      }).subscribe();
+    } else staffUnread=0;
+  }
 }
 function onGroupChanged(){
-  if(!A.me){ if(channel){ A.sb?.removeChannel(channel); channel=null; } subKey=""; unread=new Map(); closeChat(); renderFab(); return; }
+  if(!A.me){ if(channel) A.sb?.removeChannel(channel); if(staffChannel) A.sb?.removeChannel(staffChannel); channel=staffChannel=null; subKey=staffSubKey=""; unread=new Map(); staffUnread=0; closeChat(); renderFab(); return; }
+  if(!isAdmin()&&chatScope==="staff") switchScope("group");
   if(!isAdmin()){
     const next=canChat()?A.cur:null;
     if(next!==chatGid){ chatGid=next; msgs=[]; box.innerHTML=""; if(!chatGid) closeChat(); else if(!panel.hidden) loadChat(); }
@@ -474,25 +638,28 @@ async function nameOf(uid){
   const v=data||{username:"?"}; names.set(uid,v); return v;
 }
 async function loadChat(){
-  if(!chatGid) return;
-  const gid=chatGid;
-  const {data,error}=await A.sb.from("messages").select("id,user_id,body,photo_path,audio_path,audio_secs,created_at,profiles(username,is_admin)").eq("group_id",gid).order("created_at",{ascending:false}).limit(80);
-  if(gid!==chatGid) return;
+  if(chatScope==="group"&&!chatGid) return;
+  const gid=chatGid, scope=chatScope, table=scope==="staff"?"staff_messages":"messages";
+  let q=A.sb.from(table).select("id,user_id,body,photo_path,audio_path,audio_secs,created_at,profiles(username,is_admin,is_controller)");
+  if(scope==="group") q=q.eq("group_id",gid);
+  const {data,error}=await q.order("created_at",{ascending:false}).limit(80);
+  if(gid!==chatGid||scope!==chatScope) return;
   if(error){ box.innerHTML=""; box.append(el("p","err",frError(error))); return; }
-  const list=(data||[]).reverse();
+  const list=(data||[]).reverse().map(m=>({...m,_scope:scope}));
   await signAll(list);
-  if(gid!==chatGid) return;
-  const same=list.length===msgs.length&&list.every((m,i)=>m.id===msgs[i].id);
+  if(gid!==chatGid||scope!==chatScope) return;
+  const same=list.length===msgs.length&&list.every((m,i)=>m.id===msgs[i].id&&m._scope===msgs[i]._scope);
   msgs=list; msgs.forEach(m=>{ if(m.profiles) names.set(m.user_id,m.profiles); });
   if(!same||!box.childElementCount) drawMsgs(true);
-  markSeen();
+  scope==="staff"?markStaffSeen():markSeen();
 }
 async function addMsg(m){
-  if(m.group_id&&m.group_id!==chatGid) return;
-  if(msgs.some(x=>x.id===m.id)) return;
+  m._scope=m._scope||"group";
+  if(m._scope!==chatScope||(m._scope==="group"&&m.group_id&&m.group_id!==chatGid)) return;
+  if(msgs.some(x=>x.id===m.id&&x._scope===m._scope)) return;
   m.profiles=m.profiles||await nameOf(m.user_id);
   await signAll([m]);
-  if(msgs.some(x=>x.id===m.id)) return;
+  if(msgs.some(x=>x.id===m.id&&x._scope===m._scope)) return;
   msgs.push(m); drawMsgs(true);
 }
 function drawMsgs(scroll){
@@ -506,7 +673,7 @@ function drawMsgs(scroll){
     const row=el("div","msg"+(mine?" mine":""));
     if(lastUser!==m.user_id){
       // pseudo toujours affiché ; admin en orange 👑, responsable en vert 👮, modérateur en bleu 🛡️
-      const isAdm=!!m.profiles?.is_admin, isCtl=!isAdm&&!!window.CDJ_CTRL?.has(m.profiles?.username), role=isAdm||isCtl?null:A.roleOf(chatGid,m.user_id);
+      const isAdm=chatScope==="staff"?!!m.profiles?.is_admin:!!m.profiles?.is_admin, isCtl=!isAdm&&(!!m.profiles?.is_controller||!!window.CDJ_CTRL?.has(m.profiles?.username)), role=chatScope==="staff"||isAdm||isCtl?null:A.roleOf(chatGid,m.user_id);
       const isResp=role==="owner", isMod=role==="moderator";
       const who=el("div","msg-who"+(isAdm?" is-admin":isCtl?" is-ctl":isResp?" is-owner":isMod?" is-mod":""));
       if(isAdm) who.append(el("span","msg-ico","👑"));
@@ -514,12 +681,12 @@ function drawMsgs(scroll){
       else if(isResp) who.append(el("span","msg-ico","👮"));
       else if(isMod) who.append(el("span","msg-ico","🛡️"));
       who.append("@"+(m.profiles?.username||"?")); if(m.profiles?.username){ who.dataset.user=m.profiles.username; who.classList.add("user-link"); }
-      if(isAdm||isCtl||isResp||isMod) who.setAttribute("title",isAdm?"Admin":isCtl?"Contrôleur de l'appli":isResp?"Responsable du groupe":"Modérateur du groupe");
+      if(isAdm||isCtl||isResp||isMod) who.setAttribute("title",isAdm?"Développeur":isCtl?"Contrôleur de l'appli":isResp?"Responsable du groupe":"Modérateur du groupe");
       row.append(who);
     }
     const b=el("div","bubble"+(m.body&&mentionsMe(m.body)&&!mine?" mention-me":"")+(m.photo_path?" has-photo":"")+(m.audio_path?" has-voice":""));
     const mn=mediaNode(m); if(mn) b.append(mn);
-    if(!mine&&A.report){
+    if(chatScope==="group"&&!mine&&A.report){
       // appui long (ou clic droit) sur un message : le signaler
       b.addEventListener("contextmenu",e=>{ e.preventDefault(); A.report({kind:"message",target_id:m.id,group_id:chatGid,excerpt:m.body||(m.photo_path?"📷 Photo":m.audio_path?"🎤 Message vocal":""),author_id:m.user_id}); });
     }
@@ -534,20 +701,24 @@ const urlCache=new Map(), media=new Map();
 let playing=null;
 const fmtSecs=s=>Math.floor(s/60)+":"+String(Math.round(s)%60).padStart(2,"0");
 async function signAll(list){
-  const need=[...new Set(list.flatMap(m=>[m.photo_path,m.audio_path]).filter(p=>p&&!urlCache.has(p)))];
-  if(!need.length) return;
-  const {data}=await A.sb.storage.from("photos").createSignedUrls(need,6*3600);
-  (data||[]).forEach(s=>{ if(s.signedUrl) urlCache.set(s.path,s.signedUrl); });
+  for(const bucket of ["photos","staff-media"]){
+    const need=[...new Set(list.filter(m=>(m._scope==="staff")===(bucket==="staff-media")).flatMap(m=>[m.photo_path,m.audio_path]).filter(p=>p&&!urlCache.has(bucket+"|"+p)))];
+    if(!need.length) continue;
+    const {data}=await A.sb.storage.from(bucket).createSignedUrls(need,6*3600);
+    (data||[]).forEach(s=>{ if(s.signedUrl) urlCache.set(bucket+"|"+s.path,s.signedUrl); });
+  }
 }
 function mediaNode(m){
-  if(media.has(m.id)) return media.get(m.id);
+  const key=(m._scope||"group")+"|"+m.id;
+  if(media.has(key)) return media.get(key);
+  const signed=p=>urlCache.get((m._scope==="staff"?"staff-media":"photos")+"|"+p);
   let n=null;
   if(m.photo_path){
-    const u=urlCache.get(m.photo_path);
+    const u=signed(m.photo_path);
     if(u){ n=el("a","msg-photo"); n.href=u; n.target="_blank"; n.rel="noopener"; const img=el("img"); img.src=u; img.loading="lazy"; img.alt="Photo envoyée par @"+(m.profiles?.username||"?"); n.append(img); }
     else n=el("span","note","Photo indisponible");
-  }else if(m.audio_path) n=voiceNode(urlCache.get(m.audio_path),m.audio_secs||0);
-  if(n) media.set(m.id,n);
+  }else if(m.audio_path) n=voiceNode(signed(m.audio_path),m.audio_secs||0);
+  if(n) media.set(key,n);
   return n;
 }
 function voiceNode(url,secs){
@@ -574,18 +745,19 @@ function voiceNode(url,secs){
 const picker=el("input"); picker.type="file"; picker.accept="image/*"; picker.hidden=true; document.body.append(picker);
 $("#chat-photo").addEventListener("click",()=>{ if(!navigator.onLine) return toast("Pas de réseau : la photo ne peut pas partir pour l'instant"); picker.value=""; picker.click(); });
 picker.addEventListener("change",async()=>{
-  const f=picker.files?.[0]; if(!f||!chatGid) return;
-  const gid=chatGid, inp=$("#chat-input"), body=inp.value.trim()||null, bt=$("#chat-photo");
+  const f=picker.files?.[0], scope=chatScope; if(!f||(scope==="group"&&!chatGid)||(scope==="staff"&&!isAdmin())) return;
+  const gid=chatGid, inp=$("#chat-input"), body=inp.value.trim()||null, bt=$("#chat-photo"), bucket=scope==="staff"?"staff-media":"photos";
   bt.disabled=true; toast("Envoi de la photo…");
   try{
     const blob=await A.compress(f);
-    const path=gid+"/"+A.me.id+"/chat-"+Date.now()+".jpg";
-    const up=await A.sb.storage.from("photos").upload(path,blob,{contentType:"image/jpeg"});
+    const path=scope==="staff"?A.me.id+"/chat-"+Date.now()+".jpg":gid+"/"+A.me.id+"/chat-"+Date.now()+".jpg";
+    const up=await A.sb.storage.from(bucket).upload(path,blob,{contentType:"image/jpeg"});
     if(up.error) throw up.error;
-    const {data,error}=await A.sb.from("messages").insert({group_id:gid,user_id:A.me.id,body,photo_path:path}).select("id,user_id,group_id,body,photo_path,audio_path,audio_secs,created_at").single();
-    if(error){ await A.sb.storage.from("photos").remove([path]); throw error; }
+    const row={user_id:A.me.id,body,photo_path:path}; if(scope==="group") row.group_id=gid;
+    const {data,error}=await A.sb.from(scope==="staff"?"staff_messages":"messages").insert(row).select("id,user_id,group_id,body,photo_path,audio_path,audio_secs,created_at").single();
+    if(error){ await A.sb.storage.from(bucket).remove([path]); throw error; }
     if(body) inp.value="";
-    await addMsg({...data,profiles:{username:A.me.username,is_admin:A.me.is_admin}}); markSeen();
+    await addMsg({...data,_scope:scope,profiles:{username:A.me.username,is_admin:A.me.is_admin,is_controller:A.me.is_controller}}); scope==="staff"?markStaffSeen():markSeen();
   }catch(e){ toast(frError(e)); }
   finally{ bt.disabled=false; }
 });
@@ -599,7 +771,7 @@ function recUI(on){
 }
 function stopRec(cancel){ if(!rec) return; rec.cancel=cancel; try{ rec.mr.stop(); }catch(e){ rec.stream.getTracks().forEach(x=>x.stop()); rec=null; recUI(false); } }
 $("#chat-mic").addEventListener("click",async()=>{
-  if(rec||!chatGid) return;
+  if(rec||(chatScope==="group"&&!chatGid)||(chatScope==="staff"&&!isAdmin())) return;
   if(!navigator.onLine) return toast("Pas de réseau : le vocal ne peut pas partir pour l'instant");
   if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder) return toast("L'enregistrement audio n'est pas pris en charge sur ce téléphone");
   let stream;
@@ -609,7 +781,7 @@ $("#chat-mic").addEventListener("click",async()=>{
   let mr;
   try{ mr=new MediaRecorder(stream,T[0]?{mimeType:T[0],audioBitsPerSecond:32000}:undefined); }
   catch(e){ stream.getTracks().forEach(x=>x.stop()); return toast("Enregistrement impossible sur ce téléphone"); }
-  const gid=chatGid;
+  const gid=chatGid, scope=chatScope;
   rec={mr,stream,chunks:[],type:T,start:Date.now(),cancel:false};
   mr.ondataavailable=e=>{ if(e.data&&e.data.size) rec?.chunks.push(e.data); };
   mr.onstop=async()=>{
@@ -620,13 +792,15 @@ $("#chat-mic").addEventListener("click",async()=>{
     const blob=new Blob(r.chunks,{type:r.type[1]});
     toast("Envoi du vocal…");
     try{
-      const path=gid+"/"+A.me.id+"/vocal-"+Date.now()+"."+r.type[2];
-      const up=await A.sb.storage.from("photos").upload(path,blob,{contentType:r.type[1]});
+      const bucket=scope==="staff"?"staff-media":"photos";
+      const path=scope==="staff"?A.me.id+"/vocal-"+Date.now()+"."+r.type[2]:gid+"/"+A.me.id+"/vocal-"+Date.now()+"."+r.type[2];
+      const up=await A.sb.storage.from(bucket).upload(path,blob,{contentType:r.type[1]});
       if(up.error) throw up.error;
-      const {data,error}=await A.sb.from("messages").insert({group_id:gid,user_id:A.me.id,audio_path:path,audio_secs:Math.max(1,secs)}).select("id,user_id,group_id,body,photo_path,audio_path,audio_secs,created_at").single();
-      if(error){ await A.sb.storage.from("photos").remove([path]); throw error; }
-      urlCache.set(path,URL.createObjectURL(blob));
-      await addMsg({...data,profiles:{username:A.me.username,is_admin:A.me.is_admin}}); markSeen();
+      const row={user_id:A.me.id,audio_path:path,audio_secs:Math.max(1,secs)}; if(scope==="group") row.group_id=gid;
+      const {data,error}=await A.sb.from(scope==="staff"?"staff_messages":"messages").insert(row).select("id,user_id,group_id,body,photo_path,audio_path,audio_secs,created_at").single();
+      if(error){ await A.sb.storage.from(bucket).remove([path]); throw error; }
+      urlCache.set(bucket+"|"+path,URL.createObjectURL(blob));
+      await addMsg({...data,_scope:scope,profiles:{username:A.me.username,is_admin:A.me.is_admin,is_controller:A.me.is_controller}}); scope==="staff"?markStaffSeen():markSeen();
     }catch(e){ toast(frError(e)); }
   };
   mr.start(250); recUI(true);
@@ -647,16 +821,22 @@ function withMentions(t){
 }
 const members=new Map();   // groupe -> pseudos actifs
 async function memberNames(gid){
-  if(members.has(gid)) return members.get(gid);
+  const cacheKey=chatScope==="staff"?"staff":gid;
+  if(members.has(cacheKey)) return members.get(cacheKey);
+  if(chatScope==="staff"){
+    const {data}=await A.sb.from("profiles").select("username").or("is_admin.eq.true,is_controller.eq.true");
+    const v=(data||[]).map(p=>p.username).filter(Boolean).sort((a,b)=>a.localeCompare(b,"fr"));
+    members.set(cacheKey,v); return v;
+  }
   const {data}=await A.sb.from("memberships").select("profiles(username)").eq("group_id",gid).eq("status","active");
   const v=(data||[]).map(r=>r.profiles?.username).filter(Boolean).sort((a,b)=>a.localeCompare(b,"fr"));
-  members.set(gid,v); return v;
+  members.set(cacheKey,v); return v;
 }
 const sugg=el("div","mention-sugg"); sugg.hidden=true; $("#chat-form").before(sugg);
 $("#chat-input").addEventListener("input",async()=>{
   const inp=$("#chat-input"), pos=inp.selectionStart, before=inp.value.slice(0,pos);
   const m=before.match(/@([A-Za-z0-9_]{0,20})$/);
-  if(!m||!chatGid){ sugg.hidden=true; return; }
+  if(!m||(chatScope==="group"&&!chatGid)){ sugg.hidden=true; return; }
   const q=m[1].toLowerCase();
   const list=(await memberNames(chatGid)).filter(n=>n!==A.me.username&&n.toLowerCase().startsWith(q)).slice(0,6);
   sugg.innerHTML=""; sugg.hidden=!list.length;
@@ -665,20 +845,44 @@ $("#chat-input").addEventListener("input",async()=>{
     sugg.hidden=true; inp.focus();
   })));
 });
-function markSeen(){ if(chatGid){ store.set(seenKey(chatGid),new Date().toISOString()); unread.set(chatGid,0); renderFab(); renderTabs(); } }
+function markSeen(){ if(chatScope==="group"&&chatGid){ store.set(seenKey(chatGid),new Date().toISOString()); unread.set(chatGid,0); renderFab(); renderTabs(); } }
+function markStaffSeen(){ store.set(staffSeenKey,new Date().toISOString()); staffUnread=0; renderFab(); renderTabs(); }
 function headerText(){
+  if(chatScope==="staff"){
+    $("#chat-title").textContent="Chat · équipe staff";
+    $("#chat-sub").textContent="Salon privé des développeurs et contrôleurs";
+    $("#chat-input").placeholder="Écrire à l’équipe…";
+    return;
+  }
   const gr=A.groups.find(x=>x.id===chatGid);
   $("#chat-title").textContent="Chat · "+(gr?.name||"");
-  $("#chat-sub").textContent=A.myRoles.has(chatGid)?"Visible par les membres du groupe":"Tu suis ce chat en tant qu'admin";
+  $("#chat-sub").textContent=A.myRoles.has(chatGid)?"Visible par les membres du groupe":"Tu suis ce chat en tant que développeur";
+  $("#chat-input").placeholder="Écrire au groupe…";
 }
+function switchScope(scope){
+  if(scope==="staff"&&!isAdmin()) return;
+  if(scope!="staff") scope="group";
+  if(scope===chatScope) return;
+  chatScope=scope; msgs=[]; names.clear(); box.innerHTML=""; sugg.hidden=true;
+  renderTabs(); headerText();
+  if(!panel.hidden) loadChat();
+}
+scopes.addEventListener("click",e=>{ const b=e.target.closest("[data-scope]"); if(b) switchScope(b.dataset.scope); });
 function switchChat(gid){
-  if(gid===chatGid) return;
+  if(gid===chatGid&&chatScope==="group") return;
+  chatScope="group";
   chatGid=gid; msgs=[]; box.innerHTML="";
   store.set("cdj-chat-last",gid);
   headerText(); renderTabs(); loadChat();
 }
 function openChat(){
   if(!chatVisible()) return;
+  if(isAdmin()&&!chatGroups().length) chatScope="staff";
+  if(isAdmin()&&chatScope==="staff"){
+    chatGid=null; renderTabs(); headerText(); panel.hidden=false; document.body.classList.add("chat-open"); renderFab();
+    msgs=[]; box.innerHTML=""; loadChat(); clearInterval(poll); poll=setInterval(()=>{ if(!panel.hidden) loadChat(); },20000);
+    setTimeout(()=>$("#chat-input").focus(),150); return;
+  }
   if(isAdmin()){
     const list=chatGroups().map(g=>g.id);
     const last=store.get("cdj-chat-last",null);
@@ -686,6 +890,7 @@ function openChat(){
   }else if(!canChat()){ toast("Choisis un de tes groupes pour ouvrir le chat"); return; }
   else chatGid=A.cur;
   if(!chatGid) return;
+  chatScope="group";
   headerText(); renderTabs();
   panel.hidden=false; document.body.classList.add("chat-open"); renderFab();
   msgs=[]; box.innerHTML=""; loadChat();
@@ -698,19 +903,21 @@ $("#chat-close").addEventListener("click",closeChat);
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!panel.hidden) closeChat(); });
 $("#chat-form").addEventListener("submit",async e=>{
   e.preventDefault();
-  const inp=$("#chat-input"), body=inp.value.trim(); if(!body||!chatGid) return;
+  const inp=$("#chat-input"), body=inp.value.trim(), scope=chatScope, gid=chatGid; if(!body||(scope==="group"&&!gid)||(scope==="staff"&&!isAdmin())) return;
   inp.value=""; sugg.hidden=true;
-  const row={group_id:chatGid,user_id:A.me.id,body};
-  const {data,error}=navigator.onLine?await A.sb.from("messages").insert(row).select("id,user_id,group_id,body,created_at").single():{error:new Error("Failed to fetch")};
-  if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"messages",row})) return toast("Pas de réseau : message envoyé dès le retour du réseau");
+  const row={user_id:A.me.id,body}; if(scope==="group") row.group_id=gid;
+  const table=scope==="staff"?"staff_messages":"messages";
+  const {data,error}=navigator.onLine?await A.sb.from(table).insert(row).select("id,user_id,group_id,body,created_at").single():{error:new Error("Failed to fetch")};
+  if(scope==="group"&&error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"messages",row})) return toast("Pas de réseau : message envoyé dès le retour du réseau");
   if(error){ inp.value=body; return toast(frError(error)); }
-  await addMsg({...data,profiles:{username:A.me.username,is_admin:A.me.is_admin}}); markSeen();
+  await addMsg({...data,_scope:scope,profiles:{username:A.me.username,is_admin:A.me.is_admin,is_controller:A.me.is_controller}}); scope==="staff"?markStaffSeen():markSeen();
 });
 
 /* ---------- Accroches ---------- */
 A.hooks.openChat=openChat;
 A.hooks.groupChanged=()=>{ lastGroup=A.cur; onGroupChanged(); };
-A.hooks.change=()=>{ if(A.cur!==lastGroup){ lastGroup=A.cur; onGroupChanged(); } else if(A.sb) subscribe(); renderFab(); };
+A.hooks.leaveGroup=leaveGroup;
+A.hooks.change=()=>{ if(A.cur!==lastGroup){ lastGroup=A.cur; onGroupChanged(); } else if(A.sb) subscribe(); renderFab(); retryGroupPhotoCleanups(); };
 A.hooks.change();
 if(!$("#v-groupe").hidden) renderGroupe();   // si les données sont arrivées avant le chargement de ce fichier
 })();

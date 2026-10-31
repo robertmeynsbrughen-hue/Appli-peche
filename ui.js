@@ -118,7 +118,7 @@ function bgPanel(){
     const dot=el("span","bg-dot"); dot.style.background=v==="auto"?"conic-gradient(#dbe7f3 0 50%,#f4e1ca 0)":c; b.append(dot,el("span",null,l));
     b.setAttribute("aria-pressed",String(v===cur)); g.append(b);
   });
-  box.append(g, el("p","note","« Auto » garde la couleur de ton rôle (bleu membre, orange admin). Chaque couleur a sa version sombre si le mode sombre est actif. Le choix est propre à ce téléphone."));
+  box.append(g, el("p","note","« Auto » garde la couleur de ton rôle (bleu membre, orange développeur). Chaque couleur a sa version sombre si le mode sombre est actif. Le choix est propre à ce téléphone."));
 }
 applyBg(get("cdj-bg","auto"));
 bgPanel();

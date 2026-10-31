@@ -7,6 +7,23 @@ ce qui a changé et pourquoi. Une entrée par version livrable.
 Format : version · date · nature (ajout / correctif / sécurité / entretien)
 
 
+0.66.5 · 31 octobre 2026 · ajout + sécurité
+---------------------------------------------
+Chat staff séparé, réservé aux développeurs et contrôleurs, avec médias dans
+un stockage privé et mentions limitées à l'équipe.
+
+0.66.4 · 31 octobre 2026 · ajout + fiabilité
+---------------------------------------------
+Suppression de groupe avec confirmation par son nom et nettoyage des photos.
+Le responsable transmet son rôle à un membre actif avant de partir ; seul, son
+départ supprime le groupe.
+
+0.66.3 · 31 octobre 2026 · entretien
+------------------------------------
+Libellés visibles harmonisés autour de « Développeur » sans modifier les noms
+techniques des rôles stockés en base.
+
+
 0.66 · 31 octobre 2026 · ajout
 -----------------------------
 Invitations par lien et QR code. Un seul jeton : le QR encode le lien, qui

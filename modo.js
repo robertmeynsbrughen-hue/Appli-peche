@@ -77,7 +77,7 @@ async function render(){
   if(s!==seq) return;
   root.innerHTML="";
   const head=el("div","modo-head"); head.append(el("h1",null,"Modération"));
-  head.append(el("p","note",A.me.is_admin?"Vue admin : tous les groupes.":A.me.is_controller?"Contrôleur : tous les groupes de l'appli.":"Les groupes où tu es responsable ou modérateur."));
+  head.append(el("p","note",A.me.is_admin?"Vue développeur : tous les groupes.":A.me.is_controller?"Contrôleur : tous les groupes de l'appli.":"Les groupes où tu es responsable ou modérateur."));
   root.append(head);
   const gname=gid=>A.groupName(gid);
 

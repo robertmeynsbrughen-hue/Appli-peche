@@ -28,7 +28,7 @@ Compte environ 25 minutes. Tout se fait depuis un navigateur, téléphone ou PC 
 > `0003_*.sql`, etc.
 
 ⚠️ **Limite connue de la baseline** : elle crée la structure, pas les données de départ.
-Sur une base neuve, le premier compte administrateur et le premier groupe doivent encore
+Sur une base neuve, le premier compte développeur et le premier groupe doivent encore
 être créés à la main (leur amorçage automatique n'est pas encore écrit).
 5. Menu **Authentication** → **Sign In / Providers** (ou **Providers**) → **Email** : **désactive « Confirm email »** puis enregistre. Sinon personne ne pourra se connecter, puisque les comptes n'ont pas de vraie adresse.
 6. Menu **Project Settings** → **API** (ou **Data API** / **API Keys**) : note la **Project URL** et la clé **anon public** (parfois appelée **publishable key**).
@@ -53,11 +53,11 @@ Tu peux aussi faire cette modification à la fin, directement sur GitHub (icône
 4. **Settings** → **Pages** → Source : **Deploy from a branch**, branche **main**, dossier **/ (root)** → **Save**.
 5. Après 1 à 2 minutes, l'appli est en ligne à l'adresse `https://TON-PSEUDO.github.io/coup-du-jour/`.
 
-## Étape 4 : créer ton compte admin
+## Étape 4 : créer ton compte développeur
 
-Ouvre l'appli, onglet **Profil** → **Créer un compte**, avec exactement le nom d'utilisateur mis à la place de `TON_PSEUDO` et le code du premier groupe. Un badge **Admin** apparaît à côté de ton nom et un onglet **Admin** s'ajoute en bas.
+Ouvre l'appli, onglet **Profil** → **Créer un compte**, avec exactement le nom d'utilisateur mis à la place de `TON_PSEUDO` et le code du premier groupe. Un badge **Développeur** apparaît à côté de ton nom et l'onglet d'administration s'ajoute en bas.
 
-Depuis l'onglet Admin tu peux :
+Depuis l'onglet développeur tu peux :
 
 - créer des groupes (nom, région, code) et modifier leur code ;
 - voir le nombre de membres, posts et spots de chaque groupe, et la liste des membres ;
@@ -84,11 +84,11 @@ set encrypted_password = extensions.crypt('nouveau-mot-de-passe', extensions.gen
 where email = 'pseudo@coupdujour.app';
 ```
 
-**Changer un code de groupe** : onglet Admin → Modifier. Les membres actuels restent dans le groupe.
+**Changer un code de groupe** : onglet Développeur → Modifier. Les membres actuels restent dans le groupe.
 
-**Retirer quelqu'un d'un groupe** : onglet Admin → Membres → Retirer du groupe. Pour supprimer complètement son compte (avec tous ses posts et spots) : Supabase → Authentication → Users → la personne → Delete user.
+**Retirer quelqu'un d'un groupe** : onglet Développeur → Membres → Retirer du groupe. Pour supprimer complètement son compte (avec tous ses posts et spots) : Supabase → Authentication → Users → la personne → Delete user.
 
-**Donner les droits admin à quelqu'un d'autre** (Supabase → SQL Editor) :
+**Donner les droits développeur à quelqu'un d'autre** (Supabase → SQL Editor) :
 
 ```sql
 update public.profiles set is_admin = true where username = 'son_pseudo';
