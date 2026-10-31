@@ -27,7 +27,14 @@ async function load(){
 }
 async function endMine(silent){
   if(!A.me) return;
-  await A.sb.from("checkins").update({ended_at:new Date().toISOString()}).eq("user_id",A.me.id).is("ended_at",null);
+  const {error}=await A.sb.from("checkins").update({ended_at:new Date().toISOString()}).eq("user_id",A.me.id).is("ended_at",null);
+  if(error){
+    // Si la base n'a pas été mise à jour, on ne vide pas l'état local : sinon le
+    // groupe voit « en pêche » pendant des heures alors que l'utilisateur croit
+    // avoir terminé. On le prévient et la sortie reste affichée, réessayable.
+    toast("Fin de sortie non enregistrée : "+frError(error));
+    return;
+  }
   mine=null; if(!silent) toast("Bon retour ! Ta sortie est terminée"); render();
 }
 // signalement discret (trace ou position partagée) : seuls les potes proches sont prévenus, sans dévoiler l'endroit

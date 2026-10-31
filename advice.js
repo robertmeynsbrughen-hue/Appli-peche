@@ -634,8 +634,14 @@ function readCache(){
     if(c&&Date.now()-c.ts<48*36e5) return {d:c.d,lat:c.lat,lon:c.lon,ts:c.ts};}catch(e){}
   return null;
 }
+let liveSeq=0;
 async function loadLive(lat,lon,name){
+  // Jeton de séquence : si deux chargements se croisent (changement de spot,
+  // « je pars pêcher » pendant le chargement), seule la dernière réponse a le
+  // droit d'écrire l'état — sinon le lieu affiché ne correspond plus au spot.
+  const seq=++liveSeq;
   const {d,ts,lat:la,lon:lo}=await fetchWeather(lat,lon); lat=la; lon=lo;
+  if(seq!==liveSeq) return;
   window.CDJ_POS={lat,lon};
   window.dispatchEvent(new CustomEvent("cdj-pos",{detail:{lat,lon}}));
   const H=d.hourly, off=d.utc_offset_seconds||0;
@@ -659,6 +665,7 @@ async function loadLive(lat,lon,name){
   }
   const rain48=H.precipitation.slice(Math.max(0,i0-48),i0+1).reduce((a,v)=>a+(v||0),0);
   const [flow,hub]=await Promise.all([fetchFlow(lat,lon),fetchHub(lat,lon).catch(()=>null)]);
+  if(seq!==liveSeq) return; // une réponse plus récente est arrivée pendant l'attente
   // le débit mesuré corrige la tendance prévue
   if(flow&&hub?.hydro?.q?.r24){ const r=hub.hydro.q.r24; flow.trend=r>=1.25?"hausse":r<=0.8?"baisse":flow.trend; if(r>=2&&flow.status!=="crue") flow.status="haute"; }
   const today=sun[H.time[i0].slice(0,10)]||Object.values(sun)[0];

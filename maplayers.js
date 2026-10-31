@@ -281,11 +281,31 @@ function drawDepth(){
     const c=document.createElement("canvas"); c.width=W; c.height=H; const g=c.getContext("2d"); const img=g.createImageData(W,H);
     const P=pts.map(p=>[(Number(p.lon)-w)*mx,(n-Number(p.lat))*my,Number(p.depth_m)]);
     const sx=(e-w)*mx/W, sy=(n-s)*my/H;
+    // Index spatial : sans lui, chaque pixel parcourait les 5000 relevés
+    // (240x240 x 5000 = 288 millions de calculs), ce qui gelait l'interface
+    // plusieurs secondes. On range les relevés dans des cases de 120 m et chaque
+    // pixel ne regarde que la case voisine — le rayon d'influence, lui, ne change pas.
+    const CELL=120;
+    const buckets=new Map();
+    for(const p of P){
+      const key=Math.floor(p[0]/CELL)+","+Math.floor(p[1]/CELL);
+      const arr=buckets.get(key); if(arr) arr.push(p); else buckets.set(key,[p]);
+    }
     for(let j=0;j<H;j++) for(let i=0;i<W;i++){
-      const X=(i+.5)*sx, Y=(j+.5)*sy; let num=0,den=0,near=1e9;
-      for(const [px,py,v] of P){ const d2=(px-X)**2+(py-Y)**2; near=Math.min(near,d2); if(d2<1){ num=v; den=1; break; } const wgt=1/d2; num+=wgt*v; den+=wgt; }
+      const X=(i+.5)*sx, Y=(j+.5)*sy;
+      const bx=Math.floor(X/CELL), by=Math.floor(Y/CELL);
+      let num=0,den=0,near=1e9,exact=false;
+      for(let oy=-1;oy<=1&&!exact;oy++) for(let ox=-1;ox<=1&&!exact;ox++){
+        const arr=buckets.get((bx+ox)+","+(by+oy)); if(!arr) continue;
+        for(const [px,py,v] of arr){
+          const d2=(px-X)**2+(py-Y)**2;
+          if(d2<near) near=d2;
+          if(d2<1){ num=v; den=1; exact=true; break; }
+          const wgt=1/d2; num+=wgt*v; den+=wgt;
+        }
+      }
       const k=(j*W+i)*4;
-      if(near>120*120){ img.data[k+3]=0; continue; }
+      if(near>120*120||!den){ img.data[k+3]=0; continue; }
       const col=depthColor(num/den,max).match(/\d+/g).map(Number);
       img.data[k]=col[0]; img.data[k+1]=col[1]; img.data[k+2]=col[2]; img.data[k+3]=Math.round(170*(1-Math.sqrt(near)/120)+40);
     }
