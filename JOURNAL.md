@@ -8,6 +8,18 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.66.10 · 31 octobre 2026 · ajout
+--------------------------------
+Un carnet de sortie personnel est disponible dans Profil > Moi : une sortie,
+son lieu, ses conditions, ses notes et ses prises. Il fonctionne entièrement
+hors réseau. La sortie est d'abord gardée sur le téléphone, puis envoyée
+automatiquement au retour de la connexion, avec un nouvel essai si le serveur
+refuse. Chaque sortie porte un identifiant créé sur l'appareil : la renvoyer ne
+crée jamais de doublon, et les prises peuvent être ajoutées, modifiées ou
+supprimées hors ligne. Le carnet est strictement personnel : chaque membre ne
+voit que ses propres sorties. Nécessite la migration `0009_field_logbook.sql`,
+à appliquer séparément.
+
 0.66.9 · 31 octobre 2026 · ajout
 --------------------------------
 Un membre suspendu peut demander un réexamen de sa sanction depuis son profil,
