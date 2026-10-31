@@ -1,5 +1,5 @@
 // Rivio : navigation simplifiée. Barre du bas à 5 places (Aujourd'hui, Fil, +, Carte, Groupe),
-// profil derrière l'avatar en haut à droite, modération rangée dans Groupe, « + » enrichi, boîte à outils.
+// profil derrière l'avatar en haut à droite, « + » enrichi, boîte à outils.
 (function(){
 "use strict";
 const A=window.CDJ; if(!A) return;
@@ -21,26 +21,6 @@ function drawMe(){
 }
 head?.append(me);
 window.addEventListener("hashchange",()=>me.classList.toggle("on",location.hash==="#profil"));
-
-/* ---------- Modération : badge reporté sur Groupe, accès depuis le groupe ---------- */
-const gTab=$("#tab-groupe"), mBadge=$("#modo-badge");
-const gBadge=el("span","tab-badge"); gBadge.hidden=true; gTab?.append(gBadge);
-function syncBadge(){ if(!mBadge) return; gBadge.hidden=mBadge.hidden||!mBadge.textContent; gBadge.textContent=mBadge.textContent; }
-if(mBadge) new MutationObserver(syncBadge).observe(mBadge,{attributes:true,childList:true,characterData:true,subtree:true});
-// sur l'écran Modération, l'onglet Groupe reste allumé et un retour est proposé
-function modoState(){
-  const on=location.hash==="#modo";
-  if(on) gTab?.setAttribute("aria-current","page");
-  const v=$("#v-modo"); if(v&&!v.querySelector(".modo-back")){ const b=btn("← Retour au groupe","linkbtn modo-back",()=>{ location.hash="#groupe"; }); v.prepend(b); }
-}
-window.addEventListener("hashchange",()=>setTimeout(modoState,0));
-const prevGR=A.hooks.groupeRendered; A.hooks.groupeRendered=root=>{
-  prevGR?.(root);
-  if(!(A.isManager?.())||root.querySelector(".modo-link")||root.querySelector(".todo-link")) return;
-  const n=Number(mBadge&&!mBadge.hidden?mBadge.textContent:0)||0;
-  const b=btn("🛡️ Modération"+(n?" · "+n+" à traiter":""),"btn small modo-link",()=>{ location.hash="#modo"; });
-  const h=root.querySelector(".g-head")||root.firstChild; if(h) h.after(b); else root.prepend(b);
-};
 
 /* ---------- Boîte à outils (ancien onglet Matos) ---------- */
 const mt=document.querySelector('#profil-sub [data-s="matos"]'); if(mt) mt.textContent="🧰 Outils";
@@ -71,7 +51,7 @@ document.querySelector('#profil-sub [data-s="matos"]')?.addEventListener("click"
 const prevP=A.hooks.profil; A.hooks.profil=()=>{ prevP?.(); setTimeout(toolGrid,0); };
 
 /* ---------- Barre du bas : on garde l'essentiel ---------- */
-function sync(){ drawMe(); modoState(); syncBadge(); toolGrid(); }
+function sync(){ drawMe(); toolGrid(); }
 const prevCh=A.hooks.change; A.hooks.change=(...a)=>{ prevCh?.(...a); sync(); };
 sync();
 })();

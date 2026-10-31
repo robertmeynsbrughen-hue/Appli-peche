@@ -807,6 +807,7 @@ nav.tabs a{position:relative}
 .tab-badge[hidden]{display:none}
 .todo-link{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;font:inherit;font-weight:700;cursor:pointer;text-align:left;border:none}
 .todo-go{color:var(--warn);white-space:nowrap}
+/* Styles modération (utilisés dans l'onglet Profil > Modération) */
 .modo-head h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:1.8rem;text-transform:uppercase}
 .modo-item{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px}
 .modo-item .actions{justify-content:flex-end}
@@ -814,8 +815,6 @@ nav.tabs a{position:relative}
 .modo-ex{margin:0;padding:8px 10px;background:var(--surface-2);border-radius:10px;font-size:.92rem;overflow-wrap:anywhere}
 .modo-count{font-family:var(--f-mono);font-size:.8rem;background:var(--warn-soft);color:var(--warn);border-radius:99px;padding:2px 9px}
 .modo-count.zero{background:var(--surface-2);color:var(--muted)}
-#v-modo{gap:20px}
-#modo-root{display:flex;flex-direction:column;gap:20px}
 .btn.danger-btn{color:var(--warn);border-color:var(--warn)}
 .modo-img{width:100%;max-height:260px;object-fit:cover;border-radius:10px}
 .report-form{display:flex;flex-direction:column;gap:10px}
