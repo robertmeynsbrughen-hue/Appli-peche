@@ -7,6 +7,14 @@ ce qui a changé et pourquoi. Une entrée par version livrable.
 Format : version · date · nature (ajout / correctif / sécurité / entretien)
 
 
+0.66 · 31 octobre 2026 · ajout
+-----------------------------
+Invitations par lien et QR code. Un seul jeton : le QR encode le lien, qui
+s'affiche dessous et se copie d'un clic. Durée selon l'émetteur : 2 h pour un
+responsable ou un modérateur, 1 h pour un membre simple. Jeton stocké haché,
+usage multiple pendant la fenêtre, révocable. Le code de groupe reste encore
+en place le temps de la bascule.
+
 0.65 · 31 octobre 2026 · ajout
 -----------------------------
 Carte du jour : une ligne de provenance sous le score indique le lieu météo

@@ -977,6 +977,15 @@ async function init(){
 
   sb.auth.onAuthStateChange(ev=>{ if(ev==="SIGNED_OUT"){ markDirty(); resetState(); refreshUI(); } });
   try{ await loadMe(); }catch(e){}
+  // Lien d'invitation : on le consomme une fois la session établie.
+  try{
+    const m=location.search.match(/[?&]invite=([^&]+)/);
+    if(m&&me){
+      const {error}=await sb.rpc("redeem_invite",{p_token:decodeURIComponent(m[1])});
+      if(error) toast(frError(error));
+      else{ history.replaceState(null,"",location.pathname+location.hash); toast("Groupe rejoint !"); await loadGroups(); refreshUI(); }
+    }
+  }catch(_){ }
   markDirty(); route();
 }
 init();
