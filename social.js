@@ -636,7 +636,7 @@ async function loadFeed(){
   // silhouettes grisées pendant le premier chargement
   if(!feed.querySelector("article.post,article.sess")){ feed.innerHTML=""; for(let i=0;i<3;i++){ const k=el("div","skel-card"); k.append(el("div","skel skel-head"),el("div","skel skel-photo"),el("div","skel skel-line"),el("div","skel skel-line short")); feed.append(k); } }
   let q=sb.from("posts")
-    .select("id,group_id,caption,species,photo_path,photo_paths,created_at,user_id,status,length_cm,weight_kg,bait,released,profiles(username,is_admin),spots(id,name)")
+    .select("id,group_id,caption,species,photo_path,photo_paths,created_at,user_id,status,length_cm,weight_kg,bait,released,profiles!posts_user_id_fkey(username,is_admin),spots(id,name)")
     .order("created_at",{ascending:false}).limit(60);
   let qs=sb.from("sessions").select("id,group_id,user_id,species,caught,length_cm,lure,color,rating,created_at,duration_min,distance_m,bites,released,profiles(username,is_admin)")
     .order("created_at",{ascending:false}).limit(40);

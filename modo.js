@@ -62,7 +62,7 @@ async function render(){
   const [{data:reps},{data:pend},{data:posts}]=await Promise.all([
     A.sb.from("reports").select("id,group_id,user_id,kind,target_id,excerpt,author_id,reason,created_at").eq("status","open").order("created_at",{ascending:false}).limit(100),
     A.sb.from("memberships").select("group_id,user_id,joined_at,profiles(username,is_admin)").eq("status","pending").limit(200),
-    A.sb.from("posts").select("id,group_id,user_id,species,length_cm,weight_kg,caption,bait,photo_path,photo_paths,created_at,profiles(username,is_admin)").eq("status","pending").order("created_at").limit(100),
+    A.sb.from("posts").select("id,group_id,user_id,species,length_cm,weight_kg,caption,bait,photo_path,photo_paths,created_at,profiles!posts_user_id_fkey(username,is_admin)").eq("status","pending").order("created_at").limit(100),
   ]);
   if(s!==seq) return;
   const mine=gid=>A.canModerate(gid);

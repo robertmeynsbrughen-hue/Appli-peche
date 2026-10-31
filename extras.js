@@ -133,7 +133,7 @@ async function groupeExtras(box,gid,mod){
   const seq=++gSeq;
   const start=monthStart().toISOString();
   const [{data:posts},{data:sess},{data:chal}]=await Promise.all([
-    A.sb.from("posts").select("user_id,species,length_cm,weight_kg,created_at,profiles(username,is_admin)").eq("group_id",gid).eq("status","published").gte("created_at",start),
+    A.sb.from("posts").select("user_id,species,length_cm,weight_kg,created_at,profiles!posts_user_id_fkey(username,is_admin)").eq("group_id",gid).eq("status","published").gte("created_at",start),
     A.sb.from("sessions").select("user_id,species,caught,length_cm,lure,color,rating,created_at,profiles(username,is_admin)").eq("group_id",gid).gte("created_at",start),
     A.sb.from("challenges").select("id,user_id,title,species,min_length,month").eq("group_id",gid).order("month",{ascending:false}).order("created_at",{ascending:false}).limit(30),
   ]);

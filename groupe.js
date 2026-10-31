@@ -119,7 +119,7 @@ async function renderGroupe(){
   const since=new Date(Date.now()-30*864e5).toISOString();
   const [memos,polls,sess,mg,members,cnt]=await Promise.all([
     A.sb.from("memos").select("id,user_id,title,body,link,photo_path,pinned,created_at,updated_at,profiles(username,is_admin)").eq("group_id",gid).order("pinned",{ascending:false}).order("updated_at",{ascending:false}).limit(30),
-    A.sb.from("polls").select("id,user_id,question,place,event_at,created_at,profiles(username,is_admin)").eq("group_id",gid).order("created_at",{ascending:false}).limit(10),
+    A.sb.from("polls").select("id,user_id,question,place,event_at,created_at,profiles!polls_user_id_fkey(username,is_admin)").eq("group_id",gid).order("created_at",{ascending:false}).limit(10),
     A.sb.from("sessions").select("species,caught,lure,color,rating,created_at").eq("group_id",gid).gte("created_at",since),
     mod?A.sb.rpc("manage_groups"):Promise.resolve({data:null}),
     mod?A.sb.rpc("manage_members",{p_group:gid}):Promise.resolve({data:null}),

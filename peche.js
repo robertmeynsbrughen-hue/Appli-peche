@@ -345,7 +345,7 @@ async function spotSheet(s,editing){
   // historique et heures de touches
   const hist=el("div","spot-hist"); hist.append(el("p","note","Chargement de l'historique…")); sh.append(hist);
   const [{data:posts},{data:sess}]=await Promise.all([
-    A.sb.from("posts").select("id,user_id,species,length_cm,weight_kg,created_at,profiles(username,is_admin)").eq("spot_id",s.id).eq("status","published").order("created_at",{ascending:false}).limit(20),
+    A.sb.from("posts").select("id,user_id,species,length_cm,weight_kg,created_at,profiles!posts_user_id_fkey(username,is_admin)").eq("spot_id",s.id).eq("status","published").order("created_at",{ascending:false}).limit(20),
     A.sb.from("carp_sessions").select("id,user_id,started_at,ended_at,carp_events(kind,at,weight_kg)").eq("spot_id",s.id).order("started_at",{ascending:false}).limit(100),
   ]);
   if(!hist.isConnected) return;

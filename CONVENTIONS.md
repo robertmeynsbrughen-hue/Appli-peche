@@ -11,15 +11,24 @@ Ce numéro doit rester aligné à trois endroits :
 | `index.html` | `<span id="app-version">0.63</span>`, ce que voit l'utilisateur |
 | `sw.js` | `const VERSION="cdj-v64"`, nom du cache du service worker |
 
-**Une version par changement livrable**, pas une par fichier modifié : un correctif
-= 0.63 → 0.64. La version s'incrémente de un en un sur la décimale.
+**Une version par changement livrable**, pas une par fichier modifié.
+
+| Type | Incrément | Exemple |
+|---|---|---|
+| Grosse mise à jour | `+0.01` sur la décimale | 0.63 → 0.64 |
+| Mise à jour mineure | `+0.00.1` (troisième chiffre) | 0.64 → 0.64.1, puis 0.64.2 |
 
 Pour incrémenter, ne jamais éditer les trois fichiers à la main :
 
 ```powershell
-node tools/bump-version.mjs        # 0.63 -> 0.64, et v64 -> v65
-node tools/bump-version.mjs 0.70   # numéro imposé
+$env:BUMP="major"; node tools/bump-version.mjs   # 0.64 -> 0.65
+node tools/bump-version.mjs                       # 0.64 -> 0.64.1 (mineur par défaut)
 ```
+
+En cas de doute : mineur. Le numéro doit rester crédible, pas décoratif.
+
+Chaque version s'inscrit aussi dans **JOURNAL.md** (en tête de fichier), en une ou
+deux lignes, sans code : ce qui est ajouté, corrigé, ou durci.
 
 Le message de commit commence par le numéro :
 

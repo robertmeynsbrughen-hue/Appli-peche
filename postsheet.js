@@ -9,7 +9,7 @@ const PHASE={aube:"à l'aube",jour:"en journée",crep:"au crépuscule",nuit:"de 
 const SKY=c=>c.rain>=0.3?"🌧️ pluie":c.cloud>=65?"☁️ couvert":c.cloud>=35?"⛅ voilé":"☀️ ensoleillé";
 
 async function open(id){
-  const {data:p,error}=await A.sb.from("posts").select("id,group_id,user_id,species,length_cm,weight_kg,bait,caption,created_at,photo_path,photo_paths,conditions,spots(id,name,lat,lon,depth_m,bottom),profiles(username,is_admin)").eq("id",id).maybeSingle();
+  const {data:p,error}=await A.sb.from("posts").select("id,group_id,user_id,species,length_cm,weight_kg,bait,caption,created_at,photo_path,photo_paths,conditions,spots(id,name,lat,lon,depth_m,bottom),profiles!posts_user_id_fkey(username,is_admin)").eq("id",id).maybeSingle();
   if(error||!p) return toast(error?frError(error):"Prise introuvable");
   const paths=(p.photo_paths&&p.photo_paths.length)?p.photo_paths:(p.photo_path?[p.photo_path]:[]);
   let urls={};

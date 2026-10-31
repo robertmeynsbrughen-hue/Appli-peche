@@ -16,7 +16,7 @@ let seq=0;
 async function render(host,gid){
   const s=++seq;
   const since=new Date(Date.now()-12*36e5).toISOString();
-  const {data:outs,error}=await A.sb.from("outings").select("id,group_id,user_id,title,place,spot_id,start_at,notes,profiles(username,is_admin)").eq("group_id",gid).gte("start_at",since).order("start_at").limit(20);
+  const {data:outs,error}=await A.sb.from("outings").select("id,group_id,user_id,title,place,spot_id,start_at,notes,profiles!outings_user_id_fkey(username,is_admin)").eq("group_id",gid).gte("start_at",since).order("start_at").limit(20);
   const ids=(outs||[]).map(o=>o.id);
   const {data:rs}=ids.length?await A.sb.from("outing_rsvps").select("outing_id,user_id,status,seats,needs_ride,brings,profiles(username,is_admin)").in("outing_id",ids):{data:[]};
   if(s!==seq||!host.isConnected) return;

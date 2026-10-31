@@ -1,10 +1,10 @@
-// Incrémente la version de Rivio partout où elle est écrite.
-// Usage: node tools/bump-version.mjs [0.64]   (sans argument : +1 sur la dernière décimale)
+﻿// IncrÃ©mente la version de Rivio partout oÃ¹ elle est Ã©crite.
+// Usage: node tools/bump-version.mjs [0.64]   (sans argument : +1 sur la derniÃ¨re dÃ©cimale)
 //
-// Trois endroits doivent rester alignés, sinon l'appli affiche une version qui
-// ne correspond pas à ce qui tourne :
-//   - VERSION            (fichier de référence, lu par ce script)
-//   - index.html         (#app-version, affiché dans Profil)
+// Trois endroits doivent rester alignÃ©s, sinon l'appli affiche une version qui
+// ne correspond pas Ã  ce qui tourne :
+//   - VERSION            (fichier de rÃ©fÃ©rence, lu par ce script)
+//   - index.html         (#app-version, affichÃ© dans Profil)
 //   - sw.js              (VERSION="cdj-vNN", nom du cache du service worker)
 import { readFile, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -19,13 +19,22 @@ if (existsSync(path.join(root, 'VERSION'))) {
 }
 
 let next = process.argv[2]
+let method
 if (!next) {
-  const [maj, min] = current.split('.').map(Number)
-  next = `${maj}.${(min || 0) + 1}`
+  method = process.env.BUMP || 'minor'
+  const parts = current.split('.').map(Number)
+  const [maj, mid = 0, pat = 0] = parts
+  // grosse mise Ã  jour : 0.63 -> 0.64   (BUMP=major)
+  // mise Ã  jour mineure : 0.63 -> 0.63.1, puis 0.63.1 -> 0.63.2
+  if (method === 'major') {
+    next = `${maj}.${mid + 1}`
+  } else {
+    next = `${maj}.${mid}.${pat + 1}`
+  }
 }
 
-// sw.js travaille sur une séquence distincte (v63 pour la 0.62) : on repart du
-// numéro de cache existant et on l'incrémente d'un cran.
+// sw.js travaille sur une sÃ©quence distincte (v63 pour la 0.62) : on repart du
+// numÃ©ro de cache existant et on l'incrÃ©mente d'un cran.
 const swSrc = await read('sw.js')
 const swMatch = swSrc.match(/const VERSION="cdj-v(\d+)"/)
 const swNext = swMatch ? Number(swMatch[1]) + 1 : 1
@@ -48,3 +57,4 @@ await writeFile(
 console.log(`version ${current} -> ${next}`)
 console.log(`index.html  : ${before ? before[1] : '?'} -> ${next}`)
 console.log(`sw.js cache : ${swMatch ? 'v' + swMatch[1] : '?'} -> v${swNext}`)
+

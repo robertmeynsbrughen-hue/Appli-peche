@@ -193,7 +193,7 @@ async function photoMonth(host,gid){
   // les mois sont calculés à l'heure de Paris, une marge d'un jour suffit pour le filtre
   const from=new Date(Date.parse(prev)-864e5).toISOString(), to=new Date(Date.parse(next)+864e5).toISOString();
   const [{data:posts,error},{data:votes}]=await Promise.all([
-    A.sb.from("posts").select("id,user_id,species,length_cm,photo_path,created_at,profiles(username)").eq("group_id",gid).eq("status","published").not("photo_path","is",null).gte("created_at",from).lt("created_at",to).order("created_at",{ascending:false}).limit(200),
+    A.sb.from("posts").select("id,user_id,species,length_cm,photo_path,created_at,profiles!posts_user_id_fkey(username)").eq("group_id",gid).eq("status","published").not("photo_path","is",null).gte("created_at",from).lt("created_at",to).order("created_at",{ascending:false}).limit(200),
     A.sb.from("photo_votes").select("month,user_id,post_id").eq("group_id",gid).in("month",[cur,prev]),
   ]);
   if(seq!==pSeq) return;

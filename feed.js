@@ -43,7 +43,7 @@ async function doLoad(){
   if(!A.me||!A.groups.length||A.cur==null) return;
   if(document.querySelector("#v-fil")?.hidden){ storiesDue=true; return; } // chargé à l'ouverture du fil
   storiesDue=false;
-  let q=A.sb.from("posts").select("id,group_id,user_id,species,length_cm,weight_kg,caption,photo_path,photo_paths,created_at,profiles(username)").eq("status","published").gte("created_at",new Date(Date.now()-24*36e5).toISOString()).order("created_at").limit(60);
+  let q=A.sb.from("posts").select("id,group_id,user_id,species,length_cm,weight_kg,caption,photo_path,photo_paths,created_at,profiles!posts_user_id_fkey(username)").eq("status","published").gte("created_at",new Date(Date.now()-24*36e5).toISOString()).order("created_at").limit(60);
   if(typeof A.cur==="number") q=q.eq("group_id",A.cur);
   const {data}=await q; const rows=(data||[]).filter(p=>(p.photo_paths&&p.photo_paths.length)||p.photo_path);
   const by=new Map();

@@ -65,7 +65,7 @@ let outSeq=0, catSeq=0;
 async function catches(){
   const seq=++catSeq;
   if(!A.me||!A.groups.length){ sCatch.innerHTML=""; return; }
-  let q=A.sb.from("posts").select("id,group_id,species,length_cm,weight_kg,photo_path,photo_paths,created_at,profiles(username)").eq("status","published").order("created_at",{ascending:false}).limit(6);
+  let q=A.sb.from("posts").select("id,group_id,species,length_cm,weight_kg,photo_path,photo_paths,created_at,profiles!posts_user_id_fkey(username)").eq("status","published").order("created_at",{ascending:false}).limit(6);
   if(typeof A.cur==="number") q=q.eq("group_id",A.cur);
   const {data}=await q; const rows=data||[];
   if(seq!==catSeq) return;

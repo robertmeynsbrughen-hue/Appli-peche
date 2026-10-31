@@ -267,7 +267,7 @@ async function openSpecies(e,x,who){
   if(!A.me) return;
   const names=[e.name,...Object.entries(ALIAS).filter(([,v])=>v===e.name).map(([k])=>k)];
   A.hooks.speciesExtras?.(e,sh,names);
-  let qp=A.sb.from("posts").select("user_id,species,length_cm,weight_kg,created_at,profiles(username,is_admin)").eq("status","published").ilike("species",e.name).order("length_cm",{ascending:false,nullsFirst:false}).limit(30);
+  let qp=A.sb.from("posts").select("user_id,species,length_cm,weight_kg,created_at,profiles!posts_user_id_fkey(username,is_admin)").eq("status","published").ilike("species",e.name).order("length_cm",{ascending:false,nullsFirst:false}).limit(30);
   let qs=A.sb.from("sessions").select("user_id,species,length_cm,created_at,profiles(username,is_admin)").eq("caught",true).ilike("species",e.name).order("length_cm",{ascending:false,nullsFirst:false}).limit(30);
   if(typeof A.cur==="number"){ qp=qp.eq("group_id",A.cur); qs=qs.eq("group_id",A.cur); }
   const [{data:p},{data:se}]=await Promise.all([qp,qs]);

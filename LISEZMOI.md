@@ -17,11 +17,19 @@ Compte environ 25 minutes. Tout se fait depuis un navigateur, téléphone ou PC 
 
 1. Va sur **supabase.com**, crée un compte (« Start your project »).
 2. **New project** : nom `coup-du-jour`, choisis un mot de passe de base (garde-le), région **Europe (Paris ou Frankfurt)**.
-3. Ouvre `supabase.sql` et remplace les valeurs marquées `<<<` :
-   - `TON_PSEUDO` : le nom d'utilisateur que tu prendras dans l'appli. Ce compte deviendra **admin** automatiquement à sa création ;
-   - `Les potes`, `Lot-et-Garonne`, `CODE-A-CHANGER` : le nom, la région et le code du premier groupe (6 caractères minimum, prends quelque chose de difficile à deviner, ex. `brochet-garonne-2026`).
-   Les autres groupes se créent ensuite depuis l'appli.
-4. Dans Supabase : menu **SQL Editor** → **New query** → colle tout le contenu du fichier → **Run**. Tu dois voir « Success ».
+3. Ouvre **`migrations/0001_baseline.sql`** : c'est désormais la référence du schéma
+   (tables, règles d'accès, fonctions). Il est rejouable sans risque.
+4. Dans Supabase : menu **SQL Editor** → **New query** → colle le contenu de
+   `migrations/0001_baseline.sql` → **Run**. Tu dois voir « Success ».
+
+> ⚠️ **N'applique pas `supabase.sql`.** C'est l'ancien journal de migrations, conservé
+> uniquement pour l'historique : il n'est pas rejouable sur une base neuve et il est
+> désormais en retard sur la réalité. Toute évolution passe par `migrations/0002_*.sql`,
+> `0003_*.sql`, etc.
+
+⚠️ **Limite connue de la baseline** : elle crée la structure, pas les données de départ.
+Sur une base neuve, le premier compte administrateur et le premier groupe doivent encore
+être créés à la main (leur amorçage automatique n'est pas encore écrit).
 5. Menu **Authentication** → **Sign In / Providers** (ou **Providers**) → **Email** : **désactive « Confirm email »** puis enregistre. Sinon personne ne pourra se connecter, puisque les comptes n'ont pas de vraie adresse.
 6. Menu **Project Settings** → **API** (ou **Data API** / **API Keys**) : note la **Project URL** et la clé **anon public** (parfois appelée **publishable key**).
 

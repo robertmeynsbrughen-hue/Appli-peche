@@ -296,7 +296,7 @@ const prevSp=A.hooks.speciesExtras; A.hooks.speciesExtras=async(e,sh)=>{
   prevSp?.(e,sh);
   const box=el("div","sp-album"); box.append(el("h4","g-sub","📸 Album "+(A.cur==="all"?"de tous les groupes":"du groupe")), el("p","note","Chargement…"));
   sh.append(box);
-  let q=A.sb.from("posts").select("id,group_id,user_id,species,length_cm,weight_kg,photo_path,photo_paths,created_at,profiles(username)").eq("status","published").ilike("species",e.name).order("length_cm",{ascending:false,nullsFirst:false}).limit(40);
+  let q=A.sb.from("posts").select("id,group_id,user_id,species,length_cm,weight_kg,photo_path,photo_paths,created_at,profiles!posts_user_id_fkey(username)").eq("status","published").ilike("species",e.name).order("length_cm",{ascending:false,nullsFirst:false}).limit(40);
   if(typeof A.cur==="number") q=q.eq("group_id",A.cur);
   const {data,error}=await q;
   if(!box.isConnected) return;
