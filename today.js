@@ -28,6 +28,12 @@ function day(){
     const side=el("div","dc-side");
     side.append(el("div","dc-k",(T.water_measured?"Eau mesurée":"Eau estimée")+(T.live?"":" · exemple")),el("div","dc-v",T.sky+" · air "+Math.round(T.air)+" °C · vent "+Math.round(T.wind)+" km/h"),el("div","dc-v2","Pression "+T.trend));
     top.append(t,side); c.append(top);
+    // Provenance : d'où vient la météo, de quand elle date, eau mesurée ou non.
+    const prov=el("div","dc-prov");
+    prov.append(el("span",null,"📍 "+(T.place||"position par défaut")));
+    prov.append(el("span",null,"🕐 "+(T.when||"à l'instant")+(T.cached?" · hors ligne":"")));
+    prov.append(el("span",null,T.water_measured?"🌡️ eau mesurée":"🌡️ eau estimée"));
+    c.append(prov);
     const favs=(T.fav||[]).filter(x=>!x.closed);
     const fav=favs[0], others=T.top.filter(x=>!favs.some(f=>f.name===x.name));
     const block=(label,x,cls)=>{

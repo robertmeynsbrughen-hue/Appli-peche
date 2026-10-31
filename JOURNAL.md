@@ -7,6 +7,13 @@ ce qui a changé et pourquoi. Une entrée par version livrable.
 Format : version · date · nature (ajout / correctif / sécurité / entretien)
 
 
+0.65 · 31 octobre 2026 · ajout
+-----------------------------
+Carte du jour : une ligne de provenance sous le score indique le lieu météo
+réellement utilisé, l'heure de mise à jour (et « hors ligne » quand elle vient
+du cache) et si la température de l'eau est mesurée par une sonde ou estimée.
+Même information dans l'écran Conseils. Aucune requête supplémentaire.
+
 0.64.1 · 31 octobre 2026 · correctif
 -----------------------------------
 Déconnexion : le bandeau « Connexion instable » pouvait survivre à la
