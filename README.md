@@ -1,17 +1,18 @@
 # Rivio — l’assistant de pêche entre amis
 
-Rivio aide à préparer une sortie, à suivre les conditions et à garder le souvenir des prises. L’application rassemble des conseils de pêche, un carnet partagé et des outils pratiques dans une interface utilisable sur téléphone ou ordinateur.
+Rivio aide à préparer une sortie, suivre les conditions et garder le souvenir des prises. L’application réunit conseils de pêche, carnet partagé et outils pratiques dans une interface utilisable sur téléphone ou ordinateur.
 
 **Application : [ouvrir Rivio](https://robertmeynsbrughen-hue.github.io/Appli-peche/)**  
-**Version publiée dans le dépôt : 0.66.6 · bêta**
+**Version du dépôt : 0.66.9 · bêta**
 
 ## Ce que l’application permet de faire
 
-- **Préparer sa pêche** : consulter la météo et les conditions locales, voir les espèces et créneaux d’activité du moment, puis ajuster manuellement les paramètres si besoin.
+- **Préparer sa pêche** : consulter la météo et les conditions locales, les espèces et créneaux d’activité, puis ajuster manuellement les paramètres si besoin.
 - **Garder une trace des sorties** : publier une prise avec photo et informations, noter un bilan de session ou suivre une session carpe.
-- **Retrouver les informations d’un groupe** : partager un fil de prises, une carte de spots, un agenda et un chat avec les autres membres.
-- **Inviter et gérer les membres** : rejoindre un groupe par invitation, participer à plusieurs groupes et, selon son rôle, modérer les adhésions ou les publications.
-- **Utiliser les outils de pêche** : consulter les aides aux montages et aux nœuds, les calculateurs et d’autres fiches pratiques.
+- **Partager avec son groupe** : retrouver un fil de prises, une carte de spots, un agenda et un chat avec les autres membres.
+- **Inviter et gérer les membres** : rejoindre un groupe par invitation, participer à plusieurs groupes et modérer les adhésions ou publications selon son rôle.
+- **Utiliser les outils de pêche** : consulter des aides aux montages et aux nœuds, des calculateurs et d’autres fiches pratiques.
+- **Modérer l’application** : les développeurs et contrôleurs disposent d’une console dans Profil > Modération pour examiner les signalements, membres, groupes et publications. Ils peuvent appliquer des sanctions temporaires et examiner les demandes de recours. Les outils locaux des responsables et modérateurs restent accessibles dans leur groupe.
 
 ## Installation sur le téléphone
 
@@ -30,15 +31,18 @@ Les périodes d’ouverture, tailles minimales, quotas et autres règles varient
 
 ## Pour les personnes qui contribuent
 
-Le dépôt contient l’application web (HTML, CSS et JavaScript), ainsi que les migrations SQL de son backend Supabase. Le numéro de version suit la convention du projet : **0.xx pour une version majeure**, **0.xx.x pour une version mineure ou corrective**.
+Le dépôt contient l’application web (HTML, CSS et JavaScript) ainsi que les migrations SQL de son backend Supabase. Les migrations sont documentées dans [migrations/](migrations/) et doivent être prises en compte lors d’un déploiement du backend. Le numéro de version suit la convention du projet : **0.xx pour une version majeure**, **0.xx.x pour une version mineure ou corrective**.
 
 - [Historique complet des mises à jour](JOURNAL.md)
 - [Guide technique et de mise en ligne](LISEZMOI.md)
 - [Code source](https://github.com/robertmeynsbrughen-hue/Appli-peche)
 
 <details>
-<summary>Suivi des versions publiées</summary>
+<summary>Suivi des versions</summary>
 
+- **0.66.9** — Recours contre une sanction temporaire, examiné par un développeur ou un contrôleur.
+- **0.66.8** — État réel des sanctions, garde-fous contre les modifications pendant un timeout et contexte des signalements.
+- **0.66.7** — Console de modération globale dans Profil, sanctions temporaires et gestion des groupes et publications.
 - **0.66.6** — Modération des groupes, chat staff corrigé, invitations par lien mises en avant.
 - **0.66.5** — Chat staff avec médias privés et mentions réservées à l’équipe.
 - **0.66.4** — Suppression de groupe et transfert du rôle de responsable.
@@ -78,6 +82,6 @@ Le dépôt contient l’application web (HTML, CSS et JavaScript), ainsi que les
 - **0.37** — Corrections d’affichage et prochaine sortie.
 - **0.36** — Refonte, fiches de prise, réactions, partage depuis la galerie, chat et version visible.
 
-Le journal détaille les changements et les correctifs associés à chaque version.
+Le [journal](JOURNAL.md) détaille les changements et les correctifs associés à chaque version.
 
 </details>
