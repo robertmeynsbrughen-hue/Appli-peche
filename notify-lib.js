@@ -146,7 +146,7 @@ export async function handle(req, cfg) {
     if (t === "memberships") {
       if (ev.event === "request") {
         recipients = await moderators(group_id, author);
-        msg = { title: "🙋 Demande d'adhésion · " + group, body: who + " veut rejoindre le groupe", url: "./#modo", tag: "req-" + group_id };
+        msg = { title: "🙋 Demande d'adhésion · " + group, body: who + " veut rejoindre le groupe", url: "./#profil?mod=moderation", tag: "req-" + group_id };
       } else {
         recipients = [{ user_id: author }];
         msg = { title: "✅ Bienvenue dans " + group, body: "Ta demande a été acceptée, bonne pêche !", url: "./#fil", tag: "ok-" + group_id };
@@ -158,7 +158,7 @@ export async function handle(req, cfg) {
       if (n > 1) text += " · " + n + " photos";
       if (ev.event === "pending") {
         recipients = await moderators(group_id, author);
-        msg = { title: "🕓 Prise à valider · " + group, body: who + " : " + text, url: "./#modo", tag: "pend-" + rec.id };
+        msg = { title: "🕓 Prise à valider · " + group, body: who + " : " + text, url: "./#profil?mod=moderation", tag: "pend-" + rec.id };
       } else {
         recipients = await activeMembers(group_id, author);
         msg = { title: "🎣 Nouvelle prise · " + group, body: who + " : " + text, url: "./#fil", tag: "post-" + rec.id };
@@ -166,7 +166,7 @@ export async function handle(req, cfg) {
     } else if (t === "reports") {
       recipients = await moderators(group_id, author);
       const what = { post: "une prise", comment: "un commentaire", message: "un message" }[rec.kind] || "un contenu";
-      msg = { title: "⚑ Signalement · " + group, body: who + " signale " + what + " : " + cut(rec.reason, 80) + (rec.excerpt ? " (« " + cut(rec.excerpt, 50) + " »)" : ""), url: "./#modo", tag: "rep-" + rec.id };
+      msg = { title: "⚑ Signalement · " + group, body: who + " signale " + what + " : " + cut(rec.reason, 80) + (rec.excerpt ? " (« " + cut(rec.excerpt, 50) + " »)" : ""), url: "./#profil?mod=moderation", tag: "rep-" + rec.id };
     } else {
       recipients = await activeMembers(group_id, author);
       if (t === "env_reports") {
