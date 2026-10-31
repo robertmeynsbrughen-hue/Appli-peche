@@ -201,36 +201,44 @@ function loadModeration(){
     if(error) return box.innerHTML="<p class='err'>"+frError(error)+"</p>";
     if(!data?.length){ box.innerHTML="<p class='note'>Aucun groupe.</p>"; return; }
     box.innerHTML="";
-    const select=el("select","field"); select.style.maxWidth="320px";
+    const selWrap=el("div","field"); selWrap.append(el("span","label","Groupe :"));
+    const select=el("select"); select.style.maxWidth="320px";
     select.append(new Option("— Choisir un groupe —",""));
     data.forEach(g=>select.append(new Option(g.name+" ("+(g.region||"")+")",g.id)));
-    const section=(title,html,onChange)=>{
-      const s=el("div","panel"); s.append(el("h3","g-sub",title));
-      const c=el("div"); c.innerHTML=html; s.append(c);
-      box.append(s);
-      if(onChange) select.addEventListener("change",()=>onChange(c,select.value));
-    };
-    section("Supprimer un groupe","",c=>{
-      c.innerHTML="<p class='note'>Sélectionnez un groupe pour afficher le bouton.</p>";
-      if(!c.value) return;
-      const g=data.find(x=>String(x.id)===c.value); if(!g) return;
-      c.innerHTML="<p class='note warn'>⚠️ Suppression définitive de <b>"+g.name+"</b> et de toutes ses données.</p>"+'<input id="mod-del-confirm" class="field" type="text" placeholder="Tapez le nom du groupe pour confirmer">'+'<div class="actions"><button class="btn danger" id="mod-del-btn">Supprimer</button></div>';
-      c.querySelector("#mod-del-btn")?.addEventListener("click",async()=>{
-        const inp=c.querySelector("#mod-del-confirm");
-        if(inp.value!==g.name) return toast("Le nom ne correspond pas");
-        const {error}=await A.sb.rpc("delete_group",{p_group:Number(c.value),p_confirmation:g.name});
-        if(error) return toast(frError(error));
-        toast("Groupe supprimé"); loadModeration();
-      });
-    });
-    section("Gérer les membres","",c=>{
-      c.innerHTML="<p class='note'>Sélectionnez un groupe.</p>";
-      if(!c.value) return;
-      A.sb.rpc("manage_members",{p_group:Number(c.value)}).then(({data:mem,error})=>{
-        if(c!==$("#moderation-content div") || c.querySelector("#mod-del-btn")) return;
-        if(error) return c.innerHTML="<p class='err'>"+frError(error)+"</p>";
-        if(!mem?.length){ c.innerHTML="<p class='note'>Aucun membre.</p>"; return; }
-        c.innerHTML="";
+    selWrap.append(select);
+    box.append(selWrap);
+
+    const delDiv=el("div");
+    const memDiv=el("div");
+
+    const s1=el("div","panel"); s1.append(el("h3","g-sub","Supprimer le groupe"), delDiv);
+    const s2=el("div","panel"); s2.append(el("h3","g-sub","Membres du groupe"), memDiv);
+    box.append(s1, s2);
+
+    function updateSection(){
+      const val=select.value;
+      if(!val){
+        delDiv.innerHTML="<p class='note'>Sélectionnez un groupe ci-dessus.</p>";
+        memDiv.innerHTML="<p class='note'>Sélectionnez un groupe ci-dessus.</p>";
+        return;
+      }
+      const g=data.find(x=>String(x.id)===val);
+      if(g){
+        delDiv.innerHTML="<p class='note warn'>⚠️ Suppression définitive de <b>"+g.name+"</b> et de toutes ses données.</p>"+'<input id="mod-del-confirm" class="field" type="text" placeholder="Tapez le nom du groupe pour confirmer">'+'<div class="actions" style="margin-top:8px"><button class="btn danger" id="mod-del-btn">Supprimer le groupe</button></div>';
+        delDiv.querySelector("#mod-del-btn")?.addEventListener("click",async()=>{
+          const inp=delDiv.querySelector("#mod-del-confirm");
+          if(inp.value!==g.name) return toast("Tapez exactement le nom du groupe ("+g.name+")");
+          const {error}=await A.sb.rpc("delete_group",{p_group:Number(val),p_confirmation:g.name});
+          if(error) return toast(frError(error));
+          toast("Groupe supprimé"); loadModeration();
+        });
+      }
+      memDiv.innerHTML="<p class='note'>Chargement des membres…</p>";
+      A.sb.rpc("manage_members",{p_group:Number(val)}).then(({data:mem,error})=>{
+        if(select.value!==val) return;
+        if(error) return memDiv.innerHTML="<p class='err'>"+frError(error)+"</p>";
+        if(!mem?.length){ memDiv.innerHTML="<p class='note'>Aucun membre.</p>"; return; }
+        memDiv.innerHTML="";
         const list=el("div","list tight");
         mem.forEach(m=>{
           const row=el("div","mrow");
@@ -242,18 +250,20 @@ function loadModeration(){
           if(m.status==="pending") badges.append(el("span","chip minus","En attente"));
           row.append(badges);
           const act=el("div","actions");
-          if(m.status==="pending"&&A.me.is_admin) act.append(btn("Valider","btn small",async()=>{ await A.sb.rpc("approve_member",{p_group:Number(c.value),p_user:m.user_id}); loadModeration(); }));
-          if(A.me.is_admin||m.role!=="owner") act.append(btn(m.role==="owner"?"Retirer":"Mettre modérateur","btn small",async()=>{
+          if(m.status==="pending"&&A.me.is_admin) act.append(btn("Valider","btn small",async()=>{ await A.sb.rpc("approve_member",{p_group:Number(val),p_user:m.user_id}); updateSection(); }));
+          if(A.me.is_admin||m.role!=="owner") act.append(btn(m.role==="owner"?"Retirer responsable":"Mettre modérateur","btn small",async()=>{
             const role=m.role==="owner"?"member":"moderator";
-            await A.sb.rpc("set_member_role",{p_group:Number(c.value),p_user:m.user_id,p_role:role});
-            loadModeration();
+            await A.sb.rpc("set_member_role",{p_group:Number(val),p_user:m.user_id,p_role:role});
+            updateSection();
           }));
-          if(A.me.is_admin) act.append(btn("Retirer du groupe","linkbtn danger",async()=>{ await A.sb.from("memberships").delete().eq("group_id",c.value).eq("user_id",m.user_id); loadModeration(); }));
+          if(A.me.is_admin) act.append(btn("Exclure","linkbtn danger",async()=>{ await A.sb.from("memberships").delete().eq("group_id",val).eq("user_id",m.user_id); updateSection(); }));
           row.append(act); list.append(row);
         });
-        c.append(list);
+        memDiv.append(list);
       });
-    });
+    }
+    select.addEventListener("change",updateSection);
+    updateSection();
   });
 }
 const prevProfil2=A.hooks.profil;
