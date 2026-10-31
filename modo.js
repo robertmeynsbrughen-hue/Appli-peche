@@ -936,7 +936,9 @@ function ensureTimeoutBanner(){
 }
 
 /* ---------- Branchements ---------- */
+const prevProfilSub=A.hooks.profilSub;
 A.hooks.profilSub=v=>{
+  prevProfilSub?.(v);
   if(v==="moderation"){ render(); }
   if(v==="moi"){ renderSanctionPanel(); }
 };
