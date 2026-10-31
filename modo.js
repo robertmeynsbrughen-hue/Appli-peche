@@ -125,6 +125,108 @@ function sanctionCard(t,active){
   return c;
 }
 
+/* ---------- Recours du membre (Profil > Moi) ---------- */
+const APPEAL_STATUS={
+  open:["En attente","wait"],
+  accepted:["Accepté","accepted"],
+  rejected:["Refusé","rejected"],
+};
+// Détecte une migration 0008 absente, que l'erreur vienne de Postgres (42P01)
+// ou de PostgREST (table ou fonction absente du cache de schéma).
+const missingSchema=e=>!!e&&(e.code==="42P01"||e.code==="PGRST202"||e.code==="PGRST205"
+  ||/does not exist|schema cache|could not find the (table|function)/i.test(e.message||""));
+const missingTable=missingSchema;
+function appealStatusBadge(status){
+  const [label,cls]=APPEAL_STATUS[status]||[status||"?",""];
+  return el("span","badge "+cls,label);
+}
+function appealMemberCard(a){
+  const c=el("div","modo-item appeal");
+  const head=el("div","sanction-head");
+  head.append(appealStatusBadge(a.status));
+  head.append(el("span","modo-meta","envoyé le "+stamp(a.created_at)));
+  c.append(head);
+  c.append(el("p","modo-ex","« "+a.message+" »"));
+  if(a.reply){
+    const r=el("div","appeal-reply");
+    r.append(el("b",null,"Réponse du staff"));
+    r.append(el("p",null,a.reply));
+    c.append(r);
+  }
+  if(a.handled_at) c.append(el("div","post-date","Traité le "+stamp(a.handled_at)));
+  return c;
+}
+let appealPanelSeq=0, appealPanelTimeout=null;
+async function renderSanctionPanel(){
+  const box=$("#sanction-panel"); if(!box) return;
+  if(!A.me){ box.hidden=true; box.innerHTML=""; return; }
+  const mySeq=++appealPanelSeq;
+  try{ await A.loadTimeout?.(); }catch(e){}
+  ensureTimeoutBanner();
+  const t=A.isTimedOut?.()?A.myTimeout:null;
+  let list=[], missing=false, error=null;
+  try{
+    const r=await A.sb.from("sanction_appeals")
+      .select("id,timeout_id,message,status,reply,created_at,handled_at")
+      .eq("user_id",A.me.id).order("created_at",{ascending:false}).limit(20);
+    if(r.error){ if(missingTable(r.error)) missing=true; else error=r.error; }
+    else list=r.data||[];
+  }catch(e){ error=e; }
+  if(mySeq!==appealPanelSeq) return;
+  appealPanelTimeout=t?String(t.id):null;
+  if(!t && !list.length){ box.hidden=true; box.innerHTML=""; return; }
+  if(!t && error){ box.hidden=true; box.innerHTML=""; return; }
+  box.hidden=false; box.innerHTML="";
+  const head=el("div","g-sec-head"); head.append(el("h2",null,"Recours")); box.append(head);
+  if(error){ box.append(errLine(error)); return; }
+
+  if(t){
+    const cur=list.find(a=>String(a.timeout_id)===String(t.id));
+    if(missing){
+      box.append(el("p","note warn","Le recours n'est pas encore disponible : la migration 0008_sanction_appeals.sql doit être appliquée."));
+    }else if(cur){
+      box.append(appealMemberCard(cur));
+      box.append(el("p","note",cur.status==="open"
+        ?"Le staff examine ta demande. La sanction reste active : tu peux lire l'application, mais l'écriture reste bloquée jusqu'à sa décision."
+        :cur.status==="accepted"
+          ?"La sanction a été levée après examen de ce recours."
+          :"Le staff a examiné ce recours et a maintenu la sanction."));
+    }else{
+      box.append(el("p","note","Tu peux demander un réexamen de cette sanction. Tant que le staff n'a pas répondu, la sanction reste active : la lecture est possible, mais l'écriture reste bloquée. Un seul recours est possible par sanction."));
+      const f=el("form","appeal-form");
+      const lab=el("label","field","Explique ta demande");
+      const ta=el("textarea");
+      ta.required=true; ta.minLength=10; ta.maxLength=1000; ta.rows=4;
+      ta.placeholder="Ce que tu souhaites faire corriger ou préciser…";
+      lab.append(ta); f.append(lab);
+      const err=el("p","err"); err.hidden=true; f.append(err);
+      const ok3=el("button","btn primary","Envoyer ma demande"); ok3.type="submit"; f.append(ok3);
+      f.addEventListener("submit",async ev=>{
+        ev.preventDefault(); showErr(err);
+        const msg=ta.value.trim();
+        if(msg.length<10){ showErr(err,"Explique ta demande en 10 caractères minimum."); ta.focus(); return; }
+        ok3.disabled=true;
+        const r=await A.sb.rpc("submit_sanction_appeal",{p_timeout_id:t.id,p_message:msg});
+        ok3.disabled=false;
+        if(r.error){
+          if(missingTable(r.error)) return showErr(err,"Le recours n'est pas disponible : la migration 0008 doit être appliquée.");
+          if(/déjà/.test(r.error.message||"")){ showErr(err,frError(r.error)); renderSanctionPanel(); return; }
+          return showErr(err,frError(r.error));
+        }
+        toast("Recours envoyé au staff");
+        renderSanctionPanel();
+      });
+      box.append(f);
+    }
+  }
+
+  const past=list.filter(a=>!t||String(a.timeout_id)!==String(t.id)).slice(0,5);
+  if(past.length){
+    box.append(el("h3","g-sub","Mes recours"));
+    past.forEach(a=>box.append(appealMemberCard(a)));
+  }
+}
+
 /* ---------- Contexte des signalements ---------- */
 async function loadReportContext(R){
   const ids=kind=>[...new Set(R.filter(r=>r.kind===kind).map(r=>Number(r.target_id)).filter(Boolean))];
@@ -342,6 +444,101 @@ async function renderTodo(gmap, groupFilter){
   });
 
   if(!R.length&&!P.length&&!Q.length&&!errs.length) box.append(el("p","empty small","Rien à traiter pour le moment."));
+  return sec;
+}
+
+/* ---------- 2. Recours contre les sanctions ---------- */
+function appealContext(t){
+  const c=el("div","modo-ctx");
+  if(!t){
+    c.append(el("b",null,"Sanction introuvable"));
+    c.append(el("span",null,"La sanction liée à ce recours n'existe plus."));
+    return c;
+  }
+  const state=t.lifted_at?"levée":new Date(t.ends_at).getTime()<=Date.now()?"expirée":"active";
+  c.append(el("b",null,"Sanction "+state));
+  c.append(el("span",null,"du "+stamp(t.starts_at)+" au "+stamp(t.ends_at)+" · motif : "+t.reason));
+  if(t.lifted_at) c.append(el("span",null,"Levée le "+stamp(t.lifted_at)+(t.lift_reason?" · "+t.lift_reason:"")));
+  else if(state==="active") c.append(el("span",null,remaining(t.ends_at)+" restantes"));
+  return c;
+}
+async function renderAppeals(){
+  const r=await A.sb.from("sanction_appeals")
+    .select("id,timeout_id,user_id,message,status,reply,created_at,handled_at,member:profiles!sanction_appeals_user_fkey(username,is_admin,is_controller),handler:profiles!sanction_appeals_handled_by_fkey(username)")
+    .order("created_at",{ascending:false}).limit(60);
+  if(r.error){
+    const sec=section("Recours");
+    if(missingTable(r.error)) sec.append(el("p","note warn","Les recours ne sont pas encore disponibles : applique migrations/0008_sanction_appeals.sql."));
+    else sec.append(errLine(r.error));
+    return sec;
+  }
+  const list=r.data||[];
+  const open=list.filter(a=>a.status==="open");
+  const sec=section("Recours",open.length);
+
+  const ids=[...new Set(list.map(a=>Number(a.timeout_id)).filter(Boolean))];
+  let tmap=new Map();
+  if(ids.length){
+    const tr=await A.sb.from("moderation_timeouts").select("id,reason,starts_at,ends_at,lifted_at,lift_reason").in("id",ids);
+    if(tr.error) sec.append(errLine(tr.error));
+    else tmap=new Map((tr.data||[]).map(t=>[String(t.id),t]));
+  }
+
+  const addCard=a=>{
+    const c=el("div","modo-item appeal");
+    const head=el("div","sanction-head");
+    head.append(nameWithBadge(a.member));
+    head.append(appealStatusBadge(a.status));
+    head.append(el("span","modo-meta","envoyé le "+stamp(a.created_at)));
+    c.append(head);
+    c.append(el("p","modo-ex","« "+a.message+" »"));
+    c.append(appealContext(tmap.get(String(a.timeout_id))));
+    if(a.status==="open"){
+      const f=el("form","appeal-reply-form");
+      const lab=el("label","field","Réponse au membre");
+      const ta=el("textarea");
+      ta.required=true; ta.minLength=3; ta.maxLength=1000; ta.rows=3;
+      ta.placeholder="Explique la décision…";
+      lab.append(ta); f.append(lab);
+      const err=el("p","err"); err.hidden=true; f.append(err);
+      const send=async accept=>{
+        showErr(err);
+        const reply=ta.value.trim();
+        if(reply.length<3){ showErr(err,"Écris une réponse avant de valider."); ta.focus(); return; }
+        const {error}=await A.sb.rpc("respond_sanction_appeal",{p_id:a.id,p_accept:accept,p_reply:reply});
+        if(error){
+          if(error.code==="42883"||error.code==="PGRST202") return showErr(err,"La migration 0008 n'est pas appliquée.");
+          if(/déjà|introuvable|terminée|levée/i.test(error.message||"")) return stale(()=>render({keepScroll:true,y:window.scrollY}),"Recours déjà traité — liste actualisée");
+          return showErr(err,frError(error));
+        }
+        toast(accept?"Recours accepté — sanction levée":"Recours refusé — sanction maintenue");
+        render({keepScroll:true,y:window.scrollY});
+      };
+      const act=el("div","actions");
+      act.append(confirmBtn("Lever la sanction","Confirmer la levée",()=>send(true),"btn primary small"));
+      act.append(confirmBtn("Maintenir la sanction","Confirmer le maintien",()=>send(false),"btn small"));
+      f.append(act); c.append(f);
+    }else if(a.reply){
+      const rep=el("div","appeal-reply");
+      rep.append(el("b",null,"Réponse du staff"+(a.handler?.username?" (@"+a.handler.username+")":"")));
+      rep.append(el("p",null,a.reply));
+      c.append(rep);
+      if(a.handled_at) c.append(el("div","post-date","Traité le "+stamp(a.handled_at)));
+    }
+    return c;
+  };
+
+  if(open.length){
+    sec.append(el("h3","g-sub","En attente ("+open.length+")"));
+    open.forEach(a=>sec.append(addCard(a)));
+  }else{
+    sec.append(el("p","note","Aucun recours en attente."));
+  }
+  const done=list.filter(a=>a.status!=="open").slice(0,10);
+  if(done.length){
+    sec.append(el("h3","g-sub","Recours traités"));
+    done.forEach(a=>sec.append(addCard(a)));
+  }
   return sec;
 }
 
@@ -681,6 +878,7 @@ async function render(opts){
 
   try{
     const todo=await renderTodo(gmap,nav?.section==="todo"?(Number(nav.group)||null):null); if(mySeq!==seq) return; todo.id="mod-todo"; root.append(todo);
+    const appeals=await renderAppeals(); if(mySeq!==seq) return; appeals.id="mod-appeals"; root.append(appeals);
     const members=await renderMembers(gmap,schema); if(mySeq!==seq) return; members.id="mod-members"; root.append(members);
     const gs=await renderGroups(groups); if(mySeq!==seq) return; gs.id="mod-groups"; root.append(gs);
     if(A.me.is_admin){ const cs=await renderControllers(); if(mySeq!==seq) return; cs.id="mod-controllers"; root.append(cs); }
@@ -691,7 +889,7 @@ async function render(opts){
   }
 
   if(nav){
-    const target=nav.section==="groups"||nav.section==="group"?"#mod-groups":nav.section==="members"||nav.section==="member"?"#mod-members":nav.section==="controllers"?"#mod-controllers":"#mod-todo";
+    const target=nav.section==="groups"||nav.section==="group"?"#mod-groups":nav.section==="members"||nav.section==="member"?"#mod-members":nav.section==="controllers"?"#mod-controllers":nav.section==="appeals"?"#mod-appeals":"#mod-todo";
     setTimeout(()=>{ const n=root.querySelector(target); if(n) n.scrollIntoView({behavior:"smooth",block:"start"}); },80);
   }else if(opts.keepScroll){
     window.scrollTo(0,opts.y!=null?opts.y:y);
@@ -702,12 +900,13 @@ async function render(opts){
 /* ---------- Compteur et bandeau de sanction ---------- */
 async function updateBadge(){
   if(!A.me||!A.sb||!isStaff()){ window.CDJ_MOD_COUNT=0; window.CDJ_SYNC_BADGE?.(); return; }
-  const [r,p,q]=await Promise.all([
+  const [r,p,q,ap]=await Promise.all([
     A.sb.from("reports").select("id").eq("status","open").limit(300),
     A.sb.from("memberships").select("user_id").eq("status","pending").limit(300),
     A.sb.from("posts").select("id").eq("status","pending").limit(300),
+    A.sb.from("sanction_appeals").select("id").eq("status","open").limit(300),
   ]);
-  const n=(r.data||[]).length+(p.data||[]).filter(x=>x.user_id!==A.me.id).length+(q.data||[]).length;
+  const n=(r.data||[]).length+(p.data||[]).filter(x=>x.user_id!==A.me.id).length+(q.data||[]).length+(ap.data||[]).length;
   window.CDJ_MOD_COUNT=n; window.CDJ_SYNC_BADGE?.();
 }
 
@@ -723,23 +922,41 @@ function ensureTimeoutBanner(){
   }
   b.querySelector(".timeout-when").textContent="jusqu'au "+new Date(t.ends_at).toLocaleString("fr-FR",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"})+" ("+remaining(t.ends_at)+" restantes).";
   b.querySelector(".timeout-why").textContent=t.reason?"Motif : "+t.reason:"";
+  if(!b.querySelector(".timeout-appeal")){
+    b.append(btn("Demander un réexamen","linkbtn timeout-appeal",()=>{
+      if(location.hash.startsWith("#profil")){
+        A.openProfilSub?.("moi");
+        setTimeout(()=>document.getElementById("sanction-panel")?.scrollIntoView({behavior:"smooth",block:"start"}),300);
+      }else{
+        location.hash="#profil";
+        setTimeout(()=>{ A.openProfilSub?.("moi"); setTimeout(()=>document.getElementById("sanction-panel")?.scrollIntoView({behavior:"smooth",block:"start"}),300); },200);
+      }
+    }));
+  }
 }
 
 /* ---------- Branchements ---------- */
 A.hooks.profilSub=v=>{
   if(v==="moderation"){ render(); }
+  if(v==="moi"){ renderSanctionPanel(); }
 };
 // On enveloppe le hook Profil au lieu de le remplacer : d'autres modules
 // (profil, carnet, outils…) y branchent leur propre rendu.
 const prevProfil=A.hooks.profil;
-A.hooks.profil=()=>{ prevProfil?.(); if(activeSub()) render(); };
+A.hooks.profil=()=>{ prevProfil?.(); renderSanctionPanel(); if(activeSub()) render(); };
 A.hooks.modo=()=>{ if(activeSub()) queueRender({keepScroll:true}); };
 const prevChange=A.hooks.change;
-A.hooks.change=()=>{ prevChange?.(); ensureTimeoutBanner(); if(activeSub()) queueRender({keepScroll:true}); updateBadge(); };
+A.hooks.change=()=>{
+  prevChange?.(); ensureTimeoutBanner(); if(activeSub()) queueRender({keepScroll:true}); updateBadge();
+  const panel=$("#sanction-panel");
+  if(!A.me){ if(panel){ panel.hidden=true; panel.innerHTML=""; } }
+  else if(panel?.hidden&&!$("#v-profil").hidden&&$("#v-profil").dataset.s==="moi") renderSanctionPanel();
+};
 
 function boot(){
   ensureTimeoutBanner();
   updateBadge();
+  renderSanctionPanel();
   if(A.me&&activeSub()) render();
   if(window.CDJ_WANT_MOD) setTimeout(()=>A.openProfilSub?.("moderation"),0);
 }
@@ -750,6 +967,7 @@ setInterval(async()=>{
   if(document.visibilityState!=="visible"||!A.me) return;
   await A.loadTimeout?.();
   ensureTimeoutBanner();
+  if(!$("#v-profil").hidden&&$("#v-profil").dataset.s==="moi"&&String(A.myTimeout?.id||"")!==String(appealPanelTimeout||"")) renderSanctionPanel();
   if(++ticks%2===0) updateBadge();
 },30000);
 })();
