@@ -275,9 +275,11 @@ async function renderGroupe(){
   t.append(h, el("div","note"+(full?" warn":""),[g.region,cap].filter(Boolean).join(" · ")));
   head.append(t);
   if(info){
-    const code=el("div","g-code"); code.append(el("span","note","Code"),el("span","code",info.invite_code));
+    // Code masqué visuellement pour les membres - on utilise le lien d'invitation (token)
+    const code=el("div","g-code"); code.hidden=true;
+    code.append(el("span","note","Code"),el("span","code",info.invite_code));
     const cp=btn("Copier","linkbtn",async()=>{ try{ await navigator.clipboard.writeText(info.invite_code); toast("Code copié"); }catch(e){ toast("Code : "+info.invite_code); } });
-    code.append(cp, btn("🔗 Inviter","btn small",()=>A.invite?.open(info.invite_code,g.name))); head.append(code);
+    code.append(cp, btn("🔗 Inviter","btn small",async()=>{ const {data}=await A.sb.rpc("create_group_invite",{p_group:gid}); if(data?.token) A.invite?.open(data.token,g.name); })); head.append(code);
   }
   root.append(head);
 
@@ -508,7 +510,7 @@ function renderManage(g,info,members,man){
     s.append(opt("Valider les publications","Les prises des membres apparaissent après validation d'un modérateur.","post_approval"));
     const f=el("form","g-edit");
     const mk=(label,val,attrs)=>{ const l=el("label","field",label); const i=el("input"); Object.assign(i,attrs); i.value=val||""; l.append(i); f.append(l); return i; };
-    const n=mk("Nom",g.name,{required:true,maxLength:40}), rg=mk("Région",g.region,{maxLength:40}), cd=mk("Code d'invitation",info.invite_code,{required:true,minLength:8,maxLength:40});
+    const n=mk("Nom",g.name,{required:true,maxLength:40}), rg=mk("Région",g.region,{maxLength:40}), cd=mk("Code d'invitation",info.invite_code,{required:true,minLength:8,maxLength:40}); cd.closest("label").hidden=true;
     { const rg2=el("button","linkbtn","🎲 Générer un nouveau code sûr"); rg2.type="button"; rg2.addEventListener("click",async()=>{ if(!confirm("Remplacer le code ? Les anciens liens d'invitation ne marcheront plus.")) return; const {data:c,error}=await A.sb.rpc("regen_group_code",{p_id:g.id}); if(error) return toast(frError(error)); cd.value=c; toast("Nouveau code : "+c); await A.loadGroups(); afterManage(); }); f.append(rg2); }
     const err=el("p","err"); err.hidden=true; f.append(err);
     const ok=el("button","btn","Enregistrer"); ok.type="submit"; f.append(ok);
@@ -543,7 +545,7 @@ async function adminOverview(seq){
     if(g.require_approval) flags.append(el("span","chip","Adhésion validée"));
     if(g.post_approval) flags.append(el("span","chip","Posts validés"));
     if(flags.childNodes.length) c.append(flags);
-    const code=el("div","note","Code : "); code.append(el("span","code",g.invite_code)); c.append(code);
+    const code=el("div","note","Code : "); code.append(el("span","code",g.invite_code)); code.hidden=true; c.append(code);
     c.append(btn("Ouvrir ce groupe","btn small",()=>A.setGroup(g.id)));
     if(A.me.is_admin) c.append(btn("🗑 Supprimer le groupe","btn small danger",()=>removeGroup(g)));
     s.append(c);

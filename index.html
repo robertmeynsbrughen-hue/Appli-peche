@@ -271,8 +271,8 @@ body{margin:0}
           <input id="a-user" autocomplete="nickname" autocapitalize="off" pattern="[A-Za-z0-9_]{3,20}" placeholder="3 à 20 lettres, chiffres ou _"></label>
         <label class="field">Mot de passe
           <input id="a-pass" type="password" autocomplete="current-password" required minlength="6"></label>
-        <label class="field" id="a-code-wrap" hidden>Code d'un groupe (facultatif)
-          <input id="a-code" autocomplete="off" placeholder="Si un pote t'a donné un code"></label>
+        <label class="field" id="a-code-wrap" hidden>Lien d'invitation (facultatif)
+          <input id="a-code" autocomplete="off" placeholder="Si un pote t'a donné un lien"></label>
         <p class="note" id="a-terms" hidden>En créant un compte, tu acceptes la <a href="confidentialite.html" target="_blank" rel="noopener">politique de confidentialité</a>.</p>
         <p class="note" id="a-legacy">Ancien compte sans e-mail ? Entre ton pseudo à la place de l'e-mail.</p>
         <p class="err" id="a-err" hidden></p>
@@ -294,9 +294,9 @@ body{margin:0}
 
     <form class="panel" id="join" hidden>
       <h2>Terminer mon profil</h2>
-      <p class="note">Ton compte existe mais ton profil n'est pas terminé. Choisis ton pseudo ; le code d'un groupe est facultatif.</p>
+      <p class="note">Ton compte existe mais ton profil n'est pas terminé. Choisis ton pseudo ; le lien d'invitation est facultatif.</p>
       <label class="field">Pseudo<input id="j-user" required pattern="[A-Za-z0-9_]{3,20}" autocapitalize="off"></label>
-      <label class="field">Code d'un groupe (facultatif)<input id="j-code"></label>
+      <label class="field" hidden>Code d'un groupe (facultatif)<input id="j-code"></label>
       <p class="err" id="j-err" hidden></p>
       <div class="actions"><button class="btn primary" type="submit">Rejoindre</button></div>
     </form>
@@ -306,6 +306,7 @@ body{margin:0}
       <button type="button" role="tab" data-s="collection">Collection</button>
       <button type="button" role="tab" data-s="matos">Matos</button>
       <button type="button" role="tab" data-s="reglages">Réglages</button>
+      <button type="button" role="tab" data-s="moderation">Modération</button>
     </div>
 
     <div class="panel me-card" id="me" hidden data-sub="moi">
@@ -328,7 +329,7 @@ body{margin:0}
       <div class="list" id="my-groups-list"></div>
       <form id="join-more" class="actions" style="align-items:flex-end">
         <label class="field" style="flex:1;min-width:160px">Rejoindre un autre groupe
-          <input id="jm-code" required placeholder="Code du groupe"></label>
+          <input id="jm-code" required placeholder="Lien d'invitation ou code"></label>
         <button class="btn primary" type="submit">Rejoindre</button>
       </form>
       <p class="err" id="jm-err" hidden></p>
@@ -346,12 +347,12 @@ body{margin:0}
 
     <form class="panel" id="create-group" hidden data-sub="reglages">
       <h2>Créer un groupe</h2>
-      <p class="note">Tu en deviendras responsable : tu partages le code avec tes potes et tu peux modérer le groupe.</p>
+      <p class="note">Tu en deviendras responsable : tu partages le lien d'invitation avec tes potes et tu peux modérer le groupe.</p>
       <div class="row2">
         <label class="field">Nom<input id="cg-name" required minlength="2" maxlength="40" placeholder="Ex. : Les carpistes du Lot"></label>
         <label class="field">Région<input id="cg-region" maxlength="40" placeholder="Ex. : Lot-et-Garonne"></label>
       </div>
-      <label class="field">Code d'invitation (facultatif)<input id="cg-code" minlength="8" maxlength="40" autocomplete="off" placeholder="Laisse vide : code sûr généré pour toi"></label>
+      <label class="field" hidden>Code d'invitation (facultatif)<input id="cg-code" minlength="8" maxlength="40" autocomplete="off" placeholder="Laisse vide : code sûr généré pour toi"></label>
       <p class="err" id="cg-err" hidden></p>
       <div class="actions"><button class="btn primary" type="submit">Créer le groupe</button></div>
     </form>
@@ -359,13 +360,18 @@ body{margin:0}
     <div class="panel" data-sub="reglages">
       <h2>Installer l'appli</h2>
       <p class="note">Android (Chrome) : menu ⋮ puis « Ajouter à l'écran d'accueil » ou « Installer l'application ».<br>iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
-      <p class="note app-version">Version <span id="app-version">0.66.5</span> · bêta · <a href="confidentialite.html">Confidentialité</a></p>
+      <p class="note app-version">Version <span id="app-version">0.66.6</span> · bêta · <a href="confidentialite.html">Confidentialité</a></p>
     </div>
 
     <div class="panel" data-sub="reglages" id="account-panel" hidden>
       <h2>Compte</h2>
       <div id="account-box"></div>
       <div class="actions"><button class="btn" type="button" id="logout">Se déconnecter</button></div>
+    </div>
+
+    <div class="panel" id="moderation-panel" hidden data-sub="moderation">
+      <h2>🛡️ Modération</h2>
+      <div id="moderation-content"></div>
     </div>
   </section>
   <!-- ========== GROUPE ========== -->

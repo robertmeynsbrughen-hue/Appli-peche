@@ -122,4 +122,11 @@ function bgPanel(){
 }
 applyBg(get("cdj-bg","auto"));
 bgPanel();
+
+/* ---------- Affichage de la version globale en bas à droite ---------- */
+(function(){
+  const vStr = $("#app-version")?.textContent || "0.66.5";
+  const badge = el("div", "v-fixed", "v" + vStr);
+  document.body.append(badge);
+})();
 })();

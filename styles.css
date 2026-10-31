@@ -434,6 +434,7 @@ body.chat-open{overflow:hidden}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .msg-who.is-mod{color:#8fa6ff}}
 :root[data-theme="dark"] .msg-who.is-mod{color:#8fa6ff}
 .app-version{font-family:var(--f-mono);font-size:.75rem}
+.v-fixed{position:fixed;bottom:max(84px,calc(10px + env(safe-area-inset-bottom,0px)));right:max(12px,env(safe-area-inset-right,0px));z-index:900;font-family:var(--f-mono);font-size:.65rem;color:var(--muted);opacity:.6;pointer-events:none;background:var(--bg);padding:2px 6px;border-radius:6px;box-shadow:0 0 0 1px var(--border)}
 
 /* ---- Réactions et commentaires ---- */
 .social{display:flex;flex-direction:column;gap:8px}
@@ -717,6 +718,7 @@ button.dex-card{font:inherit;cursor:pointer}
 .has-sub[data-s="collection"] [data-sub]:not([data-sub="collection"]),
 .has-sub[data-s="matos"] [data-sub]:not([data-sub="matos"]),
 .has-sub[data-s="reglages"] [data-sub]:not([data-sub="reglages"]),
+.has-sub[data-s="moderation"] [data-sub]:not([data-sub="moderation"]),
 .has-sub[data-s="activite"] > [data-sub]:not([data-sub="activite"]),
 .has-sub[data-s="infos"] > [data-sub]:not([data-sub="infos"]),
 .has-sub[data-s="membres"] > [data-sub]:not([data-sub="membres"]),

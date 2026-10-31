@@ -121,9 +121,21 @@ async function ctrlPanel(){
   box.append(f);
 }
 
+/* ---------- Onglet Modération (visible seulement pour admin/contrôleur) ---------- */
+function syncModerationTab(){
+  const modTab=document.querySelector('#profil-sub [data-s="moderation"]');
+  if(!modTab) return;
+  const isStaff=!!(A.me?.is_admin||A.me?.is_controller);
+  modTab.hidden=!isStaff;
+  // Si l'onglet est masqué et qu'on était dessus, revenir à "moi"
+  if(!isStaff&&document.querySelector('#v-profil').dataset.s==="moderation"){
+    document.querySelector('#profil-sub [data-s="moi"]')?.click();
+  }
+}
 const prev=A.hooks.change;
 let ctrlDone=false;
-A.hooks.change=()=>{ prev?.(); syncProfil(); if(A.me?.is_admin&&!ctrlDone){ ctrlDone=true; ctrlPanel(); } if(!A.me){ ctrlDone=false; const b=$("#ctrl-panel"); if(b) b.hidden=true; } };
+A.hooks.change=()=>{ prev?.(); syncProfil(); syncModerationTab(); if(A.me?.is_admin&&!ctrlDone){ ctrlDone=true; ctrlPanel(); } if(!A.me){ ctrlDone=false; const b=$("#ctrl-panel"); if(b) b.hidden=true; } };
 syncProfil();
+syncModerationTab();
 if(A.me?.is_admin){ ctrlDone=true; ctrlPanel(); }
 })();

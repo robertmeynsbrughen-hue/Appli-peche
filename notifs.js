@@ -58,7 +58,7 @@ setInterval(()=>{ if(document.visibilityState==="visible") count(); },120000);
 
 /* =================== Invitation par lien et QR code =================== */
 const base=()=>location.origin+location.pathname;
-const linkOf=code=>base()+"?rejoindre="+encodeURIComponent(code);
+const linkOf=token=>base()+"?invite="+encodeURIComponent(token);
 let qrLib=null;
 function loadQR(){
   if(window.QRCode) return Promise.resolve();
@@ -66,9 +66,9 @@ function loadQR(){
   qrLib=new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; s.onload=res; s.onerror=()=>{ qrLib=null; rej(); }; document.head.append(s); });
   return qrLib;
 }
-function invite(code,name){
+function invite(token,name){
   const {sh}=sheet("Inviter dans « "+name+" »","invite-sheet");
-  const url=linkOf(code);
+  const url=linkOf(token);
   sh.append(el("p","note","Ton pote ouvre le lien ou scanne le QR code : il arrive directement sur l'inscription, avec le groupe déjà choisi."));
   const qr=el("div","invite-qr"); qr.append(el("span","note","QR code…")); sh.append(qr);
   loadQR().then(()=>{ qr.innerHTML=""; new window.QRCode(qr,{text:url,width:220,height:220,colorDark:"#0b3229",colorLight:"#ffffff",correctLevel:window.QRCode.CorrectLevel.M}); }).catch(()=>{ qr.innerHTML=""; qr.append(el("span","note","QR code indisponible hors ligne : partage le lien.")); });
@@ -76,7 +76,7 @@ function invite(code,name){
   const a=el("div","actions");
   if(navigator.share) a.append(btn("📤 Partager le lien","btn primary",()=>navigator.share({title:"Rivio",text:"Rejoins notre groupe de pêche « "+name+" » sur Rivio 🎣",url}).catch(()=>{})));
   a.append(btn("📋 Copier","btn",async()=>{ try{ await navigator.clipboard.writeText(url); toast("Lien copié"); }catch(_){ toast(url); } }));
-  sh.append(a, el("p","note","Le lien contient le code du groupe : partage-le seulement avec les personnes que tu veux inviter. Change le code dans les réglages du groupe pour invalider les anciens liens."));
+  sh.append(a, el("p","note","Partage ce lien seulement avec les personnes que tu veux inviter. Change le code dans les réglages du groupe pour invalider les anciens liens."));
 }
 A.invite={open:invite,link:linkOf};
 

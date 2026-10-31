@@ -58,12 +58,12 @@ async function maybeStart(force){
       ph.append(im,el("span","btn small",st.preview?"Changer la photo":"📷 Choisir une photo"),inp); card.append(ph);
       nav(st.file?"Continuer":"Continuer sans photo",async()=>{ if(st.file) await saveProfile(); });
     }else if(step===1){
-      frame("👥","Ton groupe",A.groups.length?"Tu fais déjà partie de :":"Entre le code que t'a donné un pote pour rejoindre son groupe.");
+      frame("👥","Ton groupe",A.groups.length?"Tu fais déjà partie de :":"Rejoins le groupe de tes potes avec le lien d'invitation.");
       if(A.groups.length){ const l=el("div","onb-groups"); A.groups.slice(0,4).forEach(g=>l.append(el("span","chip","✓ "+g.name))); card.append(l); card.append(el("p","note","Tu pourras en rejoindre ou en créer d'autres depuis Profil ⚙️."));
         nav("Continuer"); }
       else{
-        const i=el("input"); i.placeholder="Code du groupe"; i.autocomplete="off"; i.className="onb-input"; card.append(i);
-        nav("Rejoindre",async()=>{ if(!i.value.trim()) throw new Error("Entre le code du groupe ou touche Passer"); const {data:gid,error}=await A.sb.rpc("join_group",{p_code:i.value.trim()}); if(error) throw error; if(gid==null) throw new Error("code invalide"); await A.loadGroups(); toast(A.groups.length?"Groupe rejoint !":"Demande envoyée : un modérateur doit la valider"); });
+        const i=el("input"); i.placeholder="Lien d'invitation (ou code du groupe)"; i.autocomplete="off"; i.className="onb-input"; card.append(i);
+        nav("Rejoindre",async()=>{ if(!i.value.trim()) throw new Error("Colle le lien ou le code du groupe"); const {data:gid,error}=await A.sb.rpc("join_group",{p_code:i.value.trim()}); if(error) throw error; if(gid==null) throw new Error("code invalide"); await A.loadGroups(); toast(A.groups.length?"Groupe rejoint !":"Demande envoyée : un modérateur doit la valider"); });
       }
     }else if(step===2){
       frame("🐟","Tes espèces préférées","Choisis jusqu'à 3 espèces : elles s'affichent sur ton profil et passent en tête des conseils.");
