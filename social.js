@@ -986,7 +986,9 @@ $("#spot-here").addEventListener("click",()=>{
 $("#s-cancel").addEventListener("click",()=>{ $("#spot-form").hidden=true; pending=null; });
 $("#spot-form").addEventListener("submit",async e=>{
   e.preventDefault(); if(!pending||cur==="all") return;
-  const {error}=await sb.from("spots").insert({group_id:cur,name:$("#s-name").value.trim(),note:$("#s-note").value.trim()||null,lat:pending.lat,lon:pending.lon});
+  const srow={group_id:cur,name:$("#s-name").value.trim(),note:$("#s-note").value.trim()||null,lat:pending.lat,lon:pending.lon};
+  const {error}=await sb.from("spots").insert(srow);
+  if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"spots",row:srow})){ $("#spot-form").reset(); $("#spot-form").hidden=true; pending=null; return toast("📴 Spot gardé : enregistré dès le retour du réseau"); }
   if(error) return showErr($("#s-err"),frError(error));
   $("#spot-form").reset(); $("#spot-form").hidden=true; pending=null;
   toast("Spot enregistré"); loadSpots(); loadStats();

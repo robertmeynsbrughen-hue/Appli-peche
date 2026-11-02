@@ -362,7 +362,7 @@ body{margin:0}
     <div class="panel" data-sub="reglages">
       <h2>Installer l'appli</h2>
       <p class="note">Android (Chrome) : menu ⋮ puis « Ajouter à l'écran d'accueil » ou « Installer l'application ».<br>iPhone (Safari) : bouton Partager puis « Sur l'écran d'accueil ».</p>
-      <p class="note app-version">Version <span id="app-version">0.68</span> · bêta · <a href="confidentialite.html">Confidentialité</a></p>
+      <p class="note app-version">Version <span id="app-version">0.69</span> · bêta · <a href="confidentialite.html">Confidentialité</a></p>
     </div>
 
     <div class="panel" data-sub="reglages" id="account-panel" hidden>
@@ -479,6 +479,7 @@ body{margin:0}
   </form>
 </div>
 
+<script>window.CDJ_ERRS=[];window.CDJ_ERRS_HOOKED=1;addEventListener("error",function(e){if(e.message&&CDJ_ERRS.length!==20)CDJ_ERRS.push({message:e.message,source:e.filename,line:e.lineno})});addEventListener("unhandledrejection",function(e){var r=e.reason;CDJ_ERRS.push({message:"Promesse rejetée : "+(r&&r.message||String(r))})});</script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="advice.js"></script>
@@ -525,6 +526,7 @@ body{margin:0}
 <script src="structures.js"></script>
 <script src="assistant.js"></script>
 <script src="recap.js"></script>
+<script src="admin.js"></script>
 <script src="nav.js"></script>
 <script>
 if("serviceWorker" in navigator){

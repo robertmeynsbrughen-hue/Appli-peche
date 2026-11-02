@@ -111,8 +111,11 @@ function picker(lat,lon){
     if(!kind) return toast("Choisis le type de structure");
     if(typeof A.cur!=="number") return toast("Choisis un groupe précis");
     ok.disabled=true;
-    const {data,error}=await A.sb.from("structures").insert({group_id:A.cur,kind,lat:+lat.toFixed(6),lon:+lon.toFixed(6),note:ni.value.trim()||null}).select("id,group_id,user_id,kind,lat,lon,note,created_at").single();
-    ok.disabled=false; if(error) return toast(frError(error));
+    const srow={group_id:A.cur,kind,lat:+lat.toFixed(6),lon:+lon.toFixed(6),note:ni.value.trim()||null};
+    const {data,error}=await A.sb.from("structures").insert(srow).select("id,group_id,user_id,kind,lat,lon,note,created_at").single();
+    ok.disabled=false;
+    if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"structures",row:srow})){ close(); return toast("📴 Structure gardée : ajoutée dès le retour du réseau"); }
+    if(error) return toast(frError(error));
     close(); st.list=[{...data,profiles:{username:A.me.username}},...(st.list||[])]; toast(KINDS[kind][0]+" Structure ajoutée"); draw(); A.layersBar?.();
   });
   const act=el("div","actions"); act.append(ok,btn("Annuler","linkbtn",close));

@@ -62,6 +62,12 @@ numérotation actuelle : `0003_group_delete`, `0004_group_succession` et
 baseline et désormais inclus dans les fichiers 0001 à 0005 et 0010 ; une note
 l'indique dans la colonne `notes`. Ne pas les supprimer.
 
+## 0.69
+
+- `0012_v069_bienvenue_admin.sql` : groupe Bienvenue (`groups.is_welcome`,
+  adhésion automatique à la création du profil), journal de modération,
+  `warn_member`, `member_record`, annonces, erreurs client et `app_health`.
+
 ## 0.68
 
 - `0010_v068_invitations_groupes_resync.sql` : liens d'invitation (validation,

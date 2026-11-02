@@ -8,6 +8,21 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.69 · 2 novembre 2026 · majeure
+--------------------------------
+Groupe « Bienvenue » : chaque nouveau compte y entre automatiquement, sans
+invitation ni limite de membres, pour poser ses questions dans le chat.
+Saisie sans réseau étendue : bulletins d'eau, signalements environnement (avec
+photo), traces de sortie, relevés de fond, structures, spots et amorçages sont
+gardés sur le téléphone et envoyés au retour du réseau.
+Annonces : le développeur publie un bandeau visible par tous, avec notification
+facultative.
+Modération : journal des actions (qui a fait quoi, quand), avertissement sans
+suspension, dossier du membre sur 6 mois avec palier conseillé (avertissement,
+puis 24 h, puis 7 jours) et motifs tout prêts.
+Santé de l'appli (développeur) : erreurs remontées par les téléphones,
+notifications livrées ou en échec, tâches planifiées en panne, compteurs.
+
 0.68 · 2 novembre 2026 · majeure
 --------------------------------
 Liens d'invitation : un lien respecte désormais la validation par un modérateur,

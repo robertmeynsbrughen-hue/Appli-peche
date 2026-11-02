@@ -107,6 +107,7 @@ export async function handle(req, cfg) {
     if (t === "wake_alarms") return Response.json(await wakeAlarms(VAPID));
     if (t === "storm_watch") return Response.json(await stormWatch(VAPID));
     if (t === "photo_month") return Response.json(await photoMonth(VAPID));
+    if (t === "announcements") return Response.json(await announce(Number(ev.id), VAPID));
     let rec, group_id, author, recipients, msg;
     if (t === "memberships") {
       group_id = Number(ev.group_id); author = String(ev.user_id).replace(/[^0-9a-f-]/gi, "");
@@ -567,4 +568,22 @@ async function outingReminders(vapid) {
     report.push({ id: o.id, people: rs.length, sent });
   }
   return { tomorrow, outings: outs.length, report };
+}
+
+// ---- Annonce du développeur à tous les utilisateurs ----
+async function announce(id, vapid) {
+  const [a] = await db("announcements?id=eq." + id + "&select=id,title,body,level,push");
+  if (!a || !a.push) return { sent: 0, reason: "pas de notification demandée" };
+  const ICON = { info: "📣", nouveau: "✨", important: "⚠️", maintenance: "🛠️" };
+  const msg = { title: (ICON[a.level] || "📣") + " " + cut(a.title, 80), body: cut(a.body || "", 200), url: "./#fil", tag: "annonce-" + a.id };
+  const users = await db("profiles?select=id");
+  await logNotif(users.map((u) => u.id), msg);
+  const subs = await db("push_subs?select=endpoint,p256dh,auth");
+  const payload = JSON.stringify(msg);
+  const results = await Promise.allSettled(subs.map(async (s) => {
+    const r = await sendPush(s, payload, vapid);
+    if (r.status === 404 || r.status === 410) await db("push_subs?endpoint=eq." + encodeURIComponent(s.endpoint), { method: "DELETE" });
+    return r.status;
+  }));
+  return { sent: results.length, results: results.map((x) => x.status === "fulfilled" ? x.value : String(x.reason)) };
 }
