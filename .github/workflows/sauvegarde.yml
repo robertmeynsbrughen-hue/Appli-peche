@@ -74,6 +74,11 @@ jobs:
           for v in PGPASSWORD SERVICE_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
             [ -n "${!v}" ] || { echo "::error::secret manquant pour $v"; exit 1; }
           done
+          # un secret collé avec un retour à la ligne ou un espace casse les en-têtes HTTP
+          SERVICE_KEY="$(printf '%s' "$SERVICE_KEY" | tr -d '\r\n\t ')"
+          AWS_ACCESS_KEY_ID="$(printf '%s' "$AWS_ACCESS_KEY_ID" | tr -d '\r\n\t ')"
+          AWS_SECRET_ACCESS_KEY="$(printf '%s' "$AWS_SECRET_ACCESS_KEY" | tr -d '\r\n\t ')"
+          export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
           PG=/usr/lib/postgresql/17/bin
           W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
           D="$W/rivio"; mkdir -p "$D/storage"
