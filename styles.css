@@ -1835,3 +1835,12 @@ nav.tabs a .tab-badge{position:absolute;top:2px;right:calc(50% - 22px)}
 .reason-chips .chip{border:none;cursor:pointer;font:inherit;font-size:.78rem}
 .ann-form .form-row{display:flex;gap:10px;flex-wrap:wrap}
 .ann-form .form-row .field{flex:1;min-width:140px}
+
+/* 0.69.1 : type de pêche sous le nom */
+.fish-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.fish-tags[hidden]{display:none}
+.fish-tag{font-size:.68rem;font-weight:600;line-height:1.5;padding:0 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.fish-tag.fish-carpe,.fish-tag.fish-coup,.fish-tag.fish-feeder{background:var(--amber-soft);color:var(--amber)}
+.fish-tag.fish-silure,.fish-tag.fish-mer{background:var(--surface-2);color:var(--fg);border:1px solid var(--line)}
+.msg-tags{margin:-1px 10px 3px}
+.pf-id .fish-tags{margin:4px 0 2px}

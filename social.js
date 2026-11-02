@@ -81,6 +81,37 @@ function userLabel(name,isAdmin,role){
   else if(role==="moderator") s.append(roleBadge("moderator"));
   return s;
 }
+// Type de pêche sous le nom : petites étiquettes chargées par lots et gardées en mémoire
+const STYLES={carpe:["🐟","Carpiste"],carnassier:["🦈","Carnassier"],coup:["🎯","Coup"],feeder:["🧺","Feeder"],mouche:["🪰","Mouche"],truite:["🌊","Truite"],silure:["🐋","Silure"],float:["🛟","Float-tube"],mer:["⚓","Mer"]};
+const styleCache=new Map(), stylePending=new Set(); let styleTimer=null;
+function paintStyles(name){
+  const st=styleCache.get(name)||[];
+  document.querySelectorAll('.fish-tags[data-for="'+CSS.escape(name)+'"]').forEach(box=>{
+    box.innerHTML=""; box.hidden=!st.length;
+    st.forEach(k=>{ const s=STYLES[k]; if(s) box.append(el("span","fish-tag fish-"+k,s[0]+" "+s[1])); });
+  });
+}
+async function fetchStyles(){
+  const names=[...stylePending].slice(0,80); names.forEach(n=>stylePending.delete(n));
+  if(!names.length||!sb) return;
+  try{
+    const {data,error}=await sb.from("profiles").select("username,fish_styles").in("username",names);
+    if(error) return;
+    names.forEach(n=>{ if(!styleCache.has(n)) styleCache.set(n,[]); });
+    (data||[]).forEach(p=>styleCache.set(p.username,p.fish_styles||[]));
+    names.forEach(paintStyles);
+  }catch(_){}
+  if(stylePending.size) styleTimer=setTimeout(fetchStyles,60);
+}
+function fishTags(name){
+  const box=el("span","fish-tags"); box.hidden=true;
+  if(!name) return box;
+  box.dataset.for=name;
+  if(styleCache.has(name)) setTimeout(()=>paintStyles(name),0);
+  else{ stylePending.add(name); clearTimeout(styleTimer); styleTimer=setTimeout(fetchStyles,60); }
+  return box;
+}
+function setMyStyles(list){ if(me){ styleCache.set(me.username,list||[]); paintStyles(me.username); } }
 function avatar(name){
   const n=name||"?"; let h=0; for(const c of n) h=(h*31+c.charCodeAt(0))%360;
   const a=el("span","avatar",n.charAt(0)); a.style.background="hsl("+h+" 42% 42%)"; a.setAttribute("aria-hidden","true"); a.dataset.name=n;
@@ -772,7 +803,7 @@ async function loadFeed(){
     const head=el("div","post-head");
     const who=el("div","post-who");
     who.append(avatar(p.profiles?.username));
-    const left=el("div"); left.append(userLabel(p.profiles?.username,p.profiles?.is_admin,roleOf(p.group_id,p.user_id)));
+    const left=el("div"); left.append(userLabel(p.profiles?.username,p.profiles?.is_admin,roleOf(p.group_id,p.user_id)),fishTags(p.profiles?.username));
     if(cur==="all") left.append(el("div","post-group",groupName(p.group_id)));
     who.append(left);
     head.append(who, el("span","post-date",ago(p.created_at)));
@@ -1068,7 +1099,7 @@ async function syncPush(){
 window.CDJ={
   get sb(){ return sb; }, get me(){ return me; }, get cur(){ return cur; }, get groups(){ return groups; },
   get curGroup(){ return curGroup(); }, get myRoles(){ return myRoles; }, get spots(){ return spots; }, loadSpots, get map(){ return map; }, get pics(){ return pics; }, focusSpot,
-  el, toast, showErr, ago, frError, confirmBtn, userLabel, roleBadge, avatar, compress,
+  el, toast, showErr, ago, frError, confirmBtn, userLabel, roleBadge, avatar, compress, fishTags, setMyStyles, FISH_STYLES:STYLES,
   roleOf, canManage, canModerate, isManager, isStaff, groupName, setGroup, loadGroups, loadFeed, refreshUI, hooks, RATING, loadLeaflet, markDirty,
   get myTimeout(){ return myTimeout; }, get myTimeoutText(){ return timeoutText(); },
   get timeoutSchema(){ return timeoutSchema; },

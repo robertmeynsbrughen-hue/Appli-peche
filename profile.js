@@ -49,7 +49,7 @@ async function openProfile(username){
   sheet.addEventListener("click",e=>{ if(e.target===sheet) close(); });
   document.addEventListener("keydown",esc,true);
 
-  const {data:p}=await A.sb.from("profiles").select("id,username,is_admin,bio,fav_species,avatar_path,created_at").eq("username",username).maybeSingle();
+  const {data:p}=await A.sb.from("profiles").select("id,username,is_admin,bio,fav_species,fish_styles,avatar_path,created_at").eq("username",username).maybeSingle();
   if(!sheet||!sh.isConnected) return;
   sh.lastChild.remove();
   if(!p){ sh.append(el("p","note","Profil introuvable.")); return; }
@@ -69,6 +69,7 @@ async function openProfile(username){
   const top=el("div","pf-top");
   top.append(bigAvatar(p.username,pubUrl(p.avatar_path)));
   const t=el("div","pf-id"); const h=el("h2",null,""); h.append(userLabel(p.username,p.is_admin)); t.append(h);
+  if(p.fish_styles?.length&&A.FISH_STYLES){ const ft=el("div","fish-tags"); p.fish_styles.forEach(k=>{ const s=A.FISH_STYLES[k]; if(s) ft.append(el("span","fish-tag fish-"+k,s[0]+" "+s[1])); }); t.append(ft); }
   t.append(el("div","note","Membre depuis "+new Date(p.created_at).toLocaleDateString("fr-FR",{month:"long",year:"numeric"})));
   top.append(t); sh.append(top);
   if(p.bio) sh.append(el("p","pf-bio",p.bio));
@@ -130,9 +131,11 @@ async function loadMine(){
   if(!A.me){ box.hidden=true; return; }
   box.hidden=false;
   const s=++seq;
-  const {data}=await A.sb.from("profiles").select("username,bio,fav_species,avatar_path").eq("id",A.me.id).maybeSingle();
+  const {data}=await A.sb.from("profiles").select("username,bio,fav_species,fish_styles,avatar_path").eq("id",A.me.id).maybeSingle();
   if(s!==seq) return;
-  mine={bio:data?.bio||"",fav:data?.fav_species||[],avatar:data?.avatar_path||null,file:null,preview:null};
+  mine={bio:data?.bio||"",fav:data?.fav_species||[],styles:data?.fish_styles||[],stylesGuess:false,avatar:data?.avatar_path||null,file:null,preview:null};
+  // pas encore choisi : on propose une sélection d'après les espèces favorites
+  if(!mine.styles.length&&mine.fav.length){ const G={Brochet:"carnassier",Sandre:"carnassier",Perche:"carnassier","Black-bass":"carnassier",Aspe:"carnassier",Silure:"silure",Carpe:"carpe","Truite fario":"truite",Tanche:"coup",Barbeau:"feeder",Chevesne:"carnassier"}; mine.styles=[...new Set(mine.fav.map(f=>G[f]).filter(Boolean))].slice(0,3); mine.stylesGuess=mine.styles.length>0; }
   draw();
 }
 function draw(){
@@ -156,6 +159,14 @@ function draw(){
     draw();
   }); c.setAttribute("aria-pressed",String(on)); chips.append(c); });
   fl.append(chips); box.append(fl);
+  const tl=el("div","field"); tl.append("Mon type de pêche (3 maximum, affiché sous ton nom)");
+  if(mine.stylesGuess) tl.append(el("span","note","Proposé d'après tes espèces favorites : vérifie et enregistre."));
+  const tchips=el("div","chips-pick");
+  Object.entries(A.FISH_STYLES||{}).forEach(([k,[ic,lab]])=>{ const on=mine.styles.includes(k); const c=btn(ic+" "+lab,"pick"+(on?" on":""),()=>{
+    if(on) mine.styles=mine.styles.filter(x=>x!==k); else{ if(mine.styles.length>=3) return toast("3 types maximum"); mine.styles=[...mine.styles,k]; }
+    mine.stylesGuess=false; draw();
+  }); c.setAttribute("aria-pressed",String(on)); tchips.append(c); });
+  tl.append(tchips); box.append(tl);
   const act=el("div","actions");
   const save=btn("Enregistrer","btn primary",async()=>{
     save.disabled=true;
@@ -171,6 +182,9 @@ function draw(){
       const {error}=await A.sb.rpc("update_my_profile",{p_bio:mine.bio.trim()||null,p_fav:mine.fav,p_avatar:path});
       if(!error) try{ localStorage.removeItem("cdj-avatars"); if(A.me) A.me.fav_species=mine.fav; localStorage.setItem("cdj-fav",JSON.stringify(mine.fav||[])); window.dispatchEvent(new Event("cdj-fav")); }catch(_){}
       if(error) throw error;
+      const st=await A.sb.rpc("set_fish_styles",{p_styles:mine.styles});
+      if(st.error) throw st.error;
+      mine.stylesGuess=false; A.setMyStyles?.(mine.styles);
       if(old&&old!==path) await A.sb.storage.from("avatars").remove([old]);
       mine.avatar=path; mine.file=null; if(mine.preview){ URL.revokeObjectURL(mine.preview); mine.preview=null; }
       if(path) window.CDJ_AVATARS[A.me.username]=pubUrl(path); else delete window.CDJ_AVATARS[A.me.username];
