@@ -11,7 +11,7 @@
 # gardée hors ligne par Robert, permet d'ouvrir une archive.
 #
 # Secrets nécessaires (Settings > Secrets and variables > Actions) :
-#   SUPABASE_DB_URL            connexion « session pooler » du rôle rivio_backup (lecture seule)
+#   SUPABASE_BACKUP_PASSWORD   mot de passe du rôle rivio_backup (lecture seule)
 #   SUPABASE_SERVICE_ROLE_KEY  pour télécharger les photos
 #   SCW_ACCESS_KEY / SCW_SECRET_KEY  clé de l'application Scaleway rivio-sauvegarde (écriture seule)
 #
@@ -56,7 +56,12 @@ jobs:
 
       - name: Export, chiffrement, envoi
         env:
-          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGPASSWORD: ${{ secrets.SUPABASE_BACKUP_PASSWORD }}
+          PGHOST: aws-0-eu-west-1.pooler.supabase.com
+          PGPORT: "5432"
+          PGUSER: rivio_backup.gnamfqwbzmwivjagwogy
+          PGDATABASE: postgres
+          PGSSLMODE: require
           SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
@@ -66,7 +71,7 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          for v in DB_URL SERVICE_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+          for v in PGPASSWORD SERVICE_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
             [ -n "${!v}" ] || { echo "::error::secret manquant pour $v"; exit 1; }
           done
           PG=/usr/lib/postgresql/17/bin
@@ -76,14 +81,14 @@ jobs:
 
           # 1. Base : schéma public complet + données ; comptes et métadonnées
           #    des fichiers en données seules (leur schéma appartient à Supabase).
-          "$PG/pg_dump" "$DB_URL" --no-owner -n public -f "$D/public.sql"
-          "$PG/pg_dump" "$DB_URL" --data-only \
+          "$PG/pg_dump" --no-owner -n public -f "$D/public.sql"
+          "$PG/pg_dump" --data-only \
             -t auth.users -t auth.identities \
             -t storage.buckets -t storage.objects \
             -t cron.job -f "$D/auth_storage_cron.sql"
 
           # 2. Inventaire pour vérifier une restauration (lignes par table).
-          "$PG/psql" "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "
+          "$PG/psql" -X -At -v ON_ERROR_STOP=1 -c "
             select json_build_object(
               'date', now(),
               'tables', (select json_object_agg(table_name,
@@ -93,7 +98,7 @@ jobs:
               'storage_objects', (select count(*) from storage.objects))" > "$D/inventaire.json"
 
           # 3. Photos et avatars : téléchargement de chaque fichier.
-          "$PG/psql" "$DB_URL" -X -At -v ON_ERROR_STOP=1 \
+          "$PG/psql" -X -At -v ON_ERROR_STOP=1 \
             -c "select bucket_id || '/' || name from storage.objects order by 1" > "$D/storage/liste.txt"
           # clé « sb_secret_… » (nouveau format) : en-tête apikey seul ; ancienne clé JWT : les deux
           AUTH=(-H "apikey: $SERVICE_KEY")
