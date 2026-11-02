@@ -1,0 +1,115 @@
+# Tests de permissions sur une vraie base (plan de reprise, étape 6).
+#
+# Sur le projet Supabase de test isolé « Rivio Backup » (aucune donnée réelle) :
+#   - à chaque PR : les migrations pas encore appliquées au projet de test sont
+#     jouées, puis tests/permissions.sql vérifie les droits (fonctions appelables
+#     sans compte, colonnes cachées, isolement entre groupes…), le tout dans une
+#     transaction ANNULÉE : la base de test ne change pas ;
+#   - après fusion sur main : les migrations en attente sont appliquées pour de
+#     bon au projet de test (sans tâches planifiées), pour qu'il suive la prod.
+#
+# Secret nécessaire : SUPABASE_TEST_DB_PASSWORD (mot de passe de la base du
+# projet de test, jamais celui de la production).
+
+name: Permissions
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: permissions-base-test
+  cancel-in-progress: false
+
+jobs:
+  permissions:
+    name: tests de permissions (base réelle)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PGHOST: aws-1-eu-central-1.pooler.supabase.com
+      PGPORT: "5432"
+      PGUSER: postgres.rxchoinvdzehcqbfqjai
+      PGDATABASE: postgres
+      PGSSLMODE: require
+      PGPASSWORD: ${{ secrets.SUPABASE_TEST_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Secret présent ?
+        id: secret
+        run: |
+          if [ -z "$PGPASSWORD" ]; then
+            echo "::notice::SUPABASE_TEST_DB_PASSWORD absent (PR depuis un fork ?) : tests de permissions ignorés."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Client PostgreSQL 17
+        if: steps.secret.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17 >/dev/null
+
+      - name: Migrations en attente sur la base de test
+        if: steps.secret.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          PGPASSWORD="$(printf '%s' "$PGPASSWORD" | tr -d '\r\n')"; export PGPASSWORD
+          PSQL="/usr/lib/postgresql/17/bin/psql -X -At -v ON_ERROR_STOP=1"
+          $PSQL -c "select version from public.schema_migrations" > applied.txt
+          : > pending.sql
+          for f in $(ls migrations/0*.sql | sort); do
+            v="$(basename "$f" .sql)"
+            if ! grep -qx "$v" applied.txt; then
+              echo "Migration en attente : $v"
+              echo "-- ===== $v =====" >> pending.sql
+              # transaction unique ; l'adresse de la prod devient celle du projet de test
+              sed -E '/^[[:space:]]*(begin|commit|BEGIN|COMMIT)[[:space:]]*;[[:space:]]*$/d' "$f" \
+                | sed 's/gnamfqwbzmwivjagwogy/rxchoinvdzehcqbfqjai/g' >> pending.sql
+              echo >> pending.sql
+            fi
+          done
+          [ -s pending.sql ] || echo "Aucune migration en attente."
+
+      - name: Tests de permissions (transaction annulée)
+        if: steps.secret.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          PGPASSWORD="$(printf '%s' "$PGPASSWORD" | tr -d '\r\n')"; export PGPASSWORD
+          {
+            echo "begin;"
+            echo "set local check_function_bodies = off;"
+            cat pending.sql
+            echo "set local check_function_bodies = on;"
+            cat tests/permissions.sql
+            echo "rollback;"
+          } > run.sql
+          /usr/lib/postgresql/17/bin/psql -X -q -v ON_ERROR_STOP=1 -f run.sql
+
+      - name: Base de test mise à jour (après fusion sur main)
+        if: steps.secret.outputs.ok == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          PGPASSWORD="$(printf '%s' "$PGPASSWORD" | tr -d '\r\n')"; export PGPASSWORD
+          if [ ! -s pending.sql ]; then echo "Rien à appliquer."; exit 0; fi
+          {
+            echo "begin;"
+            echo "set local check_function_bodies = off;"
+            cat pending.sql
+            echo "select cron.unschedule(jobid) from cron.job;"   # aucune tâche planifiée sur la base de test
+            echo "commit;"
+          } > apply.sql
+          /usr/lib/postgresql/17/bin/psql -X -q -v ON_ERROR_STOP=1 -f apply.sql
+          echo "Base de test à jour."
