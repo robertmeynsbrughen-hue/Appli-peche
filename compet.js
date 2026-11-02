@@ -117,7 +117,7 @@ function form(gid,host){
 const prev=A.hooks.groupeExtras;
 A.hooks.groupeExtras=(box,gid,mod)=>{
   prev?.(box,gid,mod);
-  const host=el("div","g-comp"); host.dataset.sub="activite";
+  const host=el("div","g-comp"); host.dataset.sub="jeux";
   const after=box.parentElement?.querySelector(".g-outings")||box;
   if(after===box) box.before(host); else after.after(host);
   render(host,gid);

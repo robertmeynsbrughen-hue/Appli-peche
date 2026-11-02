@@ -39,13 +39,15 @@ function syncProfil(){
 }
 
 /* ---------- Groupe ---------- */
-const GSUBS=[["activite","📅 Activité"],["infos","📌 Infos"],["env","🌿 Environnement"],["membres","👥 Membres"]];
+const GSUBS=[["activite","📅 Activité"],["jeux","🏆 Jeux"],["infos","📌 Infos"],["env","🌿 Environnement"],["membres","👥 Membres"]];
 function groupBar(root){
   if(!root.querySelector("[data-sub]")||root.querySelector(".subbar")) return;
   const bar=el("div","subbar"); bar.setAttribute("role","tablist"); bar.setAttribute("aria-label","Rubriques du groupe");
   GSUBS.forEach(([k,t])=>{ const b=el("button",null,t); b.type="button"; b.setAttribute("role","tab"); b.dataset.s=k; bar.append(b); });
-  const anchor=root.querySelector(".todo")||root.querySelector(".g-head");
+  const anchor=root.querySelector(".g-head");
   if(anchor) anchor.after(bar); else root.prepend(bar);
+  // éléments à traiter : une pastille sur l'onglet Membres
+  const todo=root.querySelector(".todo .modo-item, .todo .todo-item"); if(todo) bar.querySelector('[data-s="membres"]')?.classList.add("has-dot");
   root.classList.add("has-sub");
   bindBar(bar,root,"cdj-sub-groupe","activite");
 }

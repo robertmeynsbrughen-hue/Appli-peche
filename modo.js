@@ -918,7 +918,8 @@ async function render(opts){
 
   if(nav){
     const target=nav.section==="groups"||nav.section==="group"?"#mod-groups":nav.section==="members"||nav.section==="member"?"#mod-members":nav.section==="controllers"?"#mod-controllers":nav.section==="appeals"?"#mod-appeals":nav.section==="bugs"?"#mod-bugs":nav.section==="sante"?"#mod-sante":"#mod-todo";
-    setTimeout(()=>{ const n=root.querySelector(target); if(n) n.scrollIntoView({behavior:"smooth",block:"start"}); },80);
+    root.dataset.cur=target.slice(1);
+    setTimeout(()=>{ const n=root.querySelector(target); if(n) n.scrollIntoView({behavior:"smooth",block:"start"}); },200);
   }else if(opts.keepScroll){
     window.scrollTo(0,opts.y!=null?opts.y:y);
   }

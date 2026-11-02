@@ -394,12 +394,12 @@ async function renderGroupe(){
   // passent par Profil > Modération : le bouton « à traiter » ne les concerne plus.
   const pendingMembers=(members.data||[]).filter(m=>m.status==="pending");
   const sub=(n,k)=>{ n.dataset.sub=k; return n; };
-  if(mod&&!A.isStaff()) root.append(sub(groupTodo(gid,pendingMembers),"activite"));
+  if(mod&&!A.isStaff()) root.append(sub(groupTodo(gid,pendingMembers),"membres"));
   root.append(sub(renderMemos(gid,memos.data||[],memoUrls,mod),"infos"));
   root.append(sub(renderPolls(gid,polls.data||[],votes.data||[],mod),"infos"));
   root.append(sub(renderStats(sess.data||[]),"infos"));
   if(man&&info) root.append(sub(renderManage(g,info,members.data||[],man),"membres"));
-  const ex=sub(el("div","g-extras"),"activite"); root.append(ex); A.hooks.groupeExtras?.(ex,gid,mod);
+  const ex=sub(el("div","g-extras"),"jeux"); root.append(ex); A.hooks.groupeExtras?.(ex,gid,mod);
 
   A.hooks.groupeRendered?.(root);
 }
