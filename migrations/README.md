@@ -62,6 +62,10 @@ numérotation actuelle : `0003_group_delete`, `0004_group_succession` et
 baseline et désormais inclus dans les fichiers 0001 à 0005 et 0010 ; une note
 l'indique dans la colonne `notes`. Ne pas les supprimer.
 
+## 0.69.1
+
+- `0013_v0691_types_peche.sql` : `profiles.fish_styles` et `set_fish_styles`.
+
 ## 0.69
 
 - `0012_v069_bienvenue_admin.sql` : groupe Bienvenue (`groups.is_welcome`,

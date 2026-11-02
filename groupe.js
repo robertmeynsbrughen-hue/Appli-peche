@@ -577,7 +577,7 @@ function renderManage(g,info,members,man){
   const list=el("div","list tight");
   active.forEach(m=>{
     const r=el("div","mrow");
-    const left=el("div"); left.append(userLabel(m.username,m.is_admin,m.role)); left.append(el("div","post-date","depuis le "+new Date(m.joined_at).toLocaleDateString("fr-FR")));
+    const left=el("div"); left.append(userLabel(m.username,m.is_admin,m.role)); if(A.fishTags) left.append(A.fishTags(m.username)); left.append(el("div","post-date","depuis le "+new Date(m.joined_at).toLocaleDateString("fr-FR")));
     r.append(left);
     const act=el("div","actions");
     const self=m.user_id===A.me.id;
@@ -787,6 +787,7 @@ function drawMsgs(scroll){
       who.append("@"+(m.profiles?.username||"?")); if(m.profiles?.username){ who.dataset.user=m.profiles.username; who.classList.add("user-link"); }
       if(isAdm||isCtl||isResp||isMod) who.setAttribute("title",isAdm?"Développeur":isCtl?"Contrôleur de l'appli":isResp?"Responsable du groupe":"Modérateur du groupe");
       row.append(who);
+      if(m.profiles?.username&&A.fishTags){ const ft=A.fishTags(m.profiles.username); ft.classList.add("msg-tags"); row.append(ft); }
     }
     const b=el("div","bubble"+(m.body&&mentionsMe(m.body)&&!mine?" mention-me":"")+(m.photo_path?" has-photo":"")+(m.audio_path?" has-voice":""));
     const mn=mediaNode(m); if(mn) b.append(mn);
