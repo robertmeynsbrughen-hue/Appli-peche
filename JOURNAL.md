@@ -18,6 +18,8 @@ elles ne garantissent pas à elles seules la date de propagation du cache web.
   balayage nocturne des fichiers orphelins.
 - Liens de partage d'une prise : photo visible 24 h au lieu de 7 jours.
 - Page de confidentialité mise à jour (Scaleway, durées de conservation).
+- Tests de permissions sur une vraie base (projet de test isolé) à chaque PR :
+  migrations en attente + vérification des droits, dans une transaction annulée.
 
 0.74 · 2 novembre 2026 · majeure
 --------------------------------
