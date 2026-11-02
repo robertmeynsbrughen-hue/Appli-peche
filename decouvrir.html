@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rivio · l'appli de pêche entre potes</title>
+<meta name="description" content="Rivio : les meilleures heures de pêche selon la météo, le carnet de tes prises, la carte des spots et le chat de ton groupe. Pour les pêcheurs d'eau douce, carnassiers, carpe et coup.">
+<meta name="theme-color" content="#060c12">
+<meta property="og:title" content="Rivio · l'appli de pêche entre potes">
+<meta property="og:description" content="Météo de pêche, carnet, carte des spots et chat du groupe, au même endroit.">
+<meta property="og:image" content="vitrine/aujourdhui.webp">
+<meta property="og:type" content="website">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#060c12; --bg2:#0b1620; --surface:#101c26; --line:#1f303c; --fg:#e6eef2; --muted:#93a7b2;
+  --accent:#2fd3c1; --accent-soft:#0f3a37; --amber:#f2a03d; --amber-soft:#3a2810;
+  --f-d:"Barlow Condensed","Arial Narrow",sans-serif; --f-b:"Source Sans 3",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-b);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+h1,h2,h3{font-family:var(--f-d);text-transform:uppercase;letter-spacing:.01em;line-height:1.05;margin:0}
+.kicker{font-family:var(--f-d);font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);font-size:.9rem}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:14px 22px;border-radius:14px;font-weight:600;text-decoration:none;font-size:1rem;border:1px solid var(--line);color:var(--fg);background:var(--surface)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#04201d}
+.btn:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+/* en-tête */
+header.top{display:flex;align-items:center;justify-content:space-between;padding:18px 0}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--fg)}
+.brand img{width:40px;height:40px;border-radius:11px}
+.brand b{font-family:var(--f-d);font-size:1.6rem;letter-spacing:.04em;text-transform:uppercase}
+/* héros */
+.hero{position:relative;overflow-x:clip;padding:30px 0 90px;background:radial-gradient(900px 500px at 85% 10%,rgba(47,211,193,.16),transparent 60%),radial-gradient(700px 400px at 0% 90%,rgba(242,160,61,.10),transparent 60%)}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center}
+.hero h1{font-size:clamp(2.6rem,7vw,4.6rem);margin:12px 0 16px}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero p.lead{font-size:1.15rem;color:var(--muted);max-width:34ch;margin:0 0 26px}
+.cta{display:flex;flex-wrap:wrap;gap:12px}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.badges span{font-size:.85rem;padding:4px 12px;border-radius:99px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.phones{position:relative;height:580px}
+.phone{position:absolute;width:250px;border-radius:30px;padding:8px;background:#0c141b;border:1px solid var(--line);box-shadow:0 30px 60px rgba(0,0,0,.55)}
+.phone img{display:block;width:100%;height:auto;border-radius:23px}
+.phone.a{right:150px;top:30px;transform:rotate(-5deg)}
+.phone.b{right:0;top:0;transform:rotate(4deg)}
+/* sections */
+section{padding:70px 0}
+section.alt{background:var(--bg2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.sec-head{max-width:640px;margin-bottom:34px}
+.sec-head h2{font-size:clamp(2rem,5vw,2.9rem);margin-top:8px}
+.sec-head p{color:var(--muted);margin:12px 0 0}
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.feat{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px}
+.feat .ic{font-size:1.7rem}
+.feat h3{font-size:1.35rem;margin:10px 0 6px}
+.feat p{margin:0;color:var(--muted);font-size:.97rem}
+.shots{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.shot{margin:0}
+.shot img{width:100%;height:auto;border-radius:18px;border:1px solid var(--line);display:block}
+.shot figcaption{margin-top:10px;font-size:.92rem;color:var(--muted)}
+.shot figcaption b{color:var(--fg);display:block;font-family:var(--f-d);text-transform:uppercase;font-size:1.1rem;letter-spacing:.02em}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;counter-reset:s}
+.step{position:relative;padding:22px 20px 20px;border-radius:18px;background:var(--surface);border:1px solid var(--line)}
+.step:before{counter-increment:s;content:counter(s);font-family:var(--f-d);font-weight:700;font-size:2.4rem;color:var(--amber);line-height:1}
+.step h3{font-size:1.3rem;margin:6px 0}
+.step p{margin:0;color:var(--muted);font-size:.97rem}
+.install{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.install .card{padding:22px;border-radius:18px;background:var(--surface);border:1px solid var(--line)}
+.install h3{font-size:1.35rem;margin-bottom:8px}
+.install ol{margin:0;padding-left:20px;color:var(--muted)}
+.install li{margin:4px 0}
+.faq details{border-bottom:1px solid var(--line);padding:14px 0}
+.faq summary{cursor:pointer;font-weight:600;font-size:1.05rem;list-style:none;display:flex;justify-content:space-between;gap:12px}
+.faq summary::after{content:"+";color:var(--accent);font-size:1.4rem;line-height:1}
+.faq details[open] summary::after{content:"–"}
+.faq p{color:var(--muted);margin:10px 0 0}
+.final{text-align:center;padding:80px 0;background:radial-gradient(600px 300px at 50% 0%,rgba(47,211,193,.14),transparent 70%)}
+.final h2{font-size:clamp(2.2rem,6vw,3.4rem);margin-bottom:14px}
+.final p{color:var(--muted);margin:0 0 24px}
+footer{padding:28px 0 40px;color:var(--muted);font-size:.9rem;border-top:1px solid var(--line)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px}
+@media (max-width:860px){
+  .hero-grid{grid-template-columns:1fr}
+  .phones{height:420px;max-width:420px;margin:0 auto;width:100%}
+  .phone{width:190px}
+  .phone.a{right:auto;left:14px;top:20px}
+  .phone.b{right:0}
+  .shots{grid-template-columns:repeat(2,1fr)}
+  .steps,.install{grid-template-columns:1fr}
+  section{padding:54px 0}
+}
+@media (max-width:420px){ .phone{width:165px} .phones{height:360px} }
+@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} }
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href="./decouvrir.html"><img src="logo-96.png" alt=""><b>Rivio</b></a>
+      <a class="btn" href="./">Ouvrir l'appli</a>
+    </header>
+    <div class="hero-grid">
+      <div>
+        <div class="kicker">Pêche en eau douce · entre potes</div>
+        <h1>Sais quand partir.<br><em>Pêche ensemble.</em></h1>
+        <p class="lead">Les meilleures heures de pêche selon la météo, le carnet de tes prises, la carte des spots et le chat de ta bande, au même endroit.</p>
+        <div class="cta">
+          <a class="btn primary" href="./">🎣 Ouvrir Rivio</a>
+          <a class="btn" href="#installer">📲 L'installer sur mon téléphone</a>
+        </div>
+        <div class="badges"><span>Carnassiers</span><span>Carpe</span><span>Coup et feeder</span><span>Float-tube</span><span>Bêta ouverte</span></div>
+      </div>
+      <div class="phones" aria-hidden="true">
+        <div class="phone a"><img src="vitrine/groupe.webp" alt="" width="520" height="1040" loading="eager"></div>
+        <div class="phone b"><img src="vitrine/aujourdhui.webp" alt="" width="520" height="1040" loading="eager"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head"><div class="kicker">Ce que fait Rivio</div><h2>Tout ce qu'il faut, rien qui encombre</h2><p>Pensé au bord de l'eau, avec des pêcheurs, pour des pêcheurs.</p></div>
+    <div class="features">
+      <div class="feat"><div class="ic">🌤️</div><h3>Les bonnes heures</h3><p>Score par espèce heure par heure : température de l'eau, pression, vent, nuages et lumière, avec les tables solunaires. L'alerte du matin te prévient quand ça vaut le coup.</p></div>
+      <div class="feat"><div class="ic">📸</div><h3>Le carnet qui se remplit seul</h3><p>Photo, taille, poids, leurre : la date et le spot sont lus dans la photo. Records, Fishdex et bilan de saison suivent tout seuls.</p></div>
+      <div class="feat"><div class="ic">🗺️</div><h3>La carte du groupe</h3><p>Spots, structures, profondeurs, zones et traces de sortie, partagés seulement avec ta bande.</p></div>
+      <div class="feat"><div class="ic">💬</div><h3>Le chat de la bande</h3><p>Messages, photos, vocaux, réactions et messages privés. « Je pars pêcher » prévient les potes qui sont dans le coin.</p></div>
+      <div class="feat"><div class="ic">⛈️</div><h3>La sécurité d'abord</h3><p>Alerte orage pendant ta sortie, montée des eaux mesurée par les stations officielles, rappel de la carte de pêche.</p></div>
+      <div class="feat"><div class="ic">🏆</div><h3>Le jeu entre potes</h3><p>Défis du mois, compétitions, photo du mois, records du groupe : chaque prise compte.</p></div>
+      <div class="feat"><div class="ic">📴</div><h3>Sans réseau aussi</h3><p>Pas de 4G au bord du lac ? Note ta prise, ton bulletin ou ta trace : tout part au retour du réseau.</p></div>
+      <div class="feat"><div class="ic">🤝</div><h3>On s'entraide</h3><p>Le groupe Bienvenue accueille chaque nouveau : questions-réponses et parrain expérimenté pour bien démarrer.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <div class="sec-head"><div class="kicker">En images</div><h2>Un aperçu de l'appli</h2></div>
+    <div class="shots">
+      <figure class="shot"><img src="vitrine/aujourdhui.webp" alt="Écran Aujourd'hui : température de l'eau et pourcentage de réussite par espèce" width="520" height="1040" loading="lazy"><figcaption><b>Aujourd'hui</b>Quelle espèce viser, et à quelle heure.</figcaption></figure>
+      <figure class="shot"><img src="vitrine/chat.webp" alt="Chat du groupe avec les types de pêche de chaque membre" width="520" height="1040" loading="lazy"><figcaption><b>Le chat</b>Ta bande, ses spots et ses bons plans.</figcaption></figure>
+      <figure class="shot"><img src="vitrine/groupe.webp" alt="Sortie prévue avec participants et covoiturage" width="520" height="1040" loading="lazy"><figcaption><b>Les sorties</b>Qui vient, qui conduit, qui ramène quoi.</figcaption></figure>
+      <figure class="shot"><img src="vitrine/collection.webp" alt="Fishdex : collection des espèces prises" width="520" height="1040" loading="lazy"><figcaption><b>La collection</b>18 espèces à débloquer.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head"><div class="kicker">Comment ça marche</div><h2>Prêt en deux minutes</h2></div>
+    <div class="steps">
+      <div class="step"><h3>Crée ton compte</h3><p>Un pseudo, une adresse e-mail, et c'est parti. Tu arrives dans le groupe Bienvenue pour poser tes questions.</p></div>
+      <div class="step"><h3>Rejoins ta bande</h3><p>Un pote t'envoie le lien d'invitation de son groupe, ou tu crées le tien et tu invites les autres.</p></div>
+      <div class="step"><h3>Va pêcher</h3><p>Regarde les bonnes heures, lance « Je pars pêcher », et partage ta prise en revenant… ou depuis le bord.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="installer">
+  <div class="wrap">
+    <div class="sec-head"><div class="kicker">Installer</div><h2>Sur l'écran d'accueil, comme une vraie appli</h2><p>Pas besoin de store : Rivio s'installe directement depuis le navigateur et reçoit les notifications.</p></div>
+    <div class="install">
+      <div class="card"><h3>🤖 Android</h3><ol><li>Ouvre <a href="./">Rivio</a> dans Chrome.</li><li>Touche le menu ⋮ en haut à droite.</li><li>Choisis « Installer l'application » ou « Ajouter à l'écran d'accueil ».</li></ol></div>
+      <div class="card"><h3>🍎 iPhone</h3><ol><li>Ouvre <a href="./">Rivio</a> dans Safari.</li><li>Touche le bouton Partager (le carré avec une flèche).</li><li>Choisis « Sur l'écran d'accueil ».</li></ol></div>
+    </div>
+  </div>
+</section>
+
+<section class="faq">
+  <div class="wrap">
+    <div class="sec-head"><div class="kicker">Questions fréquentes</div><h2>Bon à savoir</h2></div>
+    <details><summary>Mes spots sont-ils visibles par tout le monde ?</summary><p>Non. Ce que tu publies n'est visible que par les membres des groupes où tu le publies. Rien n'est public sur Internet.</p></details>
+    <details><summary>Ça marche pour quelles pêches ?</summary><p>La pêche en eau douce : carnassiers (brochet, sandre, perche, black-bass, silure), carpe, coup, feeder, truite… Les conseils couvrent 7 espèces et le Fishdex en compte 18.</p></details>
+    <details><summary>Et sans réseau au bord de l'eau ?</summary><p>Tu peux noter tes prises, bilans, bulletins d'eau, traces et relevés : ils sont gardés sur le téléphone et envoyés dès que le réseau revient.</p></details>
+    <details><summary>Que deviennent mes données ?</summary><p>Elles sont hébergées dans l'Union européenne, jamais vendues ni utilisées pour de la publicité. Tu peux les télécharger ou supprimer ton compte à tout moment depuis l'appli. Tout est détaillé dans la <a href="confidentialite.html">page Confidentialité</a>.</p></details>
+    <details><summary>Rivio est encore en bêta ?</summary><p>Oui : l'appli évolue chaque semaine avec les retours des pêcheurs. Un souci ? Profil › Réglages › Signaler un bug.</p></details>
+  </div>
+</section>
+
+<div class="final">
+  <div class="wrap">
+    <h2>La prochaine sortie commence ici</h2>
+    <p>Ouvre Rivio, invite ta bande, et laisse la météo te dire quand partir.</p>
+    <a class="btn primary" href="./">🎣 Ouvrir Rivio</a>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap"><span>Rivio · Octane Code</span><span><a href="confidentialite.html">Confidentialité</a> · <a href="./">Ouvrir l'appli</a></span></div>
+</footer>
+</body>
+</html>

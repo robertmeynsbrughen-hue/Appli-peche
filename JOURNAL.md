@@ -8,6 +8,15 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.72 · 2 novembre 2026 · majeure
+--------------------------------
+Page de présentation publique (decouvrir.html) : ce que fait Rivio, captures
+d'écran, installation sur Android et iPhone, questions fréquentes. Elle est
+liée depuis Profil › Réglages.
+Tests automatiques : avant chaque mise en ligne, un navigateur parcourt
+l'appli avec un faux Supabase (tests/smoke.mjs) et bloque la fusion si un
+écran plante ou si un élément essentiel manque.
+
 0.71 · 2 novembre 2026 · majeure
 --------------------------------
 Signaler un bug depuis Profil › Réglages, avec capture d'écran facultative ;
