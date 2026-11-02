@@ -72,6 +72,8 @@ jobs:
           : > pending.sql
           for f in $(ls migrations/0*.sql | sort); do
             v="$(basename "$f" .sql)"
+            # la base de départ ne se rejoue jamais sur une base existante (elle écraserait les migrations suivantes)
+            [ "$v" = "0001_baseline" ] && continue
             if ! grep -qx "$v" applied.txt; then
               echo "Migration en attente : $v"
               echo "-- ===== $v =====" >> pending.sql
