@@ -1844,3 +1844,12 @@ nav.tabs a .tab-badge{position:absolute;top:2px;right:calc(50% - 22px)}
 .fish-tag.fish-silure,.fish-tag.fish-mer{background:var(--surface-2);color:var(--fg);border:1px solid var(--line)}
 .msg-tags{margin:-1px 10px 3px}
 .pf-id .fish-tags{margin:4px 0 2px}
+
+/* 0.69.2 : « Nouvelle prise » rangée derrière un bouton */
+.share-tiles .st-toggle{grid-column:1/-1;display:flex;flex-direction:row;align-items:center;gap:10px;min-height:52px;padding:10px 14px;border-radius:var(--radius-sm);
+  border:1px solid var(--accent);background:var(--accent-soft);color:var(--fg);font:inherit;cursor:pointer;text-align:left}
+.share-tiles .st-toggle .stt-ico{font-size:1.25rem}
+.share-tiles .st-toggle .stt-t{font-weight:700}
+.share-tiles .st-toggle .stt-s{font-size:.82rem;color:var(--muted);flex:1}
+.share-tiles .st-toggle[aria-expanded="true"]{border-color:var(--line);background:var(--surface);min-height:40px}
+.share-tiles.collapsed button[data-m]{display:none}
