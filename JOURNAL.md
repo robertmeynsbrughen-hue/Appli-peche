@@ -8,6 +8,12 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.73.1 · 2 novembre 2026 · correctif
+------------------------------------
+Les groupes avaient disparu pour les membres depuis la 0.70 : la base refusait
+de lire une nouvelle colonne des groupes. Le droit de lecture est ajouté
+(migration 0017), rien n'a été perdu.
+
 0.73 · 2 novembre 2026 · majeure
 --------------------------------
 Version anglaise, première étape : choix de la langue dans Profil › Réglages
