@@ -40,12 +40,31 @@ $sql = Get-Content migrations/0002_xxx.sql -Raw
 # POST https://api.supabase.com/v1/projects/<ref>/database/query  {"query": "<sql>"}
 ```
 
-## Limite connue
+## Reconstruction à blanc (testée le 2 novembre 2026)
 
-La baseline est validée par exécution complète + `rollback` sur la base de
-production. Cela prouve la syntaxe, l'ordre des dépendances et l'idempotence,
-mais pas encore une reconstruction sur une base **vide**. Ce dernier test
-demande un projet Supabase jetable.
+Toutes les migrations ont été rejouées sur un projet Supabase vide et isolé,
+puis comparées à la production (tables, colonnes, contraintes, index, policies,
+RLS, triggers, code des fonctions, droits, buckets) : **identiques** une fois
+`0018_resync_droits` appliquée. Seules `call_notify` et `notify_new` diffèrent,
+volontairement (secrets remplacés par des repères).
+
+Ordre : `0001` → `0009`, puis `2026-10-31_01_harden_update_policies`, puis
+`0010` → `0018`.
+
+Points à respecter pour reconstruire :
+
+- exécuter avec `set check_function_bodies = off;` (comme `pg_dump`) : la
+  baseline crée des fonctions qui en appellent d'autres définies plus loin ;
+- retirer les `begin;` / `commit;` des fichiers si on les enchaîne dans une
+  seule transaction ;
+- **désactiver les tâches planifiées** (`cron.unschedule`) et remplacer
+  l'adresse du projet dans `call_notify` / `notify_new` tant que ce n'est pas
+  la vraie production, pour n'envoyer aucune notification aux membres ;
+- sans `0018`, une base reconstruite est trop ouverte (fonctions appelables
+  sans compte, `invite_code` lisible) : ne jamais l'oublier.
+
+Ce test ne couvre que le schéma : les comptes (Auth), les données et les
+photos font l'objet de la sauvegarde externe.
 
 ## Secrets
 
