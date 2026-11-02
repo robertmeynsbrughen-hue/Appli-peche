@@ -1,0 +1,129 @@
+# Sauvegarde externe quotidienne de Rivio (plan de reprise, étape 3).
+#
+# Chaque nuit : base (schéma + données), comptes de connexion, liste et contenu
+# des photos, tâches planifiées -> une archive chiffrée avec age -> Scaleway
+# (bucket privé riviobackup, Paris). Le 1er du mois, une copie va aussi dans
+# mensuel/. Les règles du bucket suppriment quotidien/ après 31 jours et
+# mensuel/ après 370 jours.
+#
+# Le chiffrement se fait AVANT l'envoi, avec la clé publique ci-dessous : ni
+# GitHub ni Scaleway ne voient les données en clair. Seule la clé privée,
+# gardée hors ligne par Robert, permet d'ouvrir une archive.
+#
+# Secrets nécessaires (Settings > Secrets and variables > Actions) :
+#   SUPABASE_DB_URL            connexion « session pooler » du rôle rivio_backup (lecture seule)
+#   SUPABASE_SERVICE_ROLE_KEY  pour télécharger les photos
+#   SCW_ACCESS_KEY / SCW_SECRET_KEY  clé de l'application Scaleway rivio-sauvegarde (écriture seule)
+#
+# Dépôt public : ce workflow n'affiche jamais de données, seulement des tailles,
+# le nombre de fichiers et l'empreinte SHA-256 de l'archive.
+
+name: Sauvegarde externe
+
+on:
+  schedule:
+    - cron: "27 2 * * *"   # 3 h 27 à Paris l'hiver, 4 h 27 l'été
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sauvegarde-externe
+  cancel-in-progress: false
+
+jobs:
+  sauvegarde:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      AGE_RECIPIENT: age1ydfjnz8dumgemxddg04u0ynd400ddpmdpg4nheuyu9kc4xhzupcqs50l5x
+      SUPABASE_URL: https://gnamfqwbzmwivjagwogy.supabase.co
+      SCW_BUCKET: riviobackup
+      S3_ENDPOINT: https://s3.fr-par.scw.cloud
+    steps:
+      - name: Outils (client PostgreSQL 17, age)
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17 age >/dev/null
+          /usr/lib/postgresql/17/bin/pg_dump --version
+          age --version
+
+      - name: Export, chiffrement, envoi
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          AWS_DEFAULT_REGION: fr-par
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          set -euo pipefail
+          umask 077
+          for v in DB_URL SERVICE_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+            [ -n "${!v}" ] || { echo "::error::secret manquant pour $v"; exit 1; }
+          done
+          PG=/usr/lib/postgresql/17/bin
+          W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+          D="$W/rivio"; mkdir -p "$D/storage"
+          STAMP="$(date -u +%Y-%m-%d)"
+
+          # 1. Base : schéma public complet + données ; comptes et métadonnées
+          #    des fichiers en données seules (leur schéma appartient à Supabase).
+          "$PG/pg_dump" "$DB_URL" --no-owner -n public -f "$D/public.sql"
+          "$PG/pg_dump" "$DB_URL" --data-only \
+            -t auth.users -t auth.identities \
+            -t storage.buckets -t storage.objects \
+            -t cron.job -f "$D/auth_storage_cron.sql"
+
+          # 2. Inventaire pour vérifier une restauration (lignes par table).
+          "$PG/psql" "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "
+            select json_build_object(
+              'date', now(),
+              'tables', (select json_object_agg(table_name,
+                 (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I', table_name), false, true, '')))[1]::text::bigint)
+                 from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'),
+              'auth_users', (select count(*) from auth.users),
+              'storage_objects', (select count(*) from storage.objects))" > "$D/inventaire.json"
+
+          # 3. Photos et avatars : téléchargement de chaque fichier.
+          "$PG/psql" "$DB_URL" -X -At -v ON_ERROR_STOP=1 \
+            -c "select bucket_id || '/' || name from storage.objects order by 1" > "$D/storage/liste.txt"
+          # clé « sb_secret_… » (nouveau format) : en-tête apikey seul ; ancienne clé JWT : les deux
+          AUTH=(-H "apikey: $SERVICE_KEY")
+          case "$SERVICE_KEY" in sb_secret_*) ;; *) AUTH+=(-H "Authorization: Bearer $SERVICE_KEY") ;; esac
+          n=0
+          while IFS= read -r p; do
+            [ -n "$p" ] || continue
+            mkdir -p "$D/storage/files/$(dirname "$p")"
+            enc="$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$p")"
+            curl -fsS --retry 3 "${AUTH[@]}" \
+              "$SUPABASE_URL/storage/v1/object/authenticated/$enc" -o "$D/storage/files/$p"
+            n=$((n+1))
+          done < "$D/storage/liste.txt"
+          attendu="$(grep -c . "$D/storage/liste.txt" || true)"
+          [ "$n" = "$attendu" ] || { echo "::error::fichiers téléchargés $n / $attendu"; exit 1; }
+
+          # 4. Archive chiffrée.
+          A="$W/rivio-$STAMP.tar.gz.age"
+          tar -C "$W" -czf - rivio | age -r "$AGE_RECIPIENT" -o "$A"
+          SHA="$(sha256sum "$A" | cut -d' ' -f1)"
+          echo "Archive : $(du -h "$A" | cut -f1), $n fichier(s) de stockage, SHA-256 $SHA"
+
+          # 5. Envoi (écriture seule) : quotidien/, et mensuel/ le 1er du mois.
+          up() { aws s3 cp "$A" "s3://$SCW_BUCKET/$1" --endpoint-url "$S3_ENDPOINT" --only-show-errors --metadata "sha256=$SHA"; }
+          up "quotidien/rivio-$STAMP.tar.gz.age"
+          if [ "$(date -u +%d)" = "01" ]; then up "mensuel/rivio-$(date -u +%Y-%m).tar.gz.age"; fi
+          echo "Envoyé dans $SCW_BUCKET/quotidien/rivio-$STAMP.tar.gz.age"
+          {
+            echo "### Sauvegarde du $STAMP"
+            echo "- Archive chiffrée : $(du -h "$A" | cut -f1)"
+            echo "- Fichiers de stockage : $n"
+            echo "- SHA-256 : \`$SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
