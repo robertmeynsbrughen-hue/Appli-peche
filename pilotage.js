@@ -65,6 +65,7 @@ const prevPS=A.hooks.profilSub; A.hooks.profilSub=(...a)=>{ prevPS?.(...a); setT
 
 /* ---------- Quoi de neuf (après une mise à jour) ---------- */
 const NEWS=[
+  ["0.75",["🇬🇧 La version anglaise couvre maintenant presque tous les écrans (Profil › Réglages › Apparence et langue).","⚡ L'appli répond plus vite, surtout dans les groupes actifs.","Et en coulisses : sauvegarde chiffrée chaque nuit hors de Supabase, photos effacées dès qu'un contenu est supprimé."]],
   ["0.71",["🐞 Un souci ? Signale-le en deux touches dans Profil › Réglages, avec une capture d'écran.","📦 Télécharge toutes tes données quand tu veux (Profil › Réglages).","Et en coulisses : sauvegardes complètes chaque semaine."]],
   ["0.70",["✉️ Messages privés : touche le pseudo d'un pêcheur puis « Écrire ».","💬 Dans le chat, touche un message pour réagir ou répondre.","📣 Invite tes potes avec ton lien perso et deviens ambassadeur.","📸 La date et le spot de ta prise sont lus dans la photo.","🏆 Le groupe est prévenu quand un record tombe."]],
   ["0.69",["🎣 Ton type de pêche s'affiche sous ton nom (Profil › Mon profil public).","📴 Bulletins, traces et relevés notés sans réseau partent tout seuls au retour du réseau."]],
