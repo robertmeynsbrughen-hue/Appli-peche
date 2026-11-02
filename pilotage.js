@@ -121,6 +121,16 @@ function settingsPanels(){
   const act=el("div","actions"); act.append(dl); dp.append(act);
   dp.append(el("p","note","Un compte inutilisé pendant 2 ans est prévenu, puis peut être supprimé avec ses données un mois plus tard."));
   anchor.before(bp,dp);
+  // langue de l'interface
+  const tp=$("#theme-panel");
+  if(tp&&!$("#lang-panel")){
+    const lp=el("div","panel"); lp.id="lang-panel"; lp.dataset.sub="reglages";
+    lp.append(el("h2",null,"🌐 Langue"));
+    const seg=el("div","seg lang-seg"); seg.setAttribute("role","radiogroup"); seg.setAttribute("aria-label","Langue / Language");
+    [["fr","🇫🇷 Français"],["en","🇬🇧 English"]].forEach(([k,l])=>{ const b=btn(l,null,()=>{ if(k!==(window.CDJ_LANG||"fr")) window.CDJ_SETLANG?.(k); }); b.setAttribute("aria-pressed",String(k===(window.CDJ_LANG||"fr"))); b.dataset.noi18n="1"; seg.append(b); });
+    lp.append(seg,el("p","note","Choisis la langue de l'interface. Les messages écrits par les membres ne sont pas traduits."));
+    tp.before(lp);
+  }
   const show=!!A.me; bp.hidden=!show; dp.hidden=!show;
 }
 // on retient l'écran d'où vient le signalement (avant d'aller dans Réglages)
