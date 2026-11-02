@@ -38,6 +38,7 @@ async function page(extraInit) {
     localStorage.setItem("cdj-tour-done", "1");
     ["u1", "u2", "u3", "u4", "u6"].forEach((u) => localStorage.setItem("cdj-onboard-" + u, "1"));
     localStorage.setItem("cdj-annonces-lues", "[9]");
+    if (!localStorage.getItem("cdj-lang")) localStorage.setItem("cdj-lang", "fr");
     if (!localStorage.getItem("cdj-grp")) localStorage.setItem("cdj-grp", "2");   // groupe « Float-tube 47 » du faux Supabase
     if (!sessionStorage.getItem("v")) { sessionStorage.setItem("v", "1"); localStorage.setItem("cdj-version-vue", "9.99"); }
   });
@@ -106,6 +107,12 @@ await test("développeur : modération complète", async (p) => {
 await test("mode maintenance : écran d'attente pour un membre", async (p) => {
   await go(p, "?as=bob&maint=1", "#fil");
   await must(p, "#maint-ov", "l'écran de maintenance");
+});
+await test("version anglaise : écrans principaux traduits", async (p) => {
+  await p.goto(BASE + "?as=bob#conseils"); await p.evaluate(() => localStorage.setItem("cdj-lang", "en")); await p.reload(); await p.waitForTimeout(2600);
+  const nav = await p.evaluate(() => [...document.querySelectorAll("nav.tabs a")].map((a) => a.textContent.trim()).join(" "));
+  if (!/Today/.test(nav) || !/Feed/.test(nav)) throw new Error("barre de navigation non traduite : " + nav);
+  await p.evaluate(() => localStorage.setItem("cdj-lang", "fr"));
 });
 await test("lien d'invitation sans compte", async (p) => {
   await go(p, "?nosession=1&invite=" + "T".repeat(32), "#conseils");

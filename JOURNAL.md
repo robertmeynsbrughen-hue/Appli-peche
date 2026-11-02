@@ -8,6 +8,16 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.73 · 2 novembre 2026 · majeure
+--------------------------------
+Version anglaise, première étape : choix de la langue dans Profil › Réglages
+(un téléphone réglé en anglais démarre en anglais). La navigation, les écrans
+Aujourd'hui, Fil, Carte, Groupe et Profil, les boutons, les formulaires et les
+dates passent en anglais ; les messages écrits par les membres ne sont jamais
+traduits. Les traductions sont dans i18n-en.js ; les écrans secondaires
+(fiches techniques, outils, modération, notifications) suivront en 0.73.x.
+Un test automatique vérifie la version anglaise avant chaque mise en ligne.
+
 0.72 · 2 novembre 2026 · majeure
 --------------------------------
 Page de présentation publique (decouvrir.html) : ce que fait Rivio, captures
