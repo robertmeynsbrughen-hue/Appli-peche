@@ -85,3 +85,4 @@ Le dépôt contient l’application web (HTML, CSS et JavaScript) ainsi que les 
 Le [journal](JOURNAL.md) détaille les changements et les correctifs associés à chaque version.
 
 </details>
+
