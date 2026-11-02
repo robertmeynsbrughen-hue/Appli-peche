@@ -62,6 +62,13 @@ numérotation actuelle : `0003_group_delete`, `0004_group_succession` et
 baseline et désormais inclus dans les fichiers 0001 à 0005 et 0010 ; une note
 l'indique dans la colonne `notes`. Ne pas les supprimer.
 
+## 0.70
+
+- `0014_v070_echanges.sql` : réponses, réactions et message épinglé dans le
+  chat, messages privés et blocage, questions-réponses, parrainage, bilan du mois.
+- `0015_v070_lien_parrain.sql` : lien d'invitation personnel (ambassadeur),
+  heure réelle de la prise, signalement des messages privés.
+
 ## 0.69.1
 
 - `0013_v0691_types_peche.sql` : `profiles.fish_styles` et `set_fish_styles`.

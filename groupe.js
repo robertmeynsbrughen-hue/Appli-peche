@@ -658,6 +658,7 @@ async function adminOverview(seq){
 /* ================= Chat de groupe ================= */
 // Membre : chat du groupe sélectionné. Admin : onglets pour passer d'un groupe à l'autre dans le chat.
 const fab=$("#chat-fab"), panel=$("#chat-panel"), box=$("#chat-msgs"), badge=$("#chat-badge"), tabs=$("#chat-groups"), scopes=$("#chat-scopes");
+let reacts=new Map(), pinned=null, replyTo=null, reactKey="";
 let chatGid=null, chatScope="group", channel=null, staffChannel=null, msgs=[], names=new Map(), unread=new Map(), staffUnread=0, poll=null, subKey="", staffSubKey="";
 const seenKey=g=>"cdj-chat-seen-"+g;
 const staffSeenKey="cdj-chat-staff-seen";
@@ -744,7 +745,7 @@ async function nameOf(uid){
 async function loadChat(){
   if(chatScope==="group"&&!chatGid) return;
   const gid=chatGid, scope=chatScope, table=scope==="staff"?"staff_messages":"messages";
-  let q=A.sb.from(table).select("id,user_id,body,photo_path,audio_path,audio_secs,created_at,profiles(username,is_admin,is_controller)");
+  let q=A.sb.from(table).select("id,user_id,body,photo_path,audio_path,audio_secs,created_at,"+(scope==="group"?"reply_to,pinned_at,":"")+"profiles(username,is_admin,is_controller)");
   if(scope==="group") q=q.eq("group_id",gid);
   const {data,error}=await q.order("created_at",{ascending:false}).limit(80);
   if(gid!==chatGid||scope!==chatScope) return;
@@ -752,9 +753,24 @@ async function loadChat(){
   const list=(data||[]).reverse().map(m=>({...m,_scope:scope}));
   await signAll(list);
   if(gid!==chatGid||scope!==chatScope) return;
-  const same=list.length===msgs.length&&list.every((m,i)=>m.id===msgs[i].id&&m._scope===msgs[i]._scope);
+  // réactions et message épinglé (chat de groupe seulement)
+  let rk="";
+  if(scope==="group"){
+    const ids=list.map(m=>m.id);
+    const [rr,pp]=await Promise.all([
+      ids.length?A.sb.from("message_reactions").select("message_id,user_id,emoji").in("message_id",ids):Promise.resolve({data:[]}),
+      A.sb.from("messages").select("id,user_id,body,photo_path,audio_path,pinned_at,profiles(username)").eq("group_id",gid).not("pinned_at","is",null).order("pinned_at",{ascending:false}).limit(1),
+    ]);
+    if(gid!==chatGid||scope!==chatScope) return;
+    reacts=new Map(); (rr.data||[]).forEach(r=>{ if(!reacts.has(r.message_id)) reacts.set(r.message_id,[]); reacts.get(r.message_id).push(r); });
+    pinned=(pp.data||[])[0]||null;
+    rk=JSON.stringify(rr.data||[])+"|"+(pinned?.id||"");
+  }else{ reacts=new Map(); pinned=null; }
+  const same=list.length===msgs.length&&list.every((m,i)=>m.id===msgs[i].id&&m._scope===msgs[i]._scope)&&rk===reactKey;
+  reactKey=rk;
   msgs=list; msgs.forEach(m=>{ if(m.profiles) names.set(m.user_id,m.profiles); });
-  if(!same||!box.childElementCount) drawMsgs(true);
+  drawPin();
+  if(!same||!box.childElementCount) drawMsgs(!same&&list.length!==box.querySelectorAll(".msg").length||!box.childElementCount);
   scope==="staff"?markStaffSeen():markSeen();
 }
 async function addMsg(m){
@@ -790,16 +806,79 @@ function drawMsgs(scroll){
       if(m.profiles?.username&&A.fishTags){ const ft=A.fishTags(m.profiles.username); ft.classList.add("msg-tags"); row.append(ft); }
     }
     const b=el("div","bubble"+(m.body&&mentionsMe(m.body)&&!mine?" mention-me":"")+(m.photo_path?" has-photo":"")+(m.audio_path?" has-voice":""));
+    if(m.reply_to){
+      const o=msgs.find(x=>x.id===m.reply_to);
+      const q=el("div","msg-quote"); q.append(el("b",null,"↩️ @"+(o?.profiles?.username||"…")), el("span",null,o?excerptOf(o):"message plus ancien"));
+      if(o) q.addEventListener("click",ev=>{ ev.stopPropagation(); const t=box.querySelector('[data-mid="'+o.id+'"]'); if(t){ t.scrollIntoView({block:"center",behavior:"smooth"}); t.classList.add("flash"); setTimeout(()=>t.classList.remove("flash"),1200); } });
+      b.append(q);
+    }
     const mn=mediaNode(m); if(mn) b.append(mn);
-    if(chatScope==="group"&&!mine&&A.report){
-      // appui long (ou clic droit) sur un message : le signaler
-      b.addEventListener("contextmenu",e=>{ e.preventDefault(); A.report({kind:"message",target_id:m.id,group_id:chatGid,excerpt:m.body||(m.photo_path?"📷 Photo":m.audio_path?"🎤 Message vocal":""),author_id:m.user_id}); });
+    if(chatScope==="group"){
+      // toucher un message : réagir, répondre, épingler, signaler
+      b.addEventListener("click",ev=>{ if(ev.target.closest("a,button,audio,.voice,.user-link,.mention,.msg-quote")) return; msgMenu(m,b); });
+      b.addEventListener("contextmenu",ev=>{ ev.preventDefault(); msgMenu(m,b); });
     }
     if(m.body) b.append(withMentions(m.body));
     b.append(el("span","msg-h",d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})));
-    row.append(b); box.append(row); lastUser=m.user_id;
+    row.dataset.mid=m.id;
+    row.append(b);
+    const rs=reacts.get(m.id);
+    if(rs&&rs.length){
+      const bar=el("div","msg-reacts"), byE=new Map();
+      rs.forEach(r=>{ if(!byE.has(r.emoji)) byE.set(r.emoji,[]); byE.get(r.emoji).push(r.user_id); });
+      byE.forEach((us,e)=>{ const on=us.includes(A.me.id); const c=btn(e+" "+us.length,"react-chip"+(on?" on":""),()=>toggleReact(m.id,e)); c.setAttribute("aria-pressed",String(on)); c.setAttribute("aria-label",e+", "+us.length+" réaction"+(us.length>1?"s":"")); bar.append(c); });
+      row.append(bar);
+    }
+    box.append(row); lastUser=m.user_id;
   });
   if(scroll) requestAnimationFrame(()=>{ box.scrollTop=box.scrollHeight; });
+}
+// ---------- Réponses, réactions, message épinglé ----------
+const EMOJIS=["👍","🎣","😂","🔥","😮","❤️"];
+const excerptOf=m=>m.body?(m.body.length>80?m.body.slice(0,79)+"…":m.body):m.photo_path?"📷 Photo":m.audio_path?"🎤 Message vocal":"";
+async function toggleReact(mid,e){
+  if(blocked()) return;
+  const list=reacts.get(mid)||[], on=list.some(r=>r.user_id===A.me.id&&r.emoji===e);
+  const {error}=on?await A.sb.from("message_reactions").delete().eq("message_id",mid).eq("user_id",A.me.id).eq("emoji",e)
+                  :await A.sb.from("message_reactions").insert({message_id:mid,user_id:A.me.id,emoji:e});
+  if(error) return toast(frError(error));
+  if(on) reacts.set(mid,list.filter(r=>!(r.user_id===A.me.id&&r.emoji===e))); else reacts.set(mid,[...list,{message_id:mid,user_id:A.me.id,emoji:e}]);
+  reactKey=""; const y=box.scrollTop; drawMsgs(false); box.scrollTop=y;
+}
+function msgMenu(m,anchor){
+  document.querySelector(".msg-menu")?.remove();
+  const menu=el("div","msg-menu"); menu.setAttribute("role","menu");
+  const er=el("div","mm-emojis"); EMOJIS.forEach(e=>{ const b=btn(e,"mm-e",()=>{ menu.remove(); toggleReact(m.id,e); }); b.setAttribute("aria-label","Réagir "+e); er.append(b); });
+  menu.append(er);
+  const acts=el("div","mm-acts");
+  acts.append(btn("↩️ Répondre","mm-a",()=>{ menu.remove(); setReply(m); }));
+  if(A.canModerate?.(chatGid)||A.me.is_admin||A.me.is_controller){
+    const isPin=pinned?.id===m.id;
+    acts.append(btn(isPin?"📌 Désépingler":"📌 Épingler","mm-a",async()=>{ menu.remove(); const {error}=await A.sb.rpc("pin_message",{p_id:m.id,p_on:!isPin}); if(error) return toast(frError(error)); toast(isPin?"Message désépinglé":"📌 Message épinglé en haut du chat"); reactKey=""; loadChat(); }));
+  }
+  if(m.user_id!==A.me.id&&A.report) acts.append(btn("⚑ Signaler","mm-a danger",()=>{ menu.remove(); A.report({kind:"message",target_id:m.id,group_id:chatGid,excerpt:excerptOf(m),author_id:m.user_id}); }));
+  menu.append(acts);
+  anchor.closest(".msg").append(menu);
+  menu.querySelector("button")?.focus();
+  setTimeout(()=>{ const off=ev=>{ if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener("pointerdown",off,true); } }; document.addEventListener("pointerdown",off,true); },0);
+}
+function setReply(m){
+  replyTo=m;
+  let bar=$("#chat-reply");
+  if(!m){ if(bar) bar.hidden=true; return; }
+  if(!bar){ bar=el("div","chat-reply"); bar.id="chat-reply"; $("#chat-form").before(bar); }
+  bar.hidden=false; bar.innerHTML="";
+  const t=el("div","cr-t"); t.append(el("b",null,"↩️ Réponse à @"+(m.profiles?.username||"?")),el("span",null,excerptOf(m)));
+  bar.append(t, btn("✕","icon-btn cr-x",()=>setReply(null)));
+  $("#chat-input").focus();
+}
+function drawPin(){
+  let bar=$("#chat-pin");
+  if(!pinned||chatScope!=="group"){ if(bar) bar.hidden=true; return; }
+  if(!bar){ bar=el("button","chat-pin"); bar.type="button"; bar.id="chat-pin"; box.before(bar); bar.addEventListener("click",()=>{ const t=box.querySelector('[data-mid="'+bar.dataset.mid+'"]'); if(t){ t.scrollIntoView({block:"center",behavior:"smooth"}); t.classList.add("flash"); setTimeout(()=>t.classList.remove("flash"),1200); } else toast("Message épinglé plus ancien que la conversation affichée"); }); }
+  bar.hidden=false; bar.dataset.mid=pinned.id; bar.innerHTML="";
+  bar.append(el("span","cp-i","📌"));
+  const t=el("span","cp-t"); t.append(el("b",null,"@"+(pinned.profiles?.username||"?")+" "),document.createTextNode(excerptOf(pinned))); bar.append(t);
 }
 // ---------- Photos et messages vocaux ----------
 const urlCache=new Map(), media=new Map();
@@ -1014,8 +1093,10 @@ $("#chat-form").addEventListener("submit",async e=>{
   const inp=$("#chat-input"), body=inp.value.trim(), scope=chatScope, gid=chatGid; if(!body||(scope==="group"&&!gid)||(scope==="staff"&&!isAdmin())) return;
   inp.value=""; sugg.hidden=true;
   const row={user_id:A.me.id,body}; if(scope==="group") row.group_id=gid;
+  if(scope==="group"&&replyTo&&replyTo.id) row.reply_to=replyTo.id;
+  setReply(null);
   const table=scope==="staff"?"staff_messages":"messages";
-  const {data,error}=navigator.onLine?await A.sb.from(table).insert(row).select("id,user_id,group_id,body,created_at").single():{error:new Error("Failed to fetch")};
+  const {data,error}=navigator.onLine?await A.sb.from(table).insert(row).select("id,user_id,group_id,body,created_at"+(scope==="group"?",reply_to":"")).single():{error:new Error("Failed to fetch")};
   if(scope==="group"&&error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"messages",row})) return toast("Pas de réseau : message envoyé dès le retour du réseau");
   if(error){ inp.value=body; return toast(frError(error)); }
   await addMsg({...data,_scope:scope,profiles:{username:A.me.username,is_admin:A.me.is_admin,is_controller:A.me.is_controller}}); scope==="staff"?markStaffSeen():markSeen();

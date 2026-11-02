@@ -8,6 +8,24 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.70 · 2 novembre 2026 · majeure
+--------------------------------
+Messages privés : bouton ✉️ dans le chat et « Écrire » sur chaque profil. Une
+personne peut être bloquée, et un message reçu peut être signalé au staff.
+Chat de groupe : toucher un message pour réagir, répondre ou le signaler ; les
+modérateurs peuvent épingler un message en haut du chat.
+Groupe Bienvenue : questions-réponses avec meilleure réponse, et parrainage
+(un pêcheur expérimenté accompagne un nouveau en privé, 3 filleuls maximum).
+Bilan du mois de chaque groupe, affiché dans le groupe et notifié le 1er.
+Invite tes potes : lien personnel à partager ; chaque ami inscrit grâce à lui
+qui publie sa première prise fait progresser le badge d'ambassadeur.
+Record du groupe : la notification annonce quand une prise bat le record de
+l'espèce, et prévient l'ancien détenteur.
+Prise pré-remplie : la date, l'heure et le spot sont lus dans la photo ; une
+prise publiée plus tard affiche l'heure réelle dans le fil.
+Température de l'eau : sans mesure récente, l'estimation est calée sur la
+température relevée les années passées par la sonde la plus proche.
+
 0.69.2 · 2 novembre 2026 · mineure
 ----------------------------------
 Fil : les tuiles Prise, Bilan et Session carpe sont rangées derrière un seul

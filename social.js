@@ -514,7 +514,7 @@ async function loadMe(){ markDirty();
 
 async function loadGroups(){
   const [{data:gs},{data:mine}]=await Promise.all([
-    sb.from("groups").select("id,name,region,require_approval,post_approval").order("name"),
+    sb.from("groups").select("id,name,region,require_approval,post_approval,is_welcome").order("name"),
     sb.from("memberships").select("group_id,role,status").eq("user_id",me.id)]);
   const mm=new Map((mine||[]).map(m=>[m.group_id,m]));
   myRoles=new Map((mine||[]).filter(m=>m.status==="active").map(m=>[m.group_id,m.role]));
@@ -721,7 +721,7 @@ $("#composer").addEventListener("submit",async e=>{
     const blobs=[]; for(const p of pics) blobs.push(await compress(p.file));
     const len=parseFloat($("#p-len").value), wt=parseFloat($("#p-wt").value);
     const ok=await window.CDJ.offline?.enqueue({kind:"post",blobs,row:{group_id:cur,caption:cap||null,species:$("#p-species").value||null,
-      spot_id:$("#p-spot").value?Number($("#p-spot").value):null,length_cm:len>0?Math.round(len*10)/10:null,weight_kg:wt>0?Math.round(wt*100)/100:null,bait:$("#p-bait").value.trim()||null,released:relOf("#p-rel"),conditions:window.CDJ_ADVICE?.snapshot?.()||null}});
+      spot_id:$("#p-spot").value?Number($("#p-spot").value):null,length_cm:len>0?Math.round(len*10)/10:null,weight_kg:wt>0?Math.round(wt*100)/100:null,bait:$("#p-bait").value.trim()||null,released:relOf("#p-rel"),caught_at:window.CDJ.photoTime?.()||null,conditions:window.CDJ.photoTime?.()?null:(window.CDJ_ADVICE?.snapshot?.()||null)}});
     if(!ok) return false;
     pics.forEach(f=>URL.revokeObjectURL(f.url)); pics=[]; renderThumbs();
     $("#composer").reset(); document.querySelectorAll("#p-rel button").forEach(x=>x.setAttribute("aria-pressed","false")); $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
@@ -746,7 +746,7 @@ $("#composer").addEventListener("submit",async e=>{
       spot:spot?($("#p-spot").selectedOptions[0]?.textContent||null):null,photoUrl:pics[0]?URL.createObjectURL(pics[0].file):null};
     const {error}=await sb.from("posts").insert({group_id:cur,caption:cap||null,species:$("#p-species").value||null,photo_path:path,photo_paths:paths.length?paths:null,spot_id:spot,
       length_cm:len>0?Math.round(len*10)/10:null, weight_kg:wt>0?Math.round(wt*100)/100:null, bait:$("#p-bait").value.trim()||null,
-      released:relOf("#p-rel"),conditions:window.CDJ_ADVICE?.snapshot?.()||null});
+      released:relOf("#p-rel"),caught_at:window.CDJ.photoTime?.()||null,conditions:window.CDJ.photoTime?.()?null:(window.CDJ_ADVICE?.snapshot?.()||null)});
     if(error){ if(paths.length) await sb.storage.from("photos").remove(paths); throw error; }
     pics.forEach(f=>URL.revokeObjectURL(f.url)); pics=[]; renderThumbs();
     $("#composer").reset(); document.querySelectorAll("#p-rel button").forEach(x=>x.setAttribute("aria-pressed","false")); $("#p-measure").hidden=true; $("#p-wt-note").hidden=true; wtTouched=false;
@@ -786,7 +786,7 @@ async function loadFeed(){
   // silhouettes grisées pendant le premier chargement
   if(!feed.querySelector("article.post,article.sess")){ feed.innerHTML=""; for(let i=0;i<3;i++){ const k=el("div","skel-card"); k.append(el("div","skel skel-head"),el("div","skel skel-photo"),el("div","skel skel-line"),el("div","skel skel-line short")); feed.append(k); } }
   let q=sb.from("posts")
-    .select("id,group_id,caption,species,photo_path,photo_paths,created_at,user_id,status,length_cm,weight_kg,bait,released,profiles!posts_user_id_fkey(username,is_admin),spots(id,name)")
+    .select("id,group_id,caption,species,photo_path,photo_paths,created_at,caught_at,user_id,status,length_cm,weight_kg,bait,released,profiles!posts_user_id_fkey(username,is_admin),spots(id,name)")
     .order("created_at",{ascending:false}).limit(60);
   let qs=sb.from("sessions").select("id,group_id,user_id,species,caught,length_cm,lure,color,rating,created_at,duration_min,distance_m,bites,released,profiles(username,is_admin)")
     .order("created_at",{ascending:false}).limit(40);
@@ -826,6 +826,7 @@ async function loadFeed(){
     if(cur==="all") left.append(el("div","post-group",groupName(p.group_id)));
     who.append(left);
     head.append(who, el("span","post-date",ago(p.created_at)));
+    if(p.caught_at&&new Date(p.created_at)-new Date(p.caught_at)>2*36e5) left.append(el("div","post-caught","🕐 Prise le "+new Date(p.caught_at).toLocaleDateString("fr-FR",{day:"numeric",month:"long"})+" à "+new Date(p.caught_at).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}).replace(":"," h ")));
     a.append(head);
     const shown=allPaths(p).filter(x=>urls[x]);
     if(shown.length){
