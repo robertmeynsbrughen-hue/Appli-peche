@@ -11,8 +11,8 @@ function section(title,count){
   if(count!=null) h.append(el("span","modo-count"+(count?"":" zero"),String(count)));
   s.append(h); return s;
 }
-const KIND={post:"Prise",comment:"Commentaire",message:"Message du chat"};
-const TABLE={post:"posts",comment:"comments",message:"messages"};
+const KIND={post:"Prise",comment:"Commentaire",message:"Message du chat",dm:"Message privé"};
+const TABLE={post:"posts",comment:"comments",message:"messages",dm:"direct_messages"};
 const TIMEOUTS=[["10","10 minutes",10],["60","1 heure",60],["1440","24 heures",1440],["10080","7 jours",10080]];
 const STAFF=()=>!!(A.me&&(A.me.is_admin||A.me.is_controller));
 const isStaff=()=>STAFF();
@@ -63,7 +63,7 @@ A.hooks.feedExtras=list=>{
 const ui={member:null, memberQuery:"", group:null, groupQuery:"", postStatus:"all", postQuery:""};
 let seq=0, renderTimer=null;
 const sameDay=iso=>new Date(iso).toLocaleString("fr-FR",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
-const gname=(gmap,id)=>gmap.get(id)?.name||("Groupe #"+id);
+const gname=(gmap,id)=>id==null?"Message privé":gmap.get(id)?.name||("Groupe #"+id);
 function errLine(e){ return el("p","err",frError(e)); }
 function nameWithBadge(p){
   const s=el("span","post-user","@"+(p?.username||"?"));

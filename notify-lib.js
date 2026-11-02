@@ -108,6 +108,11 @@ export async function handle(req, cfg) {
     if (t === "storm_watch") return Response.json(await stormWatch(VAPID));
     if (t === "photo_month") return Response.json(await photoMonth(VAPID));
     if (t === "announcements") return Response.json(await announce(Number(ev.id), VAPID));
+    if (t === "direct_messages") return Response.json(await dmNotify(Number(ev.id), VAPID));
+    if (t === "qa_questions" || t === "qa_answers") return Response.json(await qaNotify(t, Number(ev.id), VAPID));
+    if (t === "mentorships") return Response.json(await mentorNotify(ev, VAPID));
+    if (t === "group_month") return Response.json(await groupMonth(VAPID));
+    if (t === "parrain") return Response.json(await parrainNotify(ev, VAPID));
     let rec, group_id, author, recipients, msg;
     if (t === "memberships") {
       group_id = Number(ev.group_id); author = String(ev.user_id).replace(/[^0-9a-f-]/gi, "");
@@ -139,10 +144,10 @@ export async function handle(req, cfg) {
     }
     let extra = null;
     const [groups, users] = await Promise.all([
-      db("groups?id=eq." + group_id + "&select=name"),
+      group_id != null ? db("groups?id=eq." + group_id + "&select=name") : Promise.resolve([]),
       db("profiles?id=eq." + author + "&select=username"),
     ]);
-    const group = groups[0]?.name || "ton groupe", who = "@" + (users[0]?.username || "quelqu'un");
+    const group = groups[0]?.name || (group_id == null ? "message privé" : "ton groupe"), who = "@" + (users[0]?.username || "quelqu'un");
 
     if (t === "memberships") {
       if (ev.event === "request") {
@@ -163,11 +168,22 @@ export async function handle(req, cfg) {
       } else {
         recipients = await activeMembers(group_id, author);
         msg = { title: "🎣 Nouvelle prise · " + group, body: who + " : " + text, url: "./#fil", tag: "post-" + rec.id };
+        // record du groupe battu sur cette espèce
+        if (rec.species && rec.length_cm) {
+          try {
+            const [best] = await db("posts?group_id=eq." + group_id + "&species=eq." + encodeURIComponent(rec.species) + "&status=eq.published&id=neq." + rec.id + "&length_cm=not.is.null&select=length_cm,user_id,profiles(username)&order=length_cm.desc&limit=1");
+            if (best && Number(rec.length_cm) > Number(best.length_cm)) {
+              const prev = best.user_id === author ? "son ancien record" : "ancien record de @" + (best.profiles?.username || "?");
+              msg = { title: "🏆 Record du groupe battu · " + group, body: who + " : " + rec.species + " de " + num(rec.length_cm) + " cm (" + prev + " : " + num(best.length_cm) + " cm)", url: "./#fil", tag: "post-" + rec.id };
+              if (best.user_id !== author) recipients = [...recipients.filter((m) => m.user_id !== best.user_id), { user_id: best.user_id }];
+            }
+          } catch (_) { /* le record n'empêche jamais l'envoi */ }
+        }
       }
     } else if (t === "reports") {
       recipients = await moderators(group_id, author);
-      const what = { post: "une prise", comment: "un commentaire", message: "un message" }[rec.kind] || "un contenu";
-      msg = { title: "⚑ Signalement · " + group, body: who + " signale " + what + " : " + cut(rec.reason, 80) + (rec.excerpt ? " (« " + cut(rec.excerpt, 50) + " »)" : ""), url: "./#profil?mod=todo&g=" + group_id, tag: "rep-" + rec.id };
+      const what = { post: "une prise", comment: "un commentaire", message: "un message", dm: "un message privé" }[rec.kind] || "un contenu";
+      msg = { title: "⚑ Signalement · " + group, body: who + " signale " + what + " : " + cut(rec.reason, 80) + (rec.excerpt ? " (« " + cut(rec.excerpt, 50) + " »)" : ""), url: "./#profil?mod=todo" + (group_id != null ? "&g=" + group_id : ""), tag: "rep-" + rec.id };
     } else {
       recipients = await activeMembers(group_id, author);
       if (t === "env_reports") {
@@ -236,7 +252,7 @@ export async function handle(req, cfg) {
 
 // ---- Centre de notifications : on garde une trace de chaque notification envoyée ----
 async function logNotif(ids, msg) {
-  if (!ids.length || msg.test || /^chat-/.test(msg.tag || "")) return; // les messages du chat restent dans le chat
+  if (!ids.length || msg.test || /^(chat|dm)-/.test(msg.tag || "")) return; // les messages du chat et les messages privés restent dans leur fil
   const rows = [...new Set(ids)].map((user_id) => ({ user_id, title: cut(msg.title, 200), body: msg.body ? cut(msg.body, 500) : null, url: msg.url ? String(msg.url).slice(0, 60) : null, tag: msg.tag ? String(msg.tag).slice(0, 80) : null }));
   try { await db("notifications", { method: "POST", body: JSON.stringify(rows), headers: { Prefer: "return=minimal" } }); } catch (_) { /* le journal ne doit jamais bloquer l'envoi */ }
 }
@@ -586,4 +602,75 @@ async function announce(id, vapid) {
     return r.status;
   }));
   return { sent: results.length, results: results.map((x) => x.status === "fulfilled" ? x.value : String(x.reason)) };
+}
+
+// ---- Messages privés ----
+const UUID = /^[0-9a-f-]{36}$/i;
+async function dmNotify(id, vapid) {
+  const [m] = await db("direct_messages?id=eq." + id + "&select=id,user_id,to_user,body");
+  if (!m) return { sent: 0, reason: "introuvable" };
+  const [p] = await db("profiles?id=eq." + m.user_id + "&select=username");
+  const who = p?.username || "quelqu'un";
+  const sent = await pushTo(m.to_user, { title: "✉️ @" + who, body: cut(m.body, 140), url: "./?dm=" + encodeURIComponent(who) + "#fil", tag: "dm-" + m.user_id }, vapid);
+  return { sent };
+}
+// ---- Questions-réponses ----
+async function qaNotify(t, id, vapid) {
+  if (t === "qa_questions") {
+    const [q] = await db("qa_questions?id=eq." + id + "&select=id,group_id,user_id,title");
+    if (!q) return { sent: 0, reason: "introuvable" };
+    const [[g], [u], mods, mentors] = await Promise.all([
+      db("groups?id=eq." + q.group_id + "&select=name"), db("profiles?id=eq." + q.user_id + "&select=username"),
+      moderators(q.group_id, q.user_id), db("profiles?mentor_available=eq.true&select=id"),
+    ]);
+    const active = new Set((await activeMembers(q.group_id, q.user_id)).map((m) => m.user_id));
+    const ids = new Set([...mods.map((m) => m.user_id), ...mentors.map((m) => m.id).filter((x) => active.has(x))]);
+    ids.delete(q.user_id);
+    let sent = 0;
+    for (const uid of ids) sent += await pushTo(uid, { title: "❓ Question · " + (g?.name || "groupe"), body: "@" + (u?.username || "?") + " : " + cut(q.title, 120), url: "./?qa=" + q.id + "#groupe", tag: "qa-" + q.id }, vapid);
+    return { sent };
+  }
+  const [a] = await db("qa_answers?id=eq." + id + "&select=id,question_id,user_id,body");
+  if (!a) return { sent: 0, reason: "introuvable" };
+  const [q] = await db("qa_questions?id=eq." + a.question_id + "&select=id,user_id,title");
+  if (!q || q.user_id === a.user_id) return { sent: 0, reason: "auteur" };
+  const [u] = await db("profiles?id=eq." + a.user_id + "&select=username");
+  const sent = await pushTo(q.user_id, { title: "💬 Réponse à ta question", body: "@" + (u?.username || "?") + " : " + cut(a.body, 120), url: "./?qa=" + q.id + "#groupe", tag: "qa-" + q.id }, vapid);
+  return { sent };
+}
+// ---- Parrainage ----
+async function mentorNotify(ev, vapid) {
+  if (!UUID.test(String(ev.mentor || "")) || !UUID.test(String(ev.mentee || ""))) return { sent: 0, reason: "invalide" };
+  const [m] = await db("mentorships?mentee=eq." + ev.mentee + "&mentor=eq." + ev.mentor + "&select=mentee");
+  if (!m) return { sent: 0, reason: "introuvable" };
+  const [u] = await db("profiles?id=eq." + ev.mentee + "&select=username");
+  const sent = await pushTo(ev.mentor, { title: "🤝 Nouveau filleul", body: "@" + (u?.username || "?") + " t'a choisi comme parrain. Envoie-lui un message pour l'accueillir !", url: "./?dm=" + encodeURIComponent(u?.username || "") + "#fil", tag: "mentor-" + ev.mentee }, vapid);
+  return { sent };
+}
+// ---- Bilan du mois de chaque groupe (le 1er) ----
+async function groupMonth(vapid) {
+  const d = new Date(new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date()) + "T12:00:00Z");
+  d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1);
+  const month = d.toISOString().slice(0, 10);
+  const label = new Intl.DateTimeFormat("fr-FR", { month: "long", timeZone: "UTC" }).format(d);
+  const groups = await db("groups?select=id,name");
+  let sent = 0, done = 0;
+  for (const g of groups) {
+    const s = await db("rpc/group_month_stats", { method: "POST", body: JSON.stringify({ g: g.id, p_month: month }) });
+    if (!s || (!s.catches && !s.messages)) continue;
+    done++;
+    const parts = [s.catches + " prise" + (s.catches > 1 ? "s" : "") + (s.species ? " · " + s.species + " espèce" + (s.species > 1 ? "s" : "") : "")];
+    if (s.biggest) parts.push("plus gros : " + s.biggest.species + " " + num(s.biggest.length_cm) + " cm (@" + s.biggest.username + ")");
+    if (s.top && s.top.n > 1) parts.push("le plus actif : @" + s.top.username);
+    if (!s.catches) parts[0] = s.messages + " message" + (s.messages > 1 ? "s" : "") + " échangés";
+    for (const m of await activeMembers(g.id)) sent += await pushTo(m.user_id, { title: "📊 Le mois de " + label + " · " + g.name, body: parts.join(" · "), url: "./#groupe", tag: "mois-" + g.id }, vapid);
+  }
+  return { month, groups: done, sent };
+}
+// ---- Lien d'invitation : première prise d'un ami invité ----
+async function parrainNotify(ev, vapid) {
+  if (!UUID.test(String(ev.user_id || ""))) return { sent: 0, reason: "invalide" };
+  const who = String(ev.filleul || "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 20) || "ton ami";
+  const sent = await pushTo(ev.user_id, { title: "🎖️ @" + who + " a publié sa première prise", body: "Merci de l'avoir fait venir sur Rivio ! Ton badge d'ambassadeur progresse.", url: "./#profil", tag: "ambassadeur-" + who }, vapid);
+  return { sent };
 }
