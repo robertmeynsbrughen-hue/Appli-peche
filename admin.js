@@ -74,7 +74,7 @@ const ACTIONS={
   approve_member:["🙋","Membre accepté"], refuse_member:["🚪","Demande refusée"], remove_member:["🚪","Membre retiré"],
   role_change:["🎖️","Rôle modifié"], report_done:["⚑","Signalement traité"], report_dismissed:["⚑","Signalement classé"],
   appeal_accepted:["📨","Contestation acceptée"], appeal_rejected:["📨","Contestation refusée"],
-  controller_on:["🛡️","Contrôleur nommé"], controller_off:["🛡️","Contrôleur retiré"], delete_group:["💥","Groupe supprimé"],
+  controller_on:["🛡️","Contrôleur nommé"], delete_account:["🗑️","Compte inactif supprimé"], controller_off:["🛡️","Contrôleur retiré"], delete_group:["💥","Groupe supprimé"],
 };
 const FILTERS=[["tout","Tout",null],["sanctions","Sanctions",["warning","timeout","lift_timeout","appeal_accepted","appeal_rejected"]],
   ["contenus","Contenus",["approve_post","reject_post","delete_post","delete_comment","delete_message","report_done","report_dismissed"]],
