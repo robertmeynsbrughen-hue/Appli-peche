@@ -385,11 +385,8 @@ async function renderGroupe(){
   t.append(h, el("div","note"+(full?" warn":""),[g.region,cap].filter(Boolean).join(" · ")));
   head.append(t);
   if(info){
-    // Code masqué visuellement pour les membres - on utilise le lien d'invitation (token)
-    const code=el("div","g-code"); code.hidden=true;
-    code.append(el("span","note","Code"),el("span","code",info.invite_code));
-    const cp=btn("Copier","linkbtn",async()=>{ try{ await navigator.clipboard.writeText(info.invite_code); toast("Code copié"); }catch(e){ toast("Code : "+info.invite_code); } });
-    code.append(cp, btn("🔗 Inviter","btn small",async()=>{ const {data}=await A.sb.rpc("create_group_invite",{p_group:gid}); if(data?.token) A.invite?.open(data.token,g.name); })); head.append(code);
+    // le code de groupe reste disponible pour les responsables dans la gestion du groupe ;
+    // les invitations passent par le lien à jeton (invite.js)
   }
   root.append(head);
 
