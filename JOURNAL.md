@@ -8,6 +8,16 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.74 · 2 novembre 2026 · majeure
+--------------------------------
+Rangement de l'interface. En-tête allégé : notifications, réglages, vue
+membre et modération passent dans le menu de l'avatar, le nom du groupe n'est
+plus coupé. Sous-onglets du profil avec icône et libellé court. Réglages en
+cinq rubriques repliables. Groupe : nouvel onglet « Jeux » (compétitions,
+défis, classement, photo du mois, Fishdex) et « À traiter » rangé dans
+Membres. Modération du développeur en tuiles, une section à la fois.
+Version précédente sauvegardée dans la branche sauvegarde-0.73.1.
+
 0.73.1 · 2 novembre 2026 · correctif
 ------------------------------------
 Les groupes avaient disparu pour les membres depuis la 0.70 : la base refusait

@@ -252,7 +252,7 @@ async function photoMonth(host,gid){
 A.hooks.groupeExtras=(prev=>(box,gid,mod)=>{
   prev?.(box,gid,mod);
   if(!A.me||typeof gid!=="number") return;
-  const host=el("section","g-sec g-photomonth"); host.dataset.sub="activite";
+  const host=el("section","g-sec g-photomonth"); host.dataset.sub="jeux";
   box.after(host);
   photoMonth(host,gid);
 })(A.hooks.groupeExtras);
