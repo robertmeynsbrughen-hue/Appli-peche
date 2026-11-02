@@ -907,6 +907,7 @@ async function render(opts){
       if(A.me.is_admin){
         const an=await X.annonces(); if(mySeq!==seq) return; an.id="mod-annonces"; root.append(an);
         const sa=await X.sante(); if(mySeq!==seq) return; sa.id="mod-sante"; root.append(sa);
+        if(X.pilotage){ const ps=await X.pilotage(); if(mySeq!==seq) return; ["mod-bugs","mod-stats","mod-sauvegardes","mod-maintenance"].forEach((id,i)=>{ if(ps[i]){ ps[i].id=id; root.append(ps[i]); } }); }
       }
     }
   }catch(e){
@@ -916,7 +917,7 @@ async function render(opts){
   }
 
   if(nav){
-    const target=nav.section==="groups"||nav.section==="group"?"#mod-groups":nav.section==="members"||nav.section==="member"?"#mod-members":nav.section==="controllers"?"#mod-controllers":nav.section==="appeals"?"#mod-appeals":"#mod-todo";
+    const target=nav.section==="groups"||nav.section==="group"?"#mod-groups":nav.section==="members"||nav.section==="member"?"#mod-members":nav.section==="controllers"?"#mod-controllers":nav.section==="appeals"?"#mod-appeals":nav.section==="bugs"?"#mod-bugs":nav.section==="sante"?"#mod-sante":"#mod-todo";
     setTimeout(()=>{ const n=root.querySelector(target); if(n) n.scrollIntoView({behavior:"smooth",block:"start"}); },80);
   }else if(opts.keepScroll){
     window.scrollTo(0,opts.y!=null?opts.y:y);

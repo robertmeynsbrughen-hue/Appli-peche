@@ -1926,3 +1926,21 @@ body.chat-open .sheet-back{z-index:2700}
 .amb-badge{display:inline-block;margin:4px 0;font-size:.75rem;font-weight:700;padding:1px 9px;border-radius:99px;background:var(--amber-soft);color:var(--amber)}
 .dm-thread .msg:not(.mine){flex-direction:row;align-items:flex-end;gap:4px}
 .dm-flag{font-size:.8rem;opacity:.55;padding:2px 4px}
+
+/* 0.71 : maintenance, statistiques, bugs, quoi de neuf */
+.maint-ov{position:fixed;inset:0;z-index:5000;display:grid;place-items:center;padding:24px;background:var(--bg)}
+.maint-card{max-width:420px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
+.maint-ico{font-size:3rem}
+.maint-admin{margin:10px auto 0;max-width:720px;padding:8px 12px;border-radius:var(--radius-sm);background:var(--warn-soft);color:var(--warn);font-weight:600;font-size:.85rem}
+@media (max-width:760px){.maint-admin{margin:10px 16px 0}}
+.usage-chart{display:flex;align-items:flex-end;gap:2px;height:90px;padding:6px 0;border-bottom:1px solid var(--line)}
+.uc-col{flex:1;height:100%;display:flex;align-items:flex-end}
+.uc-bar{width:100%;border-radius:3px 3px 0 0;background:var(--accent)}
+.usage-screens{display:flex;flex-direction:column;gap:4px}
+.us-row{display:grid;grid-template-columns:120px 1fr 36px;align-items:center;gap:8px;font-size:.82rem}
+.us-bar{height:8px;border-radius:4px;background:var(--accent);min-width:2px}
+.us-v{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.bug-form{display:flex;flex-direction:column;gap:8px}
+.bug-form textarea{width:100%;box-sizing:border-box}
+.bug-shot img{max-width:160px;max-height:220px;border-radius:8px;margin-top:6px;border:1px solid var(--line)}
+.news-list{margin:4px 0 10px;padding-left:18px;display:flex;flex-direction:column;gap:6px}

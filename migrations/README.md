@@ -62,6 +62,13 @@ numérotation actuelle : `0003_group_delete`, `0004_group_succession` et
 baseline et désormais inclus dans les fichiers 0001 à 0005 et 0010 ; une note
 l'indique dans la colonne `notes`. Ne pas les supprimer.
 
+## 0.71
+
+- `0016_v071_pilotage.sql` : réglages de l'appli (`app_flags`, mode
+  maintenance), sauvegardes complètes (`backup.weekly`, liste, export), bugs
+  signalés (bucket privé `bugs`), statistiques d'usage, export RGPD, comptes
+  inactifs.
+
 ## 0.70
 
 - `0014_v070_echanges.sql` : réponses, réactions et message épinglé dans le

@@ -8,6 +8,18 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.71 · 2 novembre 2026 · majeure
+--------------------------------
+Signaler un bug depuis Profil › Réglages, avec capture d'écran facultative ;
+la version, le téléphone et l'écran ouvert sont joints automatiquement.
+Mes données : export complet du compte en un fichier (RGPD). Les comptes
+inutilisés depuis presque 2 ans sont prévenus, puis peuvent être supprimés.
+« Quoi de neuf » : après une mise à jour, une fenêtre résume les nouveautés.
+Développeur : mode maintenance avec écran d'attente pour les membres,
+statistiques d'usage (actifs par jour, rétention, écrans les plus ouverts),
+bugs reçus, sauvegardes de toutes les tables chaque semaine (8 semaines)
+téléchargeables, et sauvegarde à la demande.
+
 0.70 · 2 novembre 2026 · majeure
 --------------------------------
 Messages privés : bouton ✉️ dans le chat et « Écrire » sur chaque profil. Une
