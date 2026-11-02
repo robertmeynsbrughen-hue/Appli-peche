@@ -317,9 +317,28 @@ $$("#post-mode button").forEach(b=>b.addEventListener("click",()=>{
   postMode=postMode===b.dataset.m?"none":b.dataset.m;
   $$("#post-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.m===postMode)));
   try{ localStorage.setItem("cdj-mode",postMode); }catch(e){}
-  refreshUI(); hooks.mode?.(postMode);
+  if(postMode==="none") tilesOpen=false;
+  syncTiles(); refreshUI(); hooks.mode?.(postMode);
 }));
-try{ const m=localStorage.getItem("cdj-mode"); if(m==="post"||m==="bilan"||m==="carp"||m==="none"){ postMode=m; $$("#post-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.m===m))); } }catch(e){}
+// au démarrage, seule une session carpe en cours reste ouverte : le formulaire de prise ne prend plus la place des photos du fil
+try{ const m=localStorage.getItem("cdj-mode"); if(m==="carp"){ postMode=m; $$("#post-mode button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.m===m))); } }catch(e){}
+// les trois tuiles sont rangées derrière un seul bouton
+let tilesOpen=false;
+const tilesToggle=el("button","st-toggle"); tilesToggle.type="button"; tilesToggle.setAttribute("aria-controls","post-mode");
+tilesToggle.addEventListener("click",()=>{
+  if(postMode!=="none"){ $('#post-mode button[data-m="'+postMode+'"]')?.click(); tilesOpen=false; }
+  else tilesOpen=!tilesOpen;
+  syncTiles();
+});
+$("#post-mode").prepend(tilesToggle);
+function syncTiles(){
+  const open=tilesOpen||postMode!=="none";
+  $("#post-mode").classList.toggle("collapsed",!open);
+  tilesToggle.setAttribute("aria-expanded",String(open));
+  tilesToggle.innerHTML="";
+  tilesToggle.append(el("span","stt-ico",open?"✕":"📸"),el("span","stt-t",open?"Fermer":"Nouvelle prise"),el("span","stt-s",open?"":"prise, bilan ou session carpe"));
+}
+syncTiles();
 
 // ---------- Comptes (e-mail + mot de passe) ----------
 let authMode="login";

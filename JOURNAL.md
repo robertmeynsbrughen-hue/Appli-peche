@@ -8,6 +8,13 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.69.2 · 2 novembre 2026 · mineure
+----------------------------------
+Fil : les tuiles Prise, Bilan et Session carpe sont rangées derrière un seul
+bouton « Nouvelle prise », et le formulaire ne se rouvre plus tout seul au
+démarrage (sauf une session carpe en cours). Les premières photos du fil sont
+visibles dès l'ouverture.
+
 0.69.1 · 2 novembre 2026 · mineure
 ----------------------------------
 Type de pêche : chacun choisit jusqu'à 3 étiquettes dans son profil (Carpiste,
