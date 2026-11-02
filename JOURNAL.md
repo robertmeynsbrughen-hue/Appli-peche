@@ -8,6 +8,19 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.75 · 3 novembre 2026 · majeure
+--------------------------------
+- Version anglaise, phase 2 : écrans de préparation de sortie, fiches espèces,
+  conseils de leurres et de couleurs, sessions carpe, check-lists, carte,
+  Fishdex et trophées, modération (environ 550 textes de plus). Restent en
+  français pour la phase 3 : fiches nœuds, montages, assistant et calculateurs,
+  et les notifications envoyées par le serveur.
+- Notification push aux administrateurs pour chaque bug signalé (0023,
+  fonction Supabase « alerte »).
+- Performances de la base (0024) : index sur les 69 clés étrangères, identité
+  du membre calculée une fois par requête dans les 91 règles d'accès, index en
+  double supprimé.
+
 0.74.1 · 2 novembre 2026 · mineure
 ----------------------------------
 - Plan de reprise : reconstruction à blanc validée (migration 0018 qui recopie
