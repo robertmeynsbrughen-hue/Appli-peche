@@ -1,5 +1,5 @@
 // Rivio : fonction Supabase « share » (publique).
-// Renvoie les infos d'une prise partagée par lien, sans compte, avec une photo signée pour 7 jours.
+// Renvoie les infos d'une prise partagée par lien, sans compte, avec une photo signée pour 24 heures.
 const URL_ = Deno.env.get("SUPABASE_URL")!, KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type", "Cache-Control": "public, max-age=300" };
 async function db(path: string) {
@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     const paths: string[] = (p.photo_paths && p.photo_paths.length) ? p.photo_paths : (p.photo_path ? [p.photo_path] : []);
     const photos: string[] = [];
     for (const path of paths.slice(0, 6)) {
-      const r = await fetch(URL_ + "/storage/v1/object/sign/photos/" + path, { method: "POST", headers: { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json" }, body: JSON.stringify({ expiresIn: 7 * 86400 }) });
+      const r = await fetch(URL_ + "/storage/v1/object/sign/photos/" + path, { method: "POST", headers: { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json" }, body: JSON.stringify({ expiresIn: 86400 }) });
       if (r.ok) { const j = await r.json(); if (j.signedURL) photos.push(URL_ + "/storage/v1" + j.signedURL); }
     }
     return Response.json({
