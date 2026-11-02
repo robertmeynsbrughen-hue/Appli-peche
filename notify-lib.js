@@ -92,6 +92,35 @@ async function moderators(g, exclude) {
   return [...ids].map((user_id) => ({ user_id }));
 }
 
+// Ménage du stockage : efface par l'API Storage les fichiers que la base a mis
+// en file d'attente (prise, message, compte supprimés, avatar remplacé…) et, la
+// nuit, ceux qui ne sont plus référencés nulle part. La base choisit les fichiers
+// (purge_candidates) : un fichier encore utilisé n'est jamais proposé.
+async function purgeFiles(sweep) {
+  const rows = await db("rpc/purge_candidates", { method: "POST", body: JSON.stringify({ p_sweep: sweep }) });
+  const byBucket = {};
+  for (const r of rows || []) (byBucket[r.bucket] ||= new Set()).add(r.name);
+  let deleted = 0; const errors = []; const failed = new Set();
+  for (const [bucket, set] of Object.entries(byBucket)) {
+    const names = [...set];
+    for (let i = 0; i < names.length; i += 100) {
+      const part = names.slice(i, i + 100);
+      const r = await fetch(SB_URL + "/storage/v1/object/" + bucket, {
+        method: "DELETE",
+        headers: { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ prefixes: part }),
+      });
+      if (r.ok) deleted += ((await r.json()) || []).length;
+      else { errors.push(bucket + " " + r.status); part.forEach((n) => failed.add(bucket + "/" + n)); }
+    }
+  }
+  const ok = (rows || []).filter((r) => r.id && !failed.has(r.bucket + "/" + r.name)).map((r) => r.id);
+  const ko = (rows || []).filter((r) => r.id && failed.has(r.bucket + "/" + r.name)).map((r) => r.id);
+  if (ok.length) await db("rpc/purge_done", { method: "POST", body: JSON.stringify({ p_ids: ok, p_ok: true }) });
+  if (ko.length) await db("rpc/purge_done", { method: "POST", body: JSON.stringify({ p_ids: ko, p_ok: false, p_error: errors.join("; ") }) });
+  return { deleted, errors };
+}
+
 export async function handle(req, cfg) {
   SB_URL = cfg.url; SB_KEY = cfg.key;
   const HOOK_SECRET = cfg.secret, VAPID = cfg.vapid;
@@ -99,6 +128,7 @@ export async function handle(req, cfg) {
   try {
     const ev = await req.json();
     const t = ev.table;
+    if (t === "purge") return Response.json(await purgeFiles(!!ev.sweep));
     if (t === "morning") return Response.json(await morning(ev, VAPID));
     if (t === "outing_reminders") return Response.json(await outingReminders(VAPID));
     if (t === "bait_reminders") return Response.json(await baitReminders(VAPID));

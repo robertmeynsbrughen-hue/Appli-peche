@@ -8,6 +8,17 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.74.1 · 2 novembre 2026 · mineure
+----------------------------------
+- Plan de reprise : reconstruction à blanc validée (migration 0018 qui recopie
+  dans le dépôt les droits d'accès de la production), sauvegarde externe
+  chiffrée chaque nuit vers Scaleway (0019, 0020), restauration testée.
+- Ménage du stockage (0021) : les photos, vocaux et avatars sont effacés dès
+  que la prise, le message ou le compte est supprimé, ou l'avatar remplacé ;
+  balayage nocturne des fichiers orphelins.
+- Liens de partage d'une prise : photo visible 24 h au lieu de 7 jours.
+- Page de confidentialité mise à jour (Scaleway, durées de conservation).
+
 0.74 · 2 novembre 2026 · majeure
 --------------------------------
 Rangement de l'interface. En-tête allégé : notifications, réglages, vue
