@@ -200,7 +200,9 @@ async function stopTrack(discard){
   if(track.layer) track.layer.clearLayers();
   if(discard||data.pts.length<2){ if(!discard) toast("Trace trop courte, rien d'enregistré"); bar(); return; }
   const title=prompt("Nom de la sortie (facultatif) :",new Date(data.start).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}))||null;
-  const {data:saved,error}=await A.sb.from("tracks").insert({user_id:A.me.id,group_id:typeof A.cur==="number"?A.cur:null,title,started_at:new Date(data.start).toISOString(),ended_at:new Date().toISOString(),points:data.pts,bites:data.bites,distance_m:Math.round(data.dist)}).select("id").single();
+  const trow={user_id:A.me.id,group_id:typeof A.cur==="number"?A.cur:null,title,started_at:new Date(data.start).toISOString(),ended_at:new Date().toISOString(),points:data.pts,bites:data.bites,distance_m:Math.round(data.dist)};
+  const {data:saved,error}=await A.sb.from("tracks").insert(trow).select("id").single();
+  if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"tracks",row:trow})){ toast("📴 Pas de réseau : trace gardée, enregistrée dès le retour du réseau · "+fmtDist(data.dist)); bar(); return; }
   if(error){ toast(frError(error)); set(TKEY,JSON.stringify(data)); return; }
   toast("Trace enregistrée · "+fmtDist(data.dist)); myTracks=null; bar();
   // bilan pré-rempli : durée, distance, touches et météo au point d'arrivée
@@ -347,8 +349,10 @@ function addDepthAt(ll){
     e.preventDefault();
     if(!di.value&&!bs.value) return toast("Indique une profondeur ou un type de fond");
     ok.disabled=true;
-    const {error}=await A.sb.from("depth_points").insert({group_id:A.cur,user_id:A.me.id,lat:+ll.lat.toFixed(6),lon:+ll.lng.toFixed(6),depth_m:di.value?Number(di.value):null,bottom:bs.value||null,note:ni.value.trim()||null});
+    const drow={group_id:A.cur,user_id:A.me.id,lat:+ll.lat.toFixed(6),lon:+ll.lng.toFixed(6),depth_m:di.value?Number(di.value):null,bottom:bs.value||null,note:ni.value.trim()||null};
+    const {error}=await A.sb.from("depth_points").insert(drow);
     ok.disabled=false;
+    if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"depth_points",row:drow})){ map.closePopup(); return toast("📴 Relevé gardé : il sera ajouté dès le retour du réseau"); }
     if(error) return toast(frError(error));
     map.closePopup(); toast("Relevé ajouté"); await loadDepth(); drawDepth(); fondPanel();
   });

@@ -123,8 +123,10 @@ function baitSheet(){
     if(!picked.size&&!qi.value&&!ni.value.trim()) return toast("Indique au moins le mélange ou la quantité");
     ok.disabled=true;
     const sp=ss.value?Number(ss.value):null, spot=A.spots.find(s=>s.id===sp);
-    const {error}=await A.sb.from("baitings").insert({user_id:A.me.id,group_id:spot?.group_id??(typeof A.cur==="number"?A.cur:null),spot_id:sp,at:new Date(di.value).toISOString(),mix:[...picked],qty_kg:qi.value?Number(qi.value):null,note:ni.value.trim()||null});
+    const brow={user_id:A.me.id,group_id:spot?.group_id??(typeof A.cur==="number"?A.cur:null),spot_id:sp,at:new Date(di.value).toISOString(),mix:[...picked],qty_kg:qi.value?Number(qi.value):null,note:ni.value.trim()||null};
+    const {error}=await A.sb.from("baitings").insert(brow);
     ok.disabled=false;
+    if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"baitings",row:brow})){ toast("📴 Amorçage gardé : noté dès le retour du réseau"); qi.value=""; return; }
     if(error) return toast(frError(error));
     toast("🥣 Amorçage noté"); qi.value=""; picked.clear(); mixBox.querySelectorAll(".pick").forEach(b=>{ b.classList.remove("on"); b.setAttribute("aria-pressed","false"); });
     fill(listBox);

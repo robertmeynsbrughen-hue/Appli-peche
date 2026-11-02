@@ -67,6 +67,7 @@ function waterForm(spot){
     const row={group_id:s?.group_id??gid,spot_id:s?.id??null,lat:+pos.lat.toFixed(5),lon:+pos.lon.toFixed(5),color:c.value||null,level:lv.value||null,temp,weeds:hc.checked||null,note:ni.value.trim()||null};
     const {data,error}=await A.sb.from("water_reports").insert(row).select("id,group_id,user_id,spot_id,lat,lon,color,level,temp,weeds,note,created_at").single();
     ok.disabled=false;
+    if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"water_reports",row})){ close(); return toast("📴 Bulletin gardé : il sera partagé dès le retour du réseau"); }
     if(error) return toast(frError(error));
     close(); toast("💧 Merci ! Bulletin partagé pour 48 h");
     const r={...(data||row),created_at:data?.created_at||new Date().toISOString(),profiles:{username:A.me.username}};
@@ -154,11 +155,12 @@ function envForm(gid,done){
     e.preventDefault(); if(!kind) return toast("Choisis le type de problème");
     ok.disabled=true; ok.textContent="Envoi…";
     const pos=await here(); if(!pos){ ok.disabled=false; ok.textContent="Signaler au groupe"; return toast("Position introuvable : autorise la localisation"); }
-    let photo_path=null;
-    if(ph.files?.[0]){ try{ const blob=await A.compress(ph.files[0]); const path=gid+"/"+A.me.id+"/env-"+Date.now()+".jpg"; const {error}=await A.sb.storage.from("photos").upload(path,blob,{contentType:"image/jpeg"}); if(!error) photo_path=path; }catch(_){} }
+    let photo_path=null, blob=null;
+    if(ph.files?.[0]){ try{ blob=await A.compress(ph.files[0]); const path=gid+"/"+A.me.id+"/env-"+Date.now()+".jpg"; const {error}=await A.sb.storage.from("photos").upload(path,blob,{contentType:"image/jpeg"}); if(!error) photo_path=path; }catch(_){} }
     const row={group_id:gid,kind,lat:pos.lat,lon:pos.lon,place:pi.value.trim()||null,details:di.value.trim()||null,photo_path};
     const {data,error}=await A.sb.from("env_reports").insert(row).select("id,created_at").single();
     ok.disabled=false; ok.textContent="Signaler au groupe";
+    if(error&&A.offline?.isNetErr(error)&&await A.offline.enqueue({kind:"insert",table:"env_reports",row,blob:photo_path?null:blob,photoCol:"photo_path"})){ close(); return toast("📴 Signalement gardé : il partira au groupe dès le retour du réseau"); }
     if(error) return toast(frError(error));
     close(); toast("🌿 Signalement envoyé au groupe");
     done?.();

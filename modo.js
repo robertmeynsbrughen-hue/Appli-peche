@@ -645,17 +645,36 @@ async function renderMembers(gmap,schema){
     card.append(el("h4","g-sub","Appliquer un timeout"));
     card.append(el("p","note warn","Formulaire désactivé : la base n'applique pas encore complètement les sanctions. Applique les migrations indiquées en haut de la page, puis clique sur « Vérifier à nouveau »."));
   }else{
-    card.append(el("h4","g-sub","Appliquer un timeout"));
+    card.append(el("h4","g-sub","Avertir ou suspendre"));
+    // dossier du membre : on propose le palier suivant (avertissement, puis 24 h, puis 7 jours)
+    const rec=await A.sb.rpc("member_record",{p_user:p.id});
+    const next=rec.data?.next||null;
+    if(rec.data){
+      const d=rec.data, box=el("div","record-box");
+      box.append(el("b",null,"Dossier sur 6 mois : "+(d.warnings?d.warnings+" avertissement"+(d.warnings>1?"s":""):"aucun avertissement")+" · "+(d.timeouts?d.timeouts+" suspension"+(d.timeouts>1?"s":""):"aucune suspension")));
+      box.append(el("span","note","Palier conseillé : "+(next==="warning"?"⚠️ un avertissement":next==="1440"?"⏳ 24 heures":"⏳ 7 jours")+". Tu restes libre de choisir."));
+      card.append(box);
+    }
     const f=el("form","mod-form");
-    const dur=el("label","field","Durée");
-    const sel=el("select"); TIMEOUTS.forEach(([v,l])=>sel.append(new Option(l,v))); dur.append(sel);
-    const why=el("label","field","Motif (obligatoire)");
+    const dur=el("label","field","Mesure");
+    const sel=el("select"); sel.append(new Option("⚠️ Avertissement (sans suspension)","warn")); TIMEOUTS.forEach(([v,l])=>sel.append(new Option("⏳ Suspension "+l,v))); dur.append(sel);
+    sel.value=next==="warning"||!next?"warn":next;
+    const why=el("label","field","Motif (obligatoire, visible par le membre)");
     const reason=el("input"); reason.required=true; reason.minLength=3; reason.maxLength=300; reason.placeholder="Ex. : insultes répétées dans le chat"; why.append(reason);
+    const chips=el("div","chips reason-chips");
+    ["Propos insultants ou agressifs","Spam ou publicité","Contenu inapproprié","Hors sujet à répétition","Spot dévoilé sans accord","Poisson sous la taille légale gardé"].forEach(r=>{ const c=btn(r,"chip pick",()=>{ reason.value=r; reason.focus(); }); chips.append(c); });
     const err=el("p","err"); err.hidden=true;
-    const ok=el("button","btn primary","Appliquer le timeout"); ok.type="submit";
-    f.append(dur,why,err,ok);
+    const ok=el("button","btn primary","Appliquer"); ok.type="submit";
+    const label=()=>{ ok.textContent=sel.value==="warn"?"Envoyer l'avertissement":"Appliquer la suspension"; };
+    sel.addEventListener("change",label); label();
+    f.append(dur,why,chips,err,ok);
     f.addEventListener("submit",async e=>{
       e.preventDefault(); showErr(err); ok.disabled=true;
+      if(sel.value==="warn"){
+        const {error}=await A.sb.rpc("warn_member",{p_user:p.id,p_reason:reason.value.trim()});
+        if(error){ showErr(err,frError(error)); ok.disabled=false; return; }
+        toast("⚠️ Avertissement envoyé à @"+p.username); render({keepScroll:true,y:window.scrollY}); return;
+      }
       const {error}=await A.sb.rpc("apply_timeout",{p_user:p.id,p_minutes:Number(sel.value),p_reason:reason.value.trim()});
       if(error){
         showErr(err,frError(error)); ok.disabled=false;
@@ -882,6 +901,14 @@ async function render(opts){
     const members=await renderMembers(gmap,schema); if(mySeq!==seq) return; members.id="mod-members"; root.append(members);
     const gs=await renderGroups(groups); if(mySeq!==seq) return; gs.id="mod-groups"; root.append(gs);
     if(A.me.is_admin){ const cs=await renderControllers(); if(mySeq!==seq) return; cs.id="mod-controllers"; root.append(cs); }
+    const X=A.adminSections;
+    if(X){
+      const j=await X.journal(gmap); if(mySeq!==seq) return; j.id="mod-journal"; root.append(j);
+      if(A.me.is_admin){
+        const an=await X.annonces(); if(mySeq!==seq) return; an.id="mod-annonces"; root.append(an);
+        const sa=await X.sante(); if(mySeq!==seq) return; sa.id="mod-sante"; root.append(sa);
+      }
+    }
   }catch(e){
     if(mySeq!==seq) return;
     root.append(errLine(e));

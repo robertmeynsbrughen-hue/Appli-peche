@@ -55,8 +55,16 @@ async function flushNow(){
           const {error}=await A.sb.from("posts").insert({...it.row,photo_path:paths[0]||null,photo_paths:paths.length?paths:null});
           if(error){ if(paths.length) await A.sb.storage.from("photos").remove(paths); throw error; }
         }else{
-          const {error}=await A.sb.from(it.table).insert(it.row);
-          if(error) throw error;
+          const row={...it.row};
+          let up=null;
+          if(it.blob&&it.photoCol&&row.group_id!=null){
+            up=row.group_id+"/"+A.me.id+"/hl-"+it.id+"-"+Date.now()+".jpg";
+            const {error}=await A.sb.storage.from("photos").upload(up,it.blob,{contentType:"image/jpeg"});
+            if(error) throw error;
+            row[it.photoCol]=up;
+          }
+          const {error}=await A.sb.from(it.table).insert(row);
+          if(error){ if(up) await A.sb.storage.from("photos").remove([up]); throw error; }
         }
         await del(it.id); done++;
       }catch(e){
@@ -82,7 +90,7 @@ pill.addEventListener("click",async()=>{
   if(navigator.onLine) flush(); else A.toast("Toujours hors ligne : l'envoi partira dès le retour du réseau");
 });
 // envois refusés : réessayer (éventuellement dans le groupe actuel) ou supprimer
-const KIND={post:"Prise",sessions:"Bilan",messages:"Message",carp_events:"Événement carpe"};
+const KIND={post:"Prise",sessions:"Bilan",messages:"Message",carp_events:"Événement carpe",water_reports:"Bulletin d'eau",env_reports:"Signalement environnement",tracks:"Trace de sortie",depth_points:"Relevé de fond",structures:"Structure",spots:"Spot",baitings:"Amorçage"};
 async function refusedSheet(){
   const {el,toast}=A;
   const back=el("div","sheet-back"), sh=el("div","sheet"); sh.setAttribute("role","dialog"); sh.setAttribute("aria-modal","true"); sh.setAttribute("aria-label","Envois refusés");
@@ -119,7 +127,7 @@ async function updatePill(){
   pill.classList.toggle("bad",!!bad&&!off);
   if(bad&&!off){ pill.textContent="⚠️ "+bad+" envoi"+(bad>1?"s":"")+" refusé"+(bad>1?"s":"")+" · touche pour voir"; pill.setAttribute("aria-label",pill.textContent); return; }
   pill.classList.toggle("off",off);
-  pill.textContent=off?"📴 Hors ligne"+(n?" · "+n+" élément"+(n>1?"s":"")+" en attente d'envoi":" · tes prises partiront au retour du réseau"):"⏳ "+n+" envoi"+(n>1?"s":"")+" en attente · touche pour réessayer";
+  pill.textContent=off?"📴 Hors ligne"+(n?" · "+n+" élément"+(n>1?"s":"")+" en attente d'envoi":" · ce que tu notes partira au retour du réseau"):"⏳ "+n+" envoi"+(n>1?"s":"")+" en attente · touche pour réessayer";
   pill.setAttribute("aria-label",(off?"Hors ligne. ":"")+(n?n+" envoi"+(n>1?"s":"")+" en attente":""));
 }
 
@@ -129,6 +137,18 @@ setInterval(()=>{ if(navigator.onLine) flush(); },60000);
 const prevChange=A.hooks.change;
 A.hooks.change=()=>{ prevChange?.(); updatePill(); if(A.me) flush(); };
 
-A.offline={enqueue,flush,isNetErr,count:async()=>(await all()).length};
+// insertion qui bascule dans la file d'attente quand le réseau manque :
+// renvoie {error} comme Supabase, avec queued:true si l'envoi attend le réseau
+async function insert(table,row,opts){
+  opts=opts||{};
+  let res;
+  if(navigator.onLine){
+    try{ res=await A.sb.from(table).insert(row); }catch(e){ res={error:e}; }
+    if(!res.error||!isNetErr(res.error)) return {error:res.error||null,queued:false};
+  }
+  const ok=await enqueue({kind:"insert",table,row,blob:opts.blob||null,photoCol:opts.photoCol||null});
+  return ok?{error:null,queued:true}:{error:res?.error||new Error("Pas de réseau"),queued:false};
+}
+A.offline={enqueue,flush,isNetErr,insert,count:async()=>(await all()).length};
 updatePill(); if(A.me) flush();
 })();
