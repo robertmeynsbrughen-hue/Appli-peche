@@ -95,7 +95,6 @@ async function openInvite(){
     const left=end-Date.now();
     timer.textContent="Expire dans "+fmtLeft(left);
     if(left<=0){ timer.textContent="Invitation expirée"; clearInterval(tick); }
-    else tick;
   },1000);
   timer.textContent="Expire dans "+fmtLeft(end-Date.now());
 
@@ -114,4 +113,50 @@ A.hooks.groupeRendered=root=>{
 };
 
 A.openInvite=openInvite;
+
+/* ---------- Arrivée par un lien d'invitation ----------
+   Le jeton est gardé sur le téléphone (24 h au plus) : il sert après la connexion,
+   ou juste après la création du profil pour un nouveau venu. */
+const TKEY="cdj-invite-token";
+const getTok=()=>{ try{ const o=JSON.parse(localStorage.getItem(TKEY)||"null"); if(o&&Date.now()-o.at<864e5) return o.t; localStorage.removeItem(TKEY); }catch(_){} return null; };
+const setTok=t=>{ try{ if(t) localStorage.setItem(TKEY,JSON.stringify({t,at:Date.now()})); else localStorage.removeItem(TKEY); }catch(_){} };
+try{
+  const q=new URLSearchParams(location.search), t=q.get("invite");
+  if(t){ setTok(t.slice(0,128)); q.delete("invite"); history.replaceState(null,"",location.pathname+(q.toString()?"?"+q:"")+location.hash); }
+}catch(_){}
+let busy=false, shown=false, ready=false;   // ready : la session a été vérifiée au démarrage
+async function welcome(t){
+  // pas encore de compte : on dit clairement qui invite, et on propose l'inscription
+  if(shown||!A.sb) return; shown=true;
+  const {data}=await A.sb.rpc("peek_invite",{p_token:t});
+  const info=data&&data[0];
+  if(!info){ setTok(null); toast("Ce lien d'invitation a expiré : demande un nouveau lien à ton pote."); return; }
+  location.hash="#profil";
+  setTimeout(()=>{
+    document.querySelector('#auth-mode [data-m="signup"]')?.click();
+    let n=$("#invite-note"); if(!n){ n=el("p","ok-msg"); n.id="invite-note"; $("#auth-form")?.prepend(n); }
+    n.textContent="👋 Tu es invité dans le groupe « "+info.name+" ». Crée ton compte ci-dessous, ou connecte-toi si tu en as déjà un : tu rejoindras le groupe automatiquement"+(info.require_approval?" (un modérateur validera ton arrivée).":".");
+  },300);
+}
+async function redeem(){
+  const t=getTok(); if(!t||busy||!A.sb||!ready) return;
+  if(!A.me){ welcome(t); return; }
+  busy=true;
+  try{
+    const {data:gid,error}=await A.sb.rpc("redeem_invite",{p_token:t});
+    if(error){
+      if(/profil à terminer/i.test(error.message||"")) return;   // on réessaiera après la création du profil
+      setTok(null); toast(frError(error)); return;
+    }
+    setTok(null); $("#invite-note")?.remove();
+    await A.loadGroups();
+    const g=A.groups.find(x=>x.id===gid);
+    if(g){ A.setGroup(gid); toast("Bienvenue dans « "+g.name+" » !"); location.hash="#fil"; }
+    else toast("Demande envoyée : un modérateur doit valider ton arrivée");
+  }finally{ busy=false; }
+}
+A.hooks.inviteReady=()=>{ ready=true; redeem(); };
+const prevCh=A.hooks.change; A.hooks.change=(...a)=>{ prevCh?.(...a); if(getTok()) setTimeout(redeem,200); };
+// la session a pu être vérifiée avant le chargement de ce module
+if(window.CDJ_BOOTED){ ready=true; setTimeout(redeem,0); }
 })();

@@ -2166,7 +2166,7 @@ begin
     url := 'https://gnamfqwbzmwivjagwogy.supabase.co/functions/v1/notify',
     body := payload,
     headers := jsonb_build_object('Content-Type', 'application/json',
-      'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduYW1mcXdiem13aXZqYWd3b2d5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMjkxNDAsImV4cCI6MjEwODgwNTE0MH0.XVcLscEz9Dr87ZJVy7FLDFse4OWy5yOFFssHe-gsm7I', 'x-hook-secret', 'eb1a8fb8485ac14ba846a79a579d8a882dd4912ac6c936e2'),
+      'Authorization', 'Bearer <CLE_ANON>', 'x-hook-secret', '<SECRET_NOTIFY>'),
     timeout_milliseconds := 60000);
 end;
 $function$;
@@ -2386,8 +2386,8 @@ begin
       body := payload,
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduYW1mcXdiem13aXZqYWd3b2d5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMjkxNDAsImV4cCI6MjEwODgwNTE0MH0.XVcLscEz9Dr87ZJVy7FLDFse4OWy5yOFFssHe-gsm7I',
-        'x-hook-secret', 'eb1a8fb8485ac14ba846a79a579d8a882dd4912ac6c936e2'));
+        'Authorization', 'Bearer <CLE_ANON>',
+        'x-hook-secret', '<SECRET_NOTIFY>'));
   exception when others then null;
   end;
   return NEW;

@@ -8,6 +8,24 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.68 · 2 novembre 2026 · majeure
+--------------------------------
+Liens d'invitation : un lien respecte désormais la validation par un modérateur,
+la limite de membres du groupe et les sanctions en cours. Un nouveau venu qui
+ouvre un lien voit le nom du groupe, crée son compte, puis rejoint le groupe
+automatiquement (le lien est gardé 24 h). Un lien expiré l'indique clairement.
+Le doublon caché du bouton « Inviter » est retiré.
+Groupes : un propriétaire peut de nouveau supprimer son groupe ou le quitter
+après avoir désigné un successeur (ces deux actions étaient bloquées).
+Sanctions : un membre suspendu ne peut plus rien publier de visible par le
+groupe (défis, compétitions, bilans, zones, structures, relevés d'eau, votes,
+réactions, partages, profil public…). Ses outils personnels restent utilisables.
+« Je pars pêcher » reste possible pour sa sécurité, sans note ni notification
+au groupe. Il peut toujours signaler un membre ou un contenu.
+Base de données : le dépôt et la base correspondent de nouveau (migrations
+0010 et 0011, tâches planifiées nommées, règles de stockage). Le secret des
+notifications a été changé et retiré du dépôt public.
+
 0.67.2 · 31 octobre 2026 · correctif
 ------------------------------------
 Remplace la feuille de style tronquée au chargement par sa version complète.

@@ -32,6 +32,8 @@ function frError(e){
   // Les messages de sanction sont déjà rédigés en français côté base : on les
   // laisse passer tels quels et on évite le faux positif « timeout » ci-dessous.
   if(/suspendu|suspendue|sanction temporaire/i.test(m)) return m;
+  if(/profil à terminer/i.test(m)) return "Termine d'abord ton profil (choisis un pseudo), puis l'invitation sera utilisée.";
+  if(/invitation expirée ou invalide|invitation invalide/i.test(m)) return "Ce lien d'invitation a expiré ou n'est plus valable : demande un nouveau lien.";
   if(/pseudo legacy/i.test(m)) return "Pseudo ou mot de passe incorrect. Si tu as ajouté un e-mail à ton compte, connecte-toi avec ton e-mail.";
   if(/Invalid login/i.test(m)) return "E-mail ou mot de passe incorrect.";
   if(/pseudo pris/i.test(m)) return "Ce pseudo est déjà pris, choisis-en un autre.";
@@ -1083,15 +1085,8 @@ async function init(){
 
   sb.auth.onAuthStateChange(ev=>{ if(ev==="SIGNED_OUT"){ markDirty(); resetState(); refreshUI(); } });
   try{ await loadMe(); }catch(e){}
-  // Lien d'invitation : on le consomme une fois la session établie.
-  try{
-    const m=location.search.match(/[?&]invite=([^&]+)/);
-    if(m&&me){
-      const {error}=await sb.rpc("redeem_invite",{p_token:decodeURIComponent(m[1])});
-      if(error) toast(frError(error));
-      else{ history.replaceState(null,"",location.pathname+location.hash); toast("Groupe rejoint !"); await loadGroups(); refreshUI(); }
-    }
-  }catch(_){ }
+  // Lien d'invitation : géré par invite.js (gardé de côté, puis consommé après connexion ou inscription)
+  window.CDJ_BOOTED=true; hooks.inviteReady?.();
   markDirty(); route();
 }
 init();
