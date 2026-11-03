@@ -8,6 +8,12 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.75.4 · 3 novembre 2026 · corrective
+------------------------------------
+- Chat de groupe : précise la clé de jointure auteur quand il charge le profil,
+  sans confusion avec la clé du membre ayant épinglé le message.
+- Chat : remplace la couronne du développeur par 🛠️.
+
 0.75.3 · 3 novembre 2026 · mineure
 ----------------------------------
 - Fil : les stories gardent les 60 prises les plus récentes avant l'affichage.
