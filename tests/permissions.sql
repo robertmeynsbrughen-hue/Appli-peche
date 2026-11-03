@@ -28,6 +28,20 @@ insert into public.messages (group_id, user_id, body) values
 insert into public.posts (group_id, user_id, species, status) values
   (900001, '00000000-0000-4000-8000-0000000000a1', 'Carpe', 'published'),
   (900002, '00000000-0000-4000-8000-0000000000b2', 'Brochet', 'published');
+with t as (
+  insert into public.tracks (user_id, group_id, started_at, ended_at, points)
+  values ('00000000-0000-4000-8000-0000000000a1', 900001, now(), now() + interval '1 hour', '[ [46.5, 1.5], [46.6, 1.6] ]'::jsonb)
+  returning id
+)
+insert into public.sessions (group_id, user_id, species, caught, rating, track_id)
+select 900001, '00000000-0000-4000-8000-0000000000a1', 'Carpe', true, 3, id from t;
+with t as (
+  insert into public.tracks (user_id, group_id, started_at, ended_at, points)
+  values ('00000000-0000-4000-8000-0000000000b2', 900002, now(), now() + interval '1 hour', '[ [47.5, 2.5] ]'::jsonb)
+  returning id
+)
+insert into public.sessions (group_id, user_id, species, caught, rating, track_id)
+select 900002, '00000000-0000-4000-8000-0000000000b2', 'Brochet', true, 3, id from t;
 insert into public.subscriptions (purchase_token, user_id, product_id, status, expires_at) values
   ('test-token-b', '00000000-0000-4000-8000-0000000000b2', 'rivio_premium', 'active', now() + interval '30 days');
 set local session_replication_role = origin;
@@ -68,6 +82,12 @@ begin
   if has_function_privilege('authenticated', 'public.call_notify(jsonb)', 'execute') then
     raise exception 'ÉCHEC le client peut appeler call_notify';
   end if;
+  if has_function_privilege('anon', 'public.heatmap_track_starts(bigint)', 'execute') then
+    raise exception 'ÉCHEC un visiteur sans compte peut appeler heatmap_track_starts';
+  end if;
+  if not has_function_privilege('authenticated', 'public.heatmap_track_starts(bigint)', 'execute') then
+    raise exception 'ÉCHEC un membre ne peut pas charger les points de départ de la carte de chaleur';
+  end if;
   if exists (select 1 from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and not c.relrowsecurity) then
     raise exception 'ÉCHEC table sans RLS : %', (select string_agg(relname, ', ') from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and not c.relrowsecurity);
   end if;
@@ -93,6 +113,13 @@ begin
   if n <> 0 then raise exception 'ÉCHEC le membre A voit les messages du groupe B'; end if;
   select count(*) into n from public.posts where group_id = 900002;
   if n <> 0 then raise exception 'ÉCHEC le membre A voit les prises du groupe B'; end if;
+  select count(*) into n from public.heatmap_track_starts(900001);
+  if n <> 1 then raise exception 'ÉCHEC la carte de chaleur ne renvoie pas la trace du groupe A'; end if;
+  if not exists (select 1 from public.heatmap_track_starts(900001) where lat = 46.5 and lon = 1.5) then
+    raise exception 'ÉCHEC la carte de chaleur ne renvoie pas le premier point de la trace';
+  end if;
+  select count(*) into n from public.heatmap_track_starts(900002);
+  if n <> 0 then raise exception 'ÉCHEC le membre A voit les points de départ des traces du groupe B'; end if;
 
   update public.profiles set bio = 'piraté' where id = '00000000-0000-4000-8000-0000000000b2';
   get diagnostics n = row_count;

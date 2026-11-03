@@ -1,5 +1,5 @@
 /* Rivio : service worker (fonctionnement hors ligne) */
-const VERSION="cdj-v94";
+const VERSION="cdj-v95";
 const SHELL=["./","index.html","styles.css","i18n-en.js","i18n.js","advice.js","social.js","groupe.js","card.js","extras.js","peche.js","alerts.js","offline.js","logbook.js","species.js","dex.js","reco.js","outings.js","maptools.js","profile.js","layout.js","tools.js","lures.js","compet.js","modo.js","admin.js","echanges.js","exif.js","pilotage.js","share.js","maplayers.js","stock.js","gofish.js","voice.js","today.js","ui.js","feed.js","onboard.js","postsheet.js","sharein.js","calendar.js","knots.js","fraie.js","carpe2.js","account.js","techniques.js","notifs.js","calc.js","previsions.js","environnement.js","structures.js","assistant.js","recap.js","nav.js","rangement.js","invite.js","share.html","confidentialite.html","config.js","manifest.webmanifest",
   "icon-192.png","badge-96.png","logo.svg","logo-96.png"];
 const CDN=["unpkg.com","cdn.jsdelivr.net","fonts.googleapis.com","fonts.gstatic.com"];
@@ -26,9 +26,24 @@ self.addEventListener("fetch",e=>{
   if(req.method!=="GET") return;
   const url=new URL(req.url);
   if(url.origin===location.origin){
-    // réseau d'abord pour recevoir les mises à jour, cache si hors ligne
-    e.respondWith(fetch(req,{cache:"no-cache"}).then(r=>{ const cp=r.clone(); caches.open(VERSION).then(c=>c.put(req,cp)); return r; })
-      .catch(()=>caches.match(req).then(r=>r||caches.match("index.html"))));
+    // Réseau d'abord pour recevoir les mises à jour, mais sans bloquer longtemps
+    // sur une connexion mobile qui reste ouverte sans répondre.
+    e.respondWith((async()=>{
+      const cached=await caches.match(req);
+      const offline=async()=>cached||(req.mode==="navigate"?await caches.match("index.html"):new Response("",{status:504,statusText:"Offline"}));
+      const ctl=new AbortController();
+      const timeout=setTimeout(()=>ctl.abort(),2500);
+      try{
+        const r=await fetch(req,{cache:"no-cache",signal:ctl.signal});
+        clearTimeout(timeout);
+        if(r.ok){ const cp=r.clone(); caches.open(VERSION).then(c=>c.put(req,cp)).catch(()=>{}); }
+        if(r.status>=500&&cached) return cached;
+        return r;
+      }catch(_){
+        clearTimeout(timeout);
+        return offline();
+      }
+    })());
   }else if(url.hostname==="data.geopf.fr"){
     // tuiles IGN : celles téléchargées pour le hors ligne d'abord, sinon le réseau
     e.respondWith(caches.open("cdj-tiles").then(c=>c.match(req.url).then(r=>r||fetch(req).catch(()=>new Response("",{status:504})))));

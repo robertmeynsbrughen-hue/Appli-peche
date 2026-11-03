@@ -43,9 +43,11 @@ async function doLoad(){
   if(!A.me||!A.groups.length||A.cur==null) return;
   if(document.querySelector("#v-fil")?.hidden){ storiesDue=true; return; } // chargé à l'ouverture du fil
   storiesDue=false;
-  let q=A.sb.from("posts").select("id,group_id,user_id,species,length_cm,weight_kg,caption,photo_path,photo_paths,created_at,profiles!posts_user_id_fkey(username)").eq("status","published").gte("created_at",new Date(Date.now()-24*36e5).toISOString()).order("created_at").limit(60);
+  // Récupérer les plus récentes avant la limite, puis garder un ordre chronologique
+  // pour la lecture des stories. Sans ascending:false, Supabase renvoie les plus anciennes.
+  let q=A.sb.from("posts").select("id,group_id,user_id,species,length_cm,weight_kg,caption,photo_path,photo_paths,created_at,profiles!posts_user_id_fkey(username)").eq("status","published").gte("created_at",new Date(Date.now()-24*36e5).toISOString()).order("created_at",{ascending:false}).limit(60);
   if(typeof A.cur==="number") q=q.eq("group_id",A.cur);
-  const {data}=await q; const rows=(data||[]).filter(p=>(p.photo_paths&&p.photo_paths.length)||p.photo_path);
+  const {data}=await q; const rows=(data||[]).reverse().filter(p=>(p.photo_paths&&p.photo_paths.length)||p.photo_path);
   const by=new Map();
   rows.forEach(p=>{ if(!by.has(p.user_id)) by.set(p.user_id,{user:p.profiles?.username||"?",uid:p.user_id,posts:[]}); by.get(p.user_id).posts.push(p); });
   stories=[...by.values()];
