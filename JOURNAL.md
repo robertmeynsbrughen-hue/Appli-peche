@@ -8,6 +8,16 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.75.2 · 3 novembre 2026 · mineure
+----------------------------------
+- Le rôle « contrôleur » s'appelle maintenant « garde-pêche » partout dans
+  l'appli (badge, chat staff, modération, signalement), « warden » en anglais.
+  Rien ne change dans les droits. Les badges de rôle à côté d'un pseudo sont
+  maintenant traduits en anglais.
+- Annonces programmées (0026) : la notification part à l'heure de début.
+- Préparation du freemium (0027) : abonnements Google Play, revenus,
+  is_premium() ; statistiques d'usage pour le site d'administration.
+
 0.75.1 · 3 novembre 2026 · mineure
 ----------------------------------
 - Version anglaise, phase 3 : fiches nœuds et montages carpe, fiches techniques

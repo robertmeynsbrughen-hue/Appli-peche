@@ -74,7 +74,9 @@ const ATTRS=["placeholder","aria-label","title"];
 const done=new WeakMap();
 function textNode(n){
   if(done.get(n)===n.nodeValue) return;
-  const p=n.parentElement; if(!p||p.closest(SKIP)) return;
+  const p=n.parentElement; if(!p) return;
+  // les badges de rôle (Développeur, Modo, Garde-pêche…) sont de l'appli, même à côté d'un pseudo
+  if(p.closest(SKIP)&&!p.classList.contains("badge")) return;
   const v=tr(n.nodeValue);
   if(v!==n.nodeValue){
     // une option sans valeur garde sa valeur française (elle est enregistrée telle quelle)

@@ -26,7 +26,7 @@ function report({kind,target_id,group_id,excerpt,author_id}){
   const close=()=>{ back.remove(); document.removeEventListener("keydown",esc,true); }; const esc=e=>{ if(e.key==="Escape"){ e.stopPropagation(); close(); } };
   const head=el("div","sheet-head"); head.append(el("h2",null,"⚑ Signaler"));
   const x=btn("","icon-btn",close); x.setAttribute("aria-label","Fermer"); x.innerHTML='<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>'; head.append(x);
-  sh.append(head, el("p","note","Les modérateurs du groupe et les contrôleurs seront prévenus. Ton signalement reste discret."));
+  sh.append(head, el("p","note","Les modérateurs du groupe et les gardes-pêche seront prévenus. Ton signalement reste discret."));
   if(excerpt) sh.append(el("p","modo-ex",excerpt));
   const f=el("form","report-form"); let pick=REASONS[0];
   const opts=el("div","chips-pick");
@@ -68,7 +68,7 @@ function errLine(e){ return el("p","err",frError(e)); }
 function nameWithBadge(p){
   const s=el("span","post-user","@"+(p?.username||"?"));
   if(p?.is_admin) s.append(el("span","badge","Développeur"));
-  else if(p?.is_controller) s.append(el("span","badge controller","Contrôle"));
+  else if(p?.is_controller) s.append(el("span","badge controller","Garde-pêche"));
   return s;
 }
 function remaining(iso){
@@ -577,7 +577,7 @@ async function renderMembers(gmap,schema){
 
   const card=el("div","panel mod-card");
   const title=el("div","mod-card-head"); title.append(el("h3",null,"@"+p.username));
-  if(p.is_admin) title.append(el("span","badge","Développeur")); else if(p.is_controller) title.append(el("span","badge controller","Contrôle"));
+  if(p.is_admin) title.append(el("span","badge","Développeur")); else if(p.is_controller) title.append(el("span","badge controller","Garde-pêche"));
   card.append(title);
   card.append(el("p","note","Compte créé le "+sameDay(p.created_at)+"."));
 
@@ -821,28 +821,28 @@ async function renderGroups(groups){
 
 /* ---------- 4. Contrôleurs de l'appli (développeur) ---------- */
 async function renderControllers(){
-  const sec=section("Contrôleurs de l'application");
+  const sec=section("Gardes-pêche de l'application");
   const {data,error}=await A.sb.rpc("list_controllers");
   const names=(data||[]).map(x=>x.username);
   window.CDJ_CTRL=new Set(names);
   if(error) sec.append(errLine(error));
-  sec.append(el("p","note","Un contrôleur modère tous les groupes : il voit tout, valide ou supprime les publications, les commentaires et les messages, et peut appliquer un timeout. Il ne peut pas changer les rôles ni les réglages des groupes."));
+  sec.append(el("p","note","Un garde-pêche modère tous les groupes : il voit tout, valide ou supprime les publications, les commentaires et les messages, et peut appliquer un timeout. Il ne peut pas changer les rôles ni les réglages des groupes."));
   const list=el("div","list tight");
-  if(!names.length) list.append(el("p","note","Aucun contrôleur pour l'instant."));
+  if(!names.length) list.append(el("p","note","Aucun garde-pêche pour l'instant."));
   names.forEach(n=>{
     const r=el("div","mrow"); r.append(nameWithBadge({username:n}));
     const b=el("button","linkbtn danger","Retirer"); b.type="button";
     b.addEventListener("click",async()=>{
       const {error}=await A.sb.rpc("set_controller",{p_username:n,p_on:false});
       if(error) return toast(frError(error));
-      toast("@"+n+" n'est plus contrôleur"); render({keepScroll:true,y:window.scrollY});
+      toast("@"+n+" n'est plus garde-pêche"); render({keepScroll:true,y:window.scrollY});
     });
     r.append(b); list.append(r);
   });
   sec.append(list);
 
   const f=el("form","mod-form");
-  const l=el("label","field","Nommer un contrôleur"); l.style.flex="1"; l.style.minWidth="160px";
+  const l=el("label","field","Nommer un garde-pêche"); l.style.flex="1"; l.style.minWidth="160px";
   const i=el("input"); i.required=true; i.placeholder="Pseudo du membre"; i.autocomplete="off"; l.append(i);
   const err=el("p","err"); err.hidden=true;
   const ok=el("button","btn primary","Nommer"); ok.type="submit";
@@ -852,7 +852,7 @@ async function renderControllers(){
     const n=i.value.trim().replace(/^@/,""); if(!n) return;
     const {error}=await A.sb.rpc("set_controller",{p_username:n,p_on:true});
     if(error){ showErr(err,/introuvable/.test(error.message)?"Pseudo introuvable.":frError(error)); return; }
-    toast("@"+n+" est maintenant contrôleur"); render({keepScroll:true,y:window.scrollY});
+    toast("@"+n+" est maintenant garde-pêche"); render({keepScroll:true,y:window.scrollY});
   });
   sec.append(f);
   return sec;
@@ -882,7 +882,7 @@ async function render(opts){
 
   const head=el("div","modo-head");
   head.append(el("h1",null,"Modération"));
-  head.append(el("p","note",A.me.is_admin?"Vue développeur : tous les groupes et les compteurs de l'appli.":"Vue contrôleur : tous les groupes de l'appli."));
+  head.append(el("p","note",A.me.is_admin?"Vue développeur : tous les groupes et les compteurs de l'appli.":"Vue garde-pêche : tous les groupes de l'appli."));
   root.append(head);
 
   // État réel des garde-fous serveur : visible avant toute sanction.
