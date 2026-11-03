@@ -745,7 +745,8 @@ async function nameOf(uid){
 async function loadChat(){
   if(chatScope==="group"&&!chatGid) return;
   const gid=chatGid, scope=chatScope, table=scope==="staff"?"staff_messages":"messages";
-  let q=A.sb.from(table).select("id,user_id,body,photo_path,audio_path,audio_secs,created_at,"+(scope==="group"?"reply_to,pinned_at,":"")+"profiles(username,is_admin,is_controller)");
+  const authorProfile=scope==="group"?"profiles!messages_user_id_fkey(username,is_admin,is_controller)":"profiles(username,is_admin,is_controller)";
+  let q=A.sb.from(table).select("id,user_id,body,photo_path,audio_path,audio_secs,created_at,"+(scope==="group"?"reply_to,pinned_at,":"")+authorProfile);
   if(scope==="group") q=q.eq("group_id",gid);
   const {data,error}=await q.order("created_at",{ascending:false}).limit(80);
   if(gid!==chatGid||scope!==chatScope) return;
@@ -759,7 +760,7 @@ async function loadChat(){
     const ids=list.map(m=>m.id);
     const [rr,pp]=await Promise.all([
       ids.length?A.sb.from("message_reactions").select("message_id,user_id,emoji").in("message_id",ids):Promise.resolve({data:[]}),
-      A.sb.from("messages").select("id,user_id,body,photo_path,audio_path,pinned_at,profiles(username)").eq("group_id",gid).not("pinned_at","is",null).order("pinned_at",{ascending:false}).limit(1),
+      A.sb.from("messages").select("id,user_id,body,photo_path,audio_path,pinned_at,profiles!messages_user_id_fkey(username)").eq("group_id",gid).not("pinned_at","is",null).order("pinned_at",{ascending:false}).limit(1),
     ]);
     if(gid!==chatGid||scope!==chatScope) return;
     reacts=new Map(); (rr.data||[]).forEach(r=>{ if(!reacts.has(r.message_id)) reacts.set(r.message_id,[]); reacts.get(r.message_id).push(r); });
@@ -792,11 +793,11 @@ function drawMsgs(scroll){
     const mine=m.user_id===A.me.id;
     const row=el("div","msg"+(mine?" mine":""));
     if(lastUser!==m.user_id){
-      // pseudo toujours affiché ; admin en orange 👑, responsable en vert 👮, modérateur en bleu 🛡️
+      // pseudo toujours affiché ; développeur avec 🛠️, responsable en vert 👮, modérateur en bleu 🛡️
       const isAdm=chatScope==="staff"?!!m.profiles?.is_admin:!!m.profiles?.is_admin, isCtl=!isAdm&&(!!m.profiles?.is_controller||!!window.CDJ_CTRL?.has(m.profiles?.username)), role=chatScope==="staff"||isAdm||isCtl?null:A.roleOf(chatGid,m.user_id);
       const isResp=role==="owner", isMod=role==="moderator";
       const who=el("div","msg-who"+(isAdm?" is-admin":isCtl?" is-ctl":isResp?" is-owner":isMod?" is-mod":""));
-      if(isAdm) who.append(el("span","msg-ico","👑"));
+      if(isAdm) who.append(el("span","msg-ico","🛠️"));
       else if(isCtl) who.append(el("span","msg-ico","⚖️"));
       else if(isResp) who.append(el("span","msg-ico","👮"));
       else if(isMod) who.append(el("span","msg-ico","🛡️"));
