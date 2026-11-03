@@ -8,6 +8,20 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.75.1 · 3 novembre 2026 · mineure
+----------------------------------
+- Version anglaise, phase 3 : fiches nœuds et montages carpe, fiches techniques
+  par espèce, assistant montage, calculateurs (plombée, fil, amorce), sessions
+  carpe et carnet d'amorçage, prévisions et vent, état de l'eau, structures,
+  fraie, réglementation, Fishdex, carnet, compte, chat, invitations, carte
+  (environ 1 550 textes de plus). Le moteur de traduction reconnaît aussi un
+  pictogramme devant un texte connu et traduit les morceaux des phrases
+  composées. Restent en français : les notifications envoyées par le serveur
+  et ce qu'écrivent les membres.
+- Garde-pêche (0025) : trois fonctions de lecture réservées à l'administrateur
+  pour le site d'administration sur PC (membres, groupes, stockage). Le site
+  reste sur le PC du développeur, hors du dépôt.
+
 0.75 · 3 novembre 2026 · majeure
 --------------------------------
 - Version anglaise, phase 2 : écrans de préparation de sortie, fiches espèces,

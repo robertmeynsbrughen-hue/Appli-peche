@@ -34,9 +34,26 @@ function viaTemplate(s){
   let i=0,j=0;
   return en.replace(/\{n\}|\{u\}/g,m=>m==="{n}"?(nums[i++]??""):(users[j++]??""));
 }
-const RX=(window.CDJ_EN_RX||[]).map(([r,x])=>[new RegExp(r),x]);
-function viaRegex(s){ for(const [r,x] of RX){ if(r.test(s)) return s.replace(r,x); } return null; }
-function one(s){ return exact.get(s)??viaTemplate(s)??viaRegex(s); }
+const RX=(window.CDJ_EN_RX||[]).map(([r,x,deep])=>[new RegExp(r),x,!!deep]);
+// règle « profonde » (3e valeur à 1) : les morceaux capturés sont traduits eux aussi
+function part(g){
+  if(g==null) return "";
+  const cap=x=>x.charAt(0).toUpperCase()+x.slice(1), low=x=>x.charAt(0).toLowerCase()+x.slice(1);
+  const one1=x=>{ const r=one(x); if(r!=null) return r; if(/^\p{Ll}/u.test(x)){ const c=one(cap(x)); if(c!=null) return low(c); } return null; };
+  const w=one1(g); if(w!=null) return w;
+  if(g.includes(" · ")) return g.split(" · ").map(part).join(" · ");
+  if(g.includes(", ")) return g.split(", ").map(x=>one1(x)??x).join(", ");
+  return g;
+}
+function viaRegex(s){ for(const [r,x,deep] of RX){ if(r.test(s)) return deep?s.replace(r,(...m)=>x.replace(/\$(\d)/g,(_,i)=>part(m[+i]))):s.replace(r,x); } return null; }
+function base(s){ return exact.get(s)??viaTemplate(s)??viaRegex(s); }
+// « 💡 Astuce… », « 🪢 Nœuds » : un pictogramme devant un texte connu
+const PREFIX=/^([^\p{L}\p{N}«"(]*\s)(\p{L}[\s\S]*)$/u;
+function one(s){
+  let r=base(s); if(r!=null) return r;
+  const m=PREFIX.exec(s); if(m&&m[1].trim()){ r=base(m[2]); if(r!=null) return m[1]+r; }
+  return null;
+}
 function tr(text){
   if(!text) return text;
   const t=text.trim(); if(!t||!/[A-Za-zÀ-ÿ]/.test(t)) return text;
