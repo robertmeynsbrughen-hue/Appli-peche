@@ -12,7 +12,8 @@ elles ne garantissent pas à elles seules la date de propagation du cache web.
 ----------------------------------
 - Le rôle « contrôleur » s'appelle maintenant « garde-pêche » partout dans
   l'appli (badge, chat staff, modération, signalement), « warden » en anglais.
-  Rien ne change dans les droits.
+  Rien ne change dans les droits. Les badges de rôle à côté d'un pseudo sont
+  maintenant traduits en anglais.
 - Annonces programmées (0026) : la notification part à l'heure de début.
 - Préparation du freemium (0027) : abonnements Google Play, revenus,
   is_premium() ; statistiques d'usage pour le site d'administration.
