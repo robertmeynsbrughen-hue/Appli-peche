@@ -8,6 +8,17 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.75.3 · 3 novembre 2026 · mineure
+----------------------------------
+- Fil : les stories gardent les 60 prises les plus récentes avant l'affichage.
+- Démarrage : les scripts conservent leur ordre mais se téléchargent en parallèle ;
+  les polices et le style Leaflet ne bloquent plus le premier affichage.
+- Carte de chaleur : l'application ne télécharge plus les traces complètes pour
+  ne lire que leur premier point. La migration Supabase `0028` doit être appliquée.
+- Hors réseau : les fichiers déjà en cache s'affichent après 2,5 s si le réseau
+  mobile ne répond pas, et servent de secours sur erreur serveur. Une page HTML
+  de secours est réservée à la navigation, pas aux scripts ou aux styles.
+
 0.75.2 · 3 novembre 2026 · mineure
 ----------------------------------
 - Le rôle « contrôleur » s'appelle maintenant « garde-pêche » partout dans

@@ -40,6 +40,14 @@ $sql = Get-Content migrations/0002_xxx.sql -Raw
 # POST https://api.supabase.com/v1/projects/<ref>/database/query  {"query": "<sql>"}
 ```
 
+## 0.75.3
+
+- `0028_carte_chaleur_leger.sql` : `heatmap_track_starts()` respecte les règles
+  RLS et renvoie uniquement le premier point des traces, au lieu du JSON complet
+  qui peut contenir jusqu'à 20 000 points. Appliquer cette migration avant de
+  publier la version 0.75.3, sinon la carte ne pourra pas charger les prises liées
+  aux traces.
+
 ## Reconstruction à blanc (testée le 2 novembre 2026)
 
 Toutes les migrations ont été rejouées sur un projet Supabase vide et isolé,

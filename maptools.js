@@ -48,14 +48,23 @@ function loadHeat(){
 async function fetchHeat(){
   const gid=A.cur;
   let qp=A.sb.from("posts").select("spot_id,species,created_at").eq("status","published").not("spot_id","is",null).limit(5000);
-  let qc=A.sb.from("carp_sessions").select("spot_id,carp_events(kind,at)").not("spot_id","is",null).limit(2000);
+  let qc=A.sb.from("carp_sessions").select("spot_id,carp_events!inner(kind,at)").eq("carp_events.kind","prise").not("spot_id","is",null).limit(2000);
   if(gid!=="all"){ qp=qp.eq("group_id",gid); qc=qc.eq("group_id",gid); }
-  // bilans liés à une trace de sortie : la prise compte au point de départ de la trace
-  let qs=A.sb.from("sessions").select("species,caught,created_at,track_id,tracks(points)").not("track_id","is",null).eq("caught",true).limit(2000);
-  if(gid!=="all") qs=qs.eq("group_id",gid);
-  const [{data:p},{data:c},{data:ss}]=await Promise.all([qp,qc,qs.then(r=>r,()=>({data:[]}))]);
-  const rows=[...(p||[])];
-  (ss||[]).forEach(x=>{ const pt=(x.tracks?.points||[])[0]; const ll=Array.isArray(pt)?pt:pt&&[pt.lat??pt[0],pt.lon??pt.lng??pt[1]]; if(ll&&ll[0]!=null) rows.push({lat:Number(ll[0]),lon:Number(ll[1]),species:x.species,created_at:x.created_at}); });
+  // La fonction renvoie le point de départ seulement, pas le JSON complet de la trace.
+  const qs=A.sb.rpc("heatmap_track_starts",{p_group_id:typeof gid==="number"?gid:null});
+  const [{data:p},{data:c},heatRpc]=await Promise.all([qp,qc,qs.then(r=>r,()=>({data:null,error:true}))]);
+  let trackRows=heatRpc?.data||[];
+  if(heatRpc?.error){
+    // Compatibilité pendant le déploiement séparé de la migration SQL 0028.
+    let legacy=A.sb.from("sessions").select("species,caught,created_at,track_id,tracks(points)").not("track_id","is",null).eq("caught",true).limit(2000);
+    if(typeof gid==="number") legacy=legacy.eq("group_id",gid);
+    const {data}=await legacy; trackRows=(data||[]).flatMap(x=>{
+      const pt=(x.tracks?.points||[])[0];
+      const ll=Array.isArray(pt)?pt:pt&&[pt.lat??pt[0],pt.lon??pt.lng??pt[1]];
+      return ll&&ll[0]!=null?[{lat:Number(ll[0]),lon:Number(ll[1]),species:x.species,created_at:x.created_at}]:[];
+    });
+  }
+  const rows=[...(p||[]),...trackRows];
   (c||[]).forEach(s=>(s.carp_events||[]).filter(e=>e.kind==="prise").forEach(e=>rows.push({spot_id:s.spot_id,species:"Carpe",created_at:e.at})));
   return rows;
 }
