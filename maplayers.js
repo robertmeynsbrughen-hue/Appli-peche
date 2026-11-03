@@ -245,7 +245,7 @@ function toggleTrack(t){
   const g=L.layerGroup();
   const pts=(t.points||[]).map(p=>[p[0],p[1]]);
   if(pts.length>1) L.polyline(pts,{color:"#2c5f8f",weight:4,opacity:.85}).addTo(g);
-  if(pts[0]) L.circleMarker(pts[0],{radius:6,color:"#2c8b73",fillOpacity:1}).bindPopup("Départ").addTo(g);
+  if(pts[0]) L.circleMarker(pts[0],{radius:6,color:"#2c8b73",fillOpacity:1}).bindPopup("Début de la trace").addTo(g);
   (t.bites||[]).forEach(b=>L.marker([b[0],b[1]],{icon:L.divIcon({className:"",html:'<div class="bite-pin">🎣</div>',iconSize:[26,26],iconAnchor:[13,13]})}).bindPopup("Touche · "+Math.round(b[2]/60)+" min après le départ").addTo(g));
   g.addTo(map); shown.set(t.id,g);
   if(pts.length) map.fitBounds(L.latLngBounds(pts).pad(.2));
