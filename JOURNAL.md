@@ -8,6 +8,14 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.75.5 · 3 novembre 2026 · mineure
+----------------------------------
+- Site d'administration « Garde-pêche » en ligne à l'adresse /garde/, adapté au
+  téléphone et installable sur l'écran d'accueil. Il ne contient aucune clé
+  secrète : il faut se connecter avec le compte développeur, et la base vérifie
+  les droits à chaque action. Il n'est pas indexé par les moteurs de recherche
+  et le service worker de l'appli ne le met jamais en cache.
+
 0.75.4 · 3 novembre 2026 · corrective
 ------------------------------------
 - Chat de groupe : précise la clé de jointure auteur quand il charge le profil,
