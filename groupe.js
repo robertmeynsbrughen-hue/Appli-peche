@@ -378,7 +378,7 @@ async function renderGroupe(){
 
   // En-tête du groupe
   const head=el("div","g-head");
-  const t=el("div"); const h=el("h1",null,g.name); const rb=A.me.is_admin?el("span","badge","Développeur"):A.me.is_controller?el("span","badge controller","Contrôle"):roleBadge(A.myRoles.get(gid)); if(rb) h.append(rb);
+  const t=el("div"); const h=el("h1",null,g.name); const rb=A.me.is_admin?el("span","badge","Développeur"):A.me.is_controller?el("span","badge controller","Garde-pêche"):roleBadge(A.myRoles.get(gid)); if(rb) h.append(rb);
   const nb=info?Number(info.members):cnt.count, wait=info?Number(info.pending_members||0):0;
   const full=nb+wait>=MAXM;
   const cap=nb!=null?nb+"/"+MAXM+" membres"+(wait?" · "+wait+" en attente":"")+(full?" · complet":""):"";
@@ -801,7 +801,7 @@ function drawMsgs(scroll){
       else if(isResp) who.append(el("span","msg-ico","👮"));
       else if(isMod) who.append(el("span","msg-ico","🛡️"));
       who.append("@"+(m.profiles?.username||"?")); if(m.profiles?.username){ who.dataset.user=m.profiles.username; who.classList.add("user-link"); }
-      if(isAdm||isCtl||isResp||isMod) who.setAttribute("title",isAdm?"Développeur":isCtl?"Contrôleur de l'appli":isResp?"Responsable du groupe":"Modérateur du groupe");
+      if(isAdm||isCtl||isResp||isMod) who.setAttribute("title",isAdm?"Développeur":isCtl?"Garde-pêche de l'appli":isResp?"Responsable du groupe":"Modérateur du groupe");
       row.append(who);
       if(m.profiles?.username&&A.fishTags){ const ft=A.fishTags(m.profiles.username); ft.classList.add("msg-tags"); row.append(ft); }
     }
@@ -1036,7 +1036,7 @@ function markStaffSeen(){ store.set(staffSeenKey,new Date().toISOString()); staf
 function headerText(){
   if(chatScope==="staff"){
     $("#chat-title").textContent="Chat · équipe staff";
-    $("#chat-sub").textContent="Salon privé des développeurs et contrôleurs";
+    $("#chat-sub").textContent="Salon privé des développeurs et gardes-pêche";
     $("#chat-input").placeholder="Écrire à l’équipe…";
     return;
   }

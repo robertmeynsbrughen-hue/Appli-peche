@@ -76,7 +76,7 @@ function userLabel(name,isAdmin,role){
   const s=el("span","post-user","@"+(name||"?"));
   if(name){ s.dataset.user=name; s.tabIndex=0; s.setAttribute("role","link"); s.title="Voir le profil de @"+name; }
   if(isAdmin) s.append(el("span","badge","Développeur"));
-  else if(name&&window.CDJ_CTRL?.has(name)) s.append(el("span","badge controller","Contrôle"));
+  else if(name&&window.CDJ_CTRL?.has(name)) s.append(el("span","badge controller","Garde-pêche"));
   else if(role===true||role==="owner") s.append(roleBadge("owner"));
   else if(role==="moderator") s.append(roleBadge("moderator"));
   return s;
@@ -170,7 +170,7 @@ async function checkTimeoutSchema(force){
   // 42883 / PGRST202 : la fonction n'existe pas encore (0007 non appliquée).
   return (timeoutSchema={table:true,version,ready:!!version,checked:true});
 }
-const staffBadge=()=>me?.is_admin?el("span","badge","Développeur"):me?.is_controller?el("span","badge controller","Contrôle"):null;
+const staffBadge=()=>me?.is_admin?el("span","badge","Développeur"):me?.is_controller?el("span","badge controller","Garde-pêche"):null;
 const curGroup=()=>groups.find(g=>g.id===cur);
 const hooks={};   // points d'accroche pour groupe.js
 const groupName=id=>{ const g=groups.find(x=>x.id===id); return g?g.name:"?"; };
@@ -298,7 +298,7 @@ function openSwitcher(){
     if(!disabled) b.addEventListener("click",()=>{ closeSheet(); setGroup(val); });
     list.append(b);
   };
-  if(isStaff()) item("Tous les groupes",me.is_admin?"Vue d'ensemble développeur":"Vue d'ensemble contrôleur","all");
+  if(isStaff()) item("Tous les groupes",me.is_admin?"Vue d'ensemble développeur":"Vue d'ensemble garde-pêche","all");
   groups.forEach(g=>item(g.name,g.region||"",g.id,isStaff()?null:roleBadge(myRoles.get(g.id))));
   pendingGroups.forEach(g=>item(g.name,"Demande en attente de validation",null,null,true));
   $("#gs-sheet").hidden=false;
@@ -538,7 +538,7 @@ async function loadGroups(){
 function viewToggle(){
   const b=$("#view-toggle"); if(!b) return;
   b.hidden=!canSwitchView;
-  const realLabel=me?.real?.is_admin?"Développeur":me?.real?.is_controller?"Contrôle":"Modo";
+  const realLabel=me?.real?.is_admin?"Développeur":me?.real?.is_controller?"Garde-pêche":"Modo";
   b.innerHTML=""; b.classList.toggle("on",userView);
   b.append(el("span","vt-eye",userView?"👤":"🛡️"),el("span","vt-t",userView?"Membre":realLabel));
   b.title=userView?"Tu vois l'appli comme un membre. Touche pour revenir en vue "+realLabel.toLowerCase():"Voir l'appli comme un simple membre";

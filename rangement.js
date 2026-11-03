@@ -107,7 +107,7 @@ function tidyModeration(){
   if(!bar){ bar=el("div","mod-tabs subbar"); bar.setAttribute("role","tablist"); bar.setAttribute("aria-label","Sections de la modération"); (head||root.firstChild)?.after(bar); }
   const want=root.dataset.cur&&secs.some(s=>s.id===root.dataset.cur)?root.dataset.cur:(store.get("cdj-mod-tab")&&secs.some(s=>s.id===store.get("cdj-mod-tab"))?store.get("cdj-mod-tab"):secs[0].id);
   bar.innerHTML="";
-  const LAB={"mod-todo":["📥","À traiter"],"mod-appeals":["📨","Recours"],"mod-members":["👥","Membres"],"mod-groups":["🫂","Groupes"],"mod-controllers":["🛡️","Contrôleurs"],"mod-journal":["📜","Journal"],"mod-annonces":["📣","Annonces"],"mod-sante":["🩺","Santé"],"mod-bugs":["🐞","Bugs"],"mod-stats":["📈","Stats"],"mod-sauvegardes":["💾","Sauvegardes"],"mod-maintenance":["🛠️","Maintenance"]};
+  const LAB={"mod-todo":["📥","À traiter"],"mod-appeals":["📨","Recours"],"mod-members":["👥","Membres"],"mod-groups":["🫂","Groupes"],"mod-controllers":["🛡️","Gardes-pêche"],"mod-journal":["📜","Journal"],"mod-annonces":["📣","Annonces"],"mod-sante":["🩺","Santé"],"mod-bugs":["🐞","Bugs"],"mod-stats":["📈","Stats"],"mod-sauvegardes":["💾","Sauvegardes"],"mod-maintenance":["🛠️","Maintenance"]};
   secs.forEach(s=>{
     const h=s.querySelector(".g-sec-head h2")?.textContent||s.id;
     const n=s.querySelector(".g-sec-head .modo-count:not(.zero)")?.textContent;
