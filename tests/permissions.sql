@@ -28,6 +28,8 @@ insert into public.messages (group_id, user_id, body) values
 insert into public.posts (group_id, user_id, species, status) values
   (900001, '00000000-0000-4000-8000-0000000000a1', 'Carpe', 'published'),
   (900002, '00000000-0000-4000-8000-0000000000b2', 'Brochet', 'published');
+insert into public.subscriptions (purchase_token, user_id, product_id, status, expires_at) values
+  ('test-token-b', '00000000-0000-4000-8000-0000000000b2', 'rivio_premium', 'active', now() + interval '30 days');
 set local session_replication_role = origin;
 
 -- ---------- 1. Droits déclarés (vus par postgres) ----------
@@ -52,8 +54,13 @@ begin
   if has_table_privilege('anon', 'public.push_subs', 'select') or has_table_privilege('authenticated', 'public.push_subs', 'select')
      or has_table_privilege('authenticated', 'public.settings', 'select')
      or has_table_privilege('authenticated', 'public.invite_attempts', 'select')
-     or has_table_privilege('authenticated', 'public.storage_purge', 'select') then
-    raise exception 'ÉCHEC une table réservée au serveur est accessible au client (push_subs, settings, invite_attempts ou storage_purge)';
+     or has_table_privilege('authenticated', 'public.storage_purge', 'select')
+     or has_table_privilege('authenticated', 'public.revenue_events', 'select')
+     or has_table_privilege('anon', 'public.subscriptions', 'select') then
+    raise exception 'ÉCHEC une table réservée au serveur est accessible au client (push_subs, settings, invite_attempts, storage_purge, revenue_events ou subscriptions)';
+  end if;
+  if has_table_privilege('authenticated', 'public.subscriptions', 'insert') or has_table_privilege('authenticated', 'public.subscriptions', 'update') then
+    raise exception 'ÉCHEC le client peut écrire un abonnement Premium';
   end if;
   if has_table_privilege('authenticated', 'public.notifications', 'insert') then
     raise exception 'ÉCHEC le client peut créer des notifications';
@@ -133,7 +140,7 @@ select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000
 do $$
 declare f text; ok boolean;
 begin
-  foreach f in array array['garde_members', 'garde_groups', 'garde_storage'] loop
+  foreach f in array array['garde_members', 'garde_groups', 'garde_storage', 'garde_revenue', 'garde_usage'] loop
     ok := false;
     begin
       execute format('select public.%I()', f);
@@ -141,6 +148,10 @@ begin
     end;
     if not ok then raise exception 'ÉCHEC un membre ordinaire peut appeler %', f; end if;
   end loop;
+  if exists (select 1 from public.subscriptions where purchase_token = 'test-token-b') then
+    raise exception 'ÉCHEC le membre A voit l''abonnement Premium du membre B';
+  end if;
+  if public.is_premium() then raise exception 'ÉCHEC le membre A est vu Premium sans abonnement'; end if;
 end $$;
 reset role;
 
