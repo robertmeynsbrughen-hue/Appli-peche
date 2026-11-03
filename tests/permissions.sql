@@ -126,4 +126,22 @@ exception when insufficient_privilege then null;
 end $$;
 reset role;
 
+-- ---------- 5. Fonctions du site d'administration (Garde-pêche) ----------
+-- Réservées au développeur : un membre ordinaire est refusé.
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000000a1","role":"authenticated"}', true);
+do $$
+declare f text; ok boolean;
+begin
+  foreach f in array array['garde_members', 'garde_groups', 'garde_storage'] loop
+    ok := false;
+    begin
+      execute format('select public.%I()', f);
+    exception when others then ok := sqlerrm like '%non autorisé%';
+    end;
+    if not ok then raise exception 'ÉCHEC un membre ordinaire peut appeler %', f; end if;
+  end loop;
+end $$;
+reset role;
+
 select 'OK : toutes les vérifications de permissions sont passées' as resultat;
