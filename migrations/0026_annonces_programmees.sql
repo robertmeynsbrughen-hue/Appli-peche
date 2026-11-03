@@ -6,8 +6,9 @@
 -- une seule fois. Rejouable sans erreur.
 
 alter table public.announcements add column if not exists pushed_at timestamptz;
--- les annonces déjà commencées ont déjà été notifiées : pas de second envoi
-update public.announcements set pushed_at = starts_at where push and pushed_at is null and starts_at <= now();
+-- les annonces déjà commencées ont déjà été notifiées : la tâche ne reprend que
+-- celles commencées depuis moins d'un jour et jamais notifiées (aucune en production
+-- au moment de cette migration)
 
 -- une annonce immédiate est notifiée par le déclencheur existant : on la marque
 create or replace function public.announcements_mark_pushed()
@@ -18,8 +19,7 @@ begin
 end $function$;
 revoke all on function public.announcements_mark_pushed() from public, anon, authenticated;
 
-drop trigger if exists announcements_mark_pushed on public.announcements;
-create trigger announcements_mark_pushed before insert on public.announcements
+create or replace trigger announcements_mark_pushed before insert on public.announcements
   for each row execute function public.announcements_mark_pushed();
 
 -- les annonces programmées arrivées à l'heure
@@ -40,7 +40,6 @@ revoke all on function public.announcements_due() from public, anon, authenticat
 
 do $$ begin
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
-    perform cron.unschedule(jobid) from cron.job where jobname = 'cdj-annonces';
     perform cron.schedule('cdj-annonces', '*/5 * * * *',
       $c$ select public.announcements_due() where exists (select 1 from public.announcements where push and pushed_at is null and starts_at <= now()) $c$);
   end if;

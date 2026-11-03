@@ -47,9 +47,12 @@ alter table public.revenue_events enable row level security;
 revoke all on public.subscriptions from anon, authenticated;
 revoke all on public.revenue_events from anon, authenticated;
 grant select on public.subscriptions to authenticated;
-drop policy if exists subscriptions_select_own on public.subscriptions;
-create policy subscriptions_select_own on public.subscriptions for select to authenticated
-  using (user_id = (select auth.uid()));
+do $$ begin
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'subscriptions' and policyname = 'subscriptions_select_own') then
+    create policy subscriptions_select_own on public.subscriptions for select to authenticated
+      using (user_id = (select auth.uid()));
+  end if;
+end $$;
 -- revenue_events : aucune règle, donc aucun accès client (serveur uniquement)
 
 -- l'appli pourra s'en servir pour débloquer les fonctions Premium
