@@ -8,6 +8,23 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.76 · 4 novembre 2026 · majeure
+--------------------------------
+Suite de l'audit externe (points 4 et 6).
+- Règles locales par département (reglements.js) : dans Conseils ›
+  Réglementation, « Où pêches-tu ? » propose les repères nationaux ou une fiche
+  locale. Première fiche : Lot-et-Garonne 2026, résumée d'après la page de la
+  fédération (mise à jour le 21 avril 2026), avec le lien, la date de
+  consultation et un avertissement : ce résumé ne remplace pas l'arrêté.
+  Ouvert ou fermé est calculé pour la 2e catégorie, la 1re est détaillée.
+  Lisible hors réseau. Une fiche d'une autre année n'est jamais présentée
+  comme valable : l'appli revient alors aux repères nationaux.
+- Conseils (0029) : « ce que disent vos bilans » est calculé par la base
+  (advice_history), qui renvoie une ligne par espèce au lieu de 4 000 sorties
+  et prises. Plus de bilan tronqué, moins de données mobiles.
+- Profil d'un pêcheur : l'historique est lu par pages de 1 000, sans limite, et
+  gardé 5 minutes en mémoire.
+
 0.75.5 · 3 novembre 2026 · mineure
 ----------------------------------
 - Site d'administration « Garde-pêche » en ligne à l'adresse /garde/, adapté au

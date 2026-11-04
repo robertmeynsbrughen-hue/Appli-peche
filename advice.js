@@ -296,7 +296,7 @@ function render(){
   }
   const cmp=mk("button","btn small cmp-btn","📅 Comparer les 7 prochains jours"); cmp.type="button"; cmp.addEventListener("click",compareDays); g.append(cmp);
   const solAt=k=>{ const t=start.getTime()+k*36e5+18e5; return sol.major.some(x=>Math.abs(x-t)<=90*6e4)?"maj":sol.minor.some(x=>Math.abs(x-t)<=60*6e4)?"min":null; };
-  loadHist();
+  loadHist(now,meta);
 
   const m=meta.month;
   const results=SPECIES.map(sp=>{
@@ -415,35 +415,32 @@ function solunar(start,lat,lon){
 const hhmm=d=>String(d.getHours()).padStart(2,"0")+"h"+String(d.getMinutes()).padStart(2,"0");
 
 // ---------- Ce que disent vos bilans (conditions proches, près d'ici) ----------
-let hist=null, histTry=0;
-async function loadHist(){
-  const A=window.CDJ; if(!A||!A.me||!A.sb||hist||Date.now()-histTry<60000) return;
-  histTry=Date.now();
+// La base fait le calcul (fonction advice_history) : le téléphone ne télécharge
+// plus l'historique complet, seulement une ligne par espèce.
+let hist=null, histKey="", histTry=0, histBusy=false;
+const histKeyOf=(now,meta)=>[Math.round(now.water),Math.round(now.dp),Math.round(now.wind/5),Math.round(now.cloud/20),now.phase||"",meta.lat!=null?meta.lat.toFixed(1):"",meta.lon!=null?meta.lon.toFixed(1):""].join("|");
+async function loadHist(now,meta){
+  const A=window.CDJ; if(!A||!A.me||!A.sb||!now||histBusy) return;
+  const key=histKeyOf(now,meta||{});
+  if(hist&&histKey===key) return;
+  if(histKey===key&&Date.now()-histTry<60000) return;
+  const ck="cdj-hist2-"+A.me.id;
+  try{ const c=JSON.parse(localStorage.getItem(ck)||"null"); if(c&&c.k===key&&Date.now()-c.t<36e5&&c.h){ hist=c.h; histKey=key; render(); return; } }catch(_){}
+  histKey=key; histTry=Date.now(); histBusy=true;
   try{
-    const ck="cdj-hist-"+A.me.id;
-    try{ const c=JSON.parse(localStorage.getItem(ck)||"null"); if(c&&Date.now()-c.t<36e5&&Array.isArray(c.h)){ hist=c.h; render(); return; } }catch(_){}
-    const [{data:se},{data:po}]=await Promise.all([
-      A.sb.from("sessions").select("species,caught,rating,conditions").not("conditions","is",null).limit(2000),
-      A.sb.from("posts").select("species,conditions").eq("status","published").not("conditions","is",null).limit(2000),
-    ]);
-    hist=[...(se||[]).map(x=>({sp:x.species,ok:x.caught!==false,r:x.rating||2,c:x.conditions})),...(po||[]).map(x=>({sp:x.species,ok:true,r:3,c:x.conditions}))];
-    try{ localStorage.setItem(ck,JSON.stringify({t:Date.now(),h:hist})); }catch(_){ /* stockage plein : pas de cache */ }
+    const {data,error}=await A.sb.rpc("advice_history",{p_water:now.water,p_dp:now.dp,p_wind:now.wind,p_cloud:now.cloud,p_phase:now.phase||null,p_lat:meta?.lat??null,p_lon:meta?.lon??null});
+    if(error) throw error;
+    const h={}; (data||[]).forEach(r=>{ h[r.species]={n:r.n,caught:r.caught,succ:r.succ}; });
+    hist=h;
+    try{ localStorage.setItem(ck,JSON.stringify({t:Date.now(),k:key,h})); }catch(_){ /* stockage plein : pas de cache */ }
     render();
-  }catch(e){}
+  }catch(e){}finally{ histBusy=false; }
 }
-function km(a,b,c,d){ const R=6371, dl=(c-a)*RAD, dg=(d-b)*RAD; const h=Math.sin(dl/2)**2+Math.cos(a*RAD)*Math.cos(c*RAD)*Math.sin(dg/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
 function experience(sp,now,meta){
-  if(!hist) return null;
-  const nm=sp.name.toLowerCase();
-  const near=hist.filter(h=>String(h.sp||"").toLowerCase()===nm&&h.c).map(h=>{
-    const c=h.c;
-    let d=Math.abs((c.water??now.water)-now.water)/3+Math.abs((c.dp??0)-now.dp)/2+Math.abs((c.wind??now.wind)-now.wind)/15+Math.abs((c.cloud??now.cloud)-now.cloud)/60;
-    if(c.phase&&c.phase!==now.phase) d+=.5;
-    if(c.lat!=null&&meta.lat!=null&&km(c.lat,c.lon,meta.lat,meta.lon)>30) d+=1;
-    return {d,ok:h.ok,r:h.r};
-  }).filter(x=>x.d<2.5).sort((a,b)=>a.d-b.d).slice(0,8);
-  if(near.length<3) return {n:near.length};
-  return {n:near.length,caught:near.filter(x=>x.ok).length,succ:near.reduce((a,x)=>a+(x.ok?x.r/4:0),0)/near.length};
+  if(!hist||histKey!==histKeyOf(now,meta||{})) return null;
+  const r=hist[sp.name.toLowerCase()];
+  if(!r||r.n<3) return {n:r?r.n:0};
+  return {n:r.n,caught:r.caught,succ:r.succ};
 }
 
 // ---------- Comparateur des 7 prochains jours ----------
@@ -807,7 +804,7 @@ window.CDJ_ADVICE={ forecastDays, forecastSpots, moon, setReport:r=>{ report=r||
   // conditions du moment, enregistrées avec les bilans et les prises (seulement si la météo est réelle)
   snapshot:()=>{ if(!current||mode!=="live") return null; const h=current.hours[0], m=current.meta; const tmv=measuredTemp(m);
     return {water:+waterOf(m,h).toFixed(1),water_measured:tmv!=null,air:Math.round(h.air),dp:+h.dp.toFixed(1),wind:Math.round(h.wind),cloud:Math.round(h.cloud),rain:+(h.rain||0).toFixed(1),phase:h.phase,hour:new Date().getHours(),lat:+m.lat.toFixed(3),lon:+m.lon.toFixed(3),water_type:waterType,flow:m.flow?.status||null,place:(m.place||"").replace(/^📍\s*/,""),when:m.when||null,cached:m.cached||null,clarity:(()=>{ try{ return getClarity(h,m); }catch(_){ return null; } })()}; },
-  refresh:()=>{ hist=null; histTry=0; loadHist(); }, rerender:()=>render() };
+  refresh:()=>{ hist=null; histKey=""; histTry=0; render(); }, rerender:()=>render() };
 window.addEventListener("cdj-fav",()=>{ try{ render(); }catch(_){} });
 setDefaults();
 buildManual();

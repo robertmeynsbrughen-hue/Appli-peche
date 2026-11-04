@@ -25,13 +25,80 @@ function pikeStatus(now){
   return {open:true,next:nextClose};
 }
 const openRegl=new Set((()=>{ try{ return JSON.parse(localStorage.getItem("cdj-regl-open")||"[]"); }catch(e){ return []; } })());
+// ---------- Règles locales (reglements.js) ----------
+const LOC=()=>window.CDJ_REGL||{};
+const getDep=()=>{ try{ return localStorage.getItem("cdj-regl-dep")||""; }catch(e){ return ""; } };
+const setDep=v=>{ try{ v?localStorage.setItem("cdj-regl-dep",v):localStorage.removeItem("cdj-regl-dep"); }catch(e){} renderRegl(); };
+const mmdd=d=>String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+function inPeriods(per,d){ if(per==null) return null; const k=mmdd(d); return per.some(([a,b])=>k>=a&&k<=b); }
+function nextChange(per,d,year){
+  if(!per||!per.length) return null; const k=mmdd(d);
+  const cur=per.find(([a,b])=>k>=a&&k<=b);
+  const at=(x,shift)=>{ const [m,j]=x.split("-").map(Number); const r=new Date(year,m-1,j); if(shift) r.setDate(r.getDate()+1); return r; };
+  if(cur) return cur[1]==="12-31"?{open:true,date:null}:{open:true,date:at(cur[1],true)};
+  const nx=per.filter(([a])=>a>k).sort()[0]; return nx?{open:false,date:at(nx[0])}:null;
+}
+const fmtPer=per=>per==null?null:!per.length?"interdite toute l'année":per.map(([a,b])=>{ const f=x=>{ const [m,j]=x.split("-").map(Number); return new Date(2000,m-1,j).toLocaleDateString("fr-FR",{day:"numeric",month:"long"}); }; return a==="01-01"&&b==="12-31"?"toute l'année":"du "+f(a)+" au "+f(b); }).join(" et ");
+function deptPicker(cur,localOk){
+  const w=el("label","field regl-dep"); w.append(el("span",null,"Où pêches-tu ?"));
+  const sel=el("select"); sel.setAttribute("aria-label","Département des règles");
+  sel.append(new Option("Repères nationaux (tous départements)",""));
+  Object.entries(LOC()).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([k,d])=>sel.append(new Option(d.nom+" ("+k+") · règles locales",k)));
+  sel.value=cur&&LOC()[cur]?cur:""; sel.addEventListener("change",()=>setDep(sel.value)); w.append(sel);
+  const n=Object.keys(LOC()).length;
+  w.append(el("span","note",localOk?"Fiche locale résumée d'après la source ci-dessous.":n?"Règles locales disponibles pour "+Object.entries(LOC()).map(([k,d])=>d.nom+" ("+k+")").join(", ")+". Les autres départements arrivent petit à petit.":""));
+  return w;
+}
+function renderLocal(box,dep,D){
+  const now=new Date(), today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  box.innerHTML="";
+  const h=el("div","g-sec-head"); const t=el("h2",null,"Réglementation"); t.id="regl-title"; h.append(t, el("span","note","règles locales · "+D.nom+" ("+dep+")"));
+  box.append(h, deptPicker(dep,true));
+  const src=el("div","regl-reserve");
+  const maj=new Date(D.source.maj).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"}), vu=new Date(D.source.consulte).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});
+  const a=el("a",null,D.source.titre); a.href=D.source.url; a.target="_blank"; a.rel="noopener";
+  src.append(el("b",null,"Résumé local "+D.annee+" : vérifie toujours sur place."),el("p","note","Source : "),el("p","note","Page mise à jour le "+maj+", consultée par Rivio le "+vu+". Ce résumé ne remplace pas l'arrêté préfectoral : réserves, parcours, plans d'eau et arrêtés temporaires peuvent avoir des règles différentes."));
+  src.children[1].append(a);
+  if(D.contact) src.append(el("p","note",D.contact));
+  box.append(src);
+  const pike=D.especes.find(e=>e.sp==="Brochet");
+  if(pike){
+    const open=inPeriods(pike.c2,today), nx=nextChange(pike.c2,today,D.annee);
+    const al=el("div","regl-alert"+(open?"":" closed")); al.append(el("span","regl-ico",open?"✅":"⛔"));
+    const at=el("div"); at.append(el("b",null,"Brochet "+(open?"ouvert":"fermé")+" en 2e catégorie · "+D.nom),
+      el("div","note",nx&&nx.date?(nx.open?"Fermeture le "+dlong(nx.date)+".":"Réouverture le "+dlong(nx.date)+"."):nx&&nx.open?"Ouvert jusqu'au 31 décembre "+D.annee+". Les dates de "+(D.annee+1)+" ne sont pas encore publiées.":"Prochaine date pas encore publiée pour "+(D.annee+1)+"."));
+    al.append(at); box.append(al);
+  }
+  const list=el("div","regl-list");
+  D.especes.forEach(e=>{
+    const o2=inPeriods(e.c2,today);
+    const state=e.c2==null?"Voir le détail":!e.c2.length?"Interdite":o2?"Ouvert · 2e cat.":"Fermé · 2e cat.";
+    const d=el("details","regl-item"); d.open=openRegl.has("L-"+e.sp);
+    d.addEventListener("toggle",()=>{ d.open?openRegl.add("L-"+e.sp):openRegl.delete("L-"+e.sp); try{ localStorage.setItem("cdj-regl-open",JSON.stringify([...openRegl])); }catch(_){} });
+    const sm=el("summary"); const top=el("span","regl-top"); top.append(el("span","tag",e.sp), el("span","chip "+(e.c2==null?"":o2?"plus":"minus"),state));
+    const sz=el("span","regl-size"); sz.append(el("span","label","Taille mini"), el("span","rk-v",e.taille?e.taille+" cm":"—"));
+    sm.append(top,sz,el("span","regl-chev","›"));
+    const ul=el("ul","regl-lines");
+    if(e.c2!=null) ul.append(el("li",null,"2e catégorie : "+fmtPer(e.c2)+"."));
+    if(e.c1!=null) ul.append(el("li",null,"1re catégorie : "+fmtPer(e.c1)+"."));
+    (e.lignes||[]).forEach(x=>ul.append(el("li",null,x)));
+    d.append(sm,ul); list.append(d);
+  });
+  box.append(list);
+  const g=el("ul","regl-lines regl-general"); (D.general||[]).forEach(x=>g.append(el("li",null,x)));
+  box.append(el("h4","g-sub","Règles générales du département"),g);
+}
+
 function renderRegl(){
   const box=$("#regl"); if(!box) return;
   const now=new Date(), today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const dep=getDep(), D=LOC()[dep];
+  if(D&&D.annee===now.getFullYear()) return renderLocal(box,dep,D);
   const st=pikeStatus(now), days=Math.round((st.next-today)/DAY);
   box.innerHTML="";
   const h=el("div","g-sec-head"); const t=el("h2",null,"Réglementation"); t.id="regl-title"; h.append(t, el("span","note","repères nationaux · 2e catégorie"));
-  box.append(h);
+  box.append(h, deptPicker(dep,false));
+  if(D) box.append(el("p","warn","La fiche « "+D.nom+" » date de "+D.annee+" : les dates de "+now.getFullYear()+" ne sont pas encore dans Rivio. Voici les repères nationaux en attendant."));
   const reserve=el("div","regl-reserve");
   reserve.append(el("b",null,"À titre indicatif — vérifie les règles du lieu avant de pêcher."),el("p","note","Ce résumé présente le socle national hors ligne. Il ne détermine pas la catégorie du cours d’eau et n’intègre pas les arrêtés préfectoraux, réserves temporaires ni règles propres à un parcours. Les règles locales peuvent être plus strictes et seuls les textes en vigueur font foi."));
   const sources=el("div","regl-sources");

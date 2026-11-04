@@ -74,6 +74,7 @@ function q(table){
     or(){ return b; }, not(k,o,v){ f.push(r=>r[k]!=null); return b; }, is(k,v){ f.push(r=>r[k]==v); return b; },
     in(k,v){ f.push(r=>v.includes(r[k])); return b; },
     order(k,o){ order.push([k,o?.ascending!==false]); return b; }, limit(n){ lim=n; return b; },
+    range(a,z){ if(a>0) f.push(()=>false); lim=z-a+1; return b; },
     insert(p){ op="insert"; payload=p; return b; }, update(p){ op="update"; payload=p; return b; }, delete(){ op="delete"; return b; },
     upsert(p){ op="insert"; payload=p; upsert=true; return b; },
     single(){ single=true; return b; }, maybeSingle(){ maybe=true; return b; },
