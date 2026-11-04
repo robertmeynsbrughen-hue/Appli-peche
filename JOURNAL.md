@@ -8,6 +8,12 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.76.1 · 4 novembre 2026 · mineure
+----------------------------------
+- Écran de démarrage « Rivio by Octane Code » : environ 1,5 s au lancement,
+  0,4 s en cas de rechargement ou de partage de photo, un toucher le passe.
+  Signature tirée du wordmark Octane Code, sans les bandes BMW M.
+
 0.76 · 4 novembre 2026 · majeure
 --------------------------------
 Suite de l'audit externe (points 4 et 6).

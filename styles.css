@@ -1111,7 +1111,7 @@ nav.tabs a{position:relative}
 /* Écran de démarrage */
 .splash{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
   background:radial-gradient(circle at 50% 40%,#2c8b73,#0b3229 70%);color:#fff;transition:opacity .45s,transform .45s}
-.splash img{width:120px;height:120px;border-radius:28px;box-shadow:0 20px 50px -10px rgba(0,0,0,.6);animation:splashpop .7s cubic-bezier(.2,1.4,.4,1) both}
+.splash>img{width:120px;height:120px;border-radius:28px;box-shadow:0 20px 50px -10px rgba(0,0,0,.6);animation:splashpop .7s cubic-bezier(.2,1.4,.4,1) both}
 .splash b{font-family:var(--f-display);font-size:2rem;text-transform:uppercase;letter-spacing:.04em;animation:splashup .6s .15s both}
 .splash span{font-size:.9rem;opacity:.8;animation:splashup .6s .25s both}
 .splash.out{opacity:0;transform:scale(1.04);pointer-events:none}
@@ -1168,7 +1168,7 @@ nav.tabs .tab-plus svg{width:28px;height:28px;stroke:currentColor;stroke-width:2
 /* Transition entre onglets */
 .view-in{animation:viewin .28s ease-out}
 @keyframes viewin{from{opacity:0;transform:translateY(10px)}}
-@media (prefers-reduced-motion:reduce){ .view-in,.cel-card,.cel-bit,.splash img,.splash b,.splash span,.plus-sheet{animation:none} }
+@media (prefers-reduced-motion:reduce){ .view-in,.cel-card,.cel-bit,.splash>img,.splash b,.splash span,.splash-bar,.splash-by,.plus-sheet{animation:none} }
 
 /* Couleur de fond choisie */
 .bg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
@@ -1985,3 +1985,11 @@ body.chat-open .sheet-back{z-index:2700}
 .regl-dep .note{display:block;margin-top:4px}
 .regl-general{margin:4px 0 0;padding-left:18px}
 .regl-general li{margin:4px 0}
+
+/* écran de démarrage : signature Octane Code */
+.splash-bar{display:block;width:140px;height:3px;border-radius:2px;background:rgba(255,255,255,.18);overflow:hidden;margin-top:14px;position:relative}
+.splash-bar::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#ffc463,#e46f17);transform-origin:left;animation:splashbar 1.4s cubic-bezier(.4,0,.2,1) both}
+.splash-by{position:absolute;left:0;right:0;bottom:max(34px,env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:6px;animation:splashup .6s .45s both}
+.splash-by small{font-size:.72rem;letter-spacing:.3em;text-transform:uppercase;opacity:.7}
+.splash-by img{width:min(200px,52vw);height:auto;border-radius:0;box-shadow:none;animation:none}
+@keyframes splashbar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
