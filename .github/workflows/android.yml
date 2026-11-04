@@ -1,0 +1,122 @@
+# Rivio : fabrique l'appli Android (Trusted Web Activity, Bubblewrap) pour Google Play.
+#
+# - Sur une PR qui touche android/ : construction NON signée, pour vérifier que
+#   la chaîne marche. Rien n'est publié.
+# - Lancement manuel (Actions › Android › Run workflow) : AAB signé avec la clé
+#   d'envoi, téléchargeable dans les « Artifacts » du run, à déposer dans la
+#   Play Console. Rien n'est envoyé automatiquement à Google.
+#
+# Secrets du dépôt (Settings › Secrets and variables › Actions), créés par Robert :
+#   ANDROID_KEYSTORE_BASE64   la clé d'envoi (fichier .keystore encodé en base64)
+#   ANDROID_KEYSTORE_PASSWORD son mot de passe
+#   ANDROID_KEY_PASSWORD      le mot de passe de la clé (souvent le même)
+# La clé n'est jamais écrite dans le dépôt ni dans les journaux.
+name: Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Adresse du site (sans https), ex. rivio.fr"
+        required: true
+        default: "robertmeynsbrughen-hue.github.io"
+      base:
+        description: "Chemin de l'appli sur ce site, ex. / ou /Appli-peche/"
+        required: true
+        default: "/Appli-peche/"
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: AAB Google Play
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SIGNED: ${{ github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Outils Android (build-tools 36.1.0, plateforme 36)
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;36.1.0" "platforms;android-36" > /dev/null
+          # Bubblewrap vérifie seulement que ce dossier existe ; les outils sont déjà installés.
+          mkdir -p "$ANDROID_HOME/tools"
+          mkdir -p ~/.bubblewrap
+          printf '{"jdkPath":"%s","androidSdkPath":"%s"}' "$JAVA_HOME" "$ANDROID_HOME" > ~/.bubblewrap/config.json
+
+      - name: Installer Bubblewrap
+        run: npm install -g @bubblewrap/cli@1 && bubblewrap help > /dev/null && npm ls -g @bubblewrap/cli
+
+      - name: Configuration Android de Rivio
+        run: |
+          HOST="${{ github.event.inputs.host || 'robertmeynsbrughen-hue.github.io' }}"
+          BASE="${{ github.event.inputs.base || '/Appli-peche/' }}"
+          node android/twa-manifest.mjs "$HOST" "$BASE"
+          mkdir -p android/build
+          cp android/twa-manifest.json android/build/
+
+      - name: Générer le projet Android
+        working-directory: android/build
+        run: |
+          bubblewrap update --skipVersionUpgrade --manifest=./twa-manifest.json
+          # Google Play exige Android 16 (API 36) pour les nouvelles applis depuis le 31 août 2026.
+          grep -E "targetSdkVersion|compileSdkVersion" app/build.gradle
+          sed -i -E 's/(targetSdkVersion|compileSdkVersion) [0-9]+/\1 36/' app/build.gradle
+          grep -q "targetSdkVersion 36" app/build.gradle
+
+      - name: Clé d'envoi (lancement manuel uniquement)
+        if: env.SIGNED == 'true'
+        working-directory: android/build
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS" ]; then echo "::error::Secret ANDROID_KEYSTORE_BASE64 absent : voir android/LISEZMOI.md"; exit 1; fi
+          echo "$KS" | base64 -d > rivio-upload.keystore
+          echo "Empreinte SHA-256 de la clé d'envoi (pour assetlinks.json) :"
+          keytool -list -v -keystore rivio-upload.keystore -alias rivio -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" | grep "SHA256:"
+
+      - name: Construire (signé)
+        if: env.SIGNED == 'true'
+        working-directory: android/build
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: bubblewrap build --skipPwaValidation --manifest=./twa-manifest.json
+
+      - name: Construire (non signé, vérification)
+        if: env.SIGNED != 'true'
+        working-directory: android/build
+        run: bubblewrap build --skipPwaValidation --skipSigning --manifest=./twa-manifest.json
+
+      - name: Ranger les fichiers
+        if: always()
+        working-directory: android/build
+        run: |
+          rm -f rivio-upload.keystore
+          mkdir -p ../out
+          cp -v *.aab *.apk ../out/ 2>/dev/null || true
+          cp twa-manifest.json ../out/
+          ls -la ../out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rivio-android-${{ github.run_number }}
+          path: android/out/
+          retention-days: 14
