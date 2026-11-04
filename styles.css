@@ -1979,3 +1979,9 @@ body.chat-open .sheet-back{z-index:2700}
 .mod-tabs .mt-n{min-width:18px;height:18px;border-radius:9px;background:var(--warn);color:#fff;font-size:.68rem;display:grid;place-items:center;padding:0 5px}
 .has-sub[data-s="jeux"] > [data-sub]:not([data-sub="jeux"]){display:none!important}
 .subbar button.has-dot::after{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--warn);margin-left:5px;vertical-align:middle}
+/* règles locales par département */
+.regl-dep{display:block;margin:8px 0 4px}
+.regl-dep select{width:100%}
+.regl-dep .note{display:block;margin-top:4px}
+.regl-general{margin:4px 0 0;padding-left:18px}
+.regl-general li{margin:4px 0}

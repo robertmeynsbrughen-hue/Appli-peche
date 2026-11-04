@@ -25,9 +25,9 @@ insert into public.memberships (group_id, user_id, role, status) values
 insert into public.messages (group_id, user_id, body) values
   (900001, '00000000-0000-4000-8000-0000000000a1', 'message du groupe A'),
   (900002, '00000000-0000-4000-8000-0000000000b2', 'message du groupe B');
-insert into public.posts (group_id, user_id, species, status) values
-  (900001, '00000000-0000-4000-8000-0000000000a1', 'Carpe', 'published'),
-  (900002, '00000000-0000-4000-8000-0000000000b2', 'Brochet', 'published');
+insert into public.posts (group_id, user_id, species, status, conditions) values
+  (900001, '00000000-0000-4000-8000-0000000000a1', 'Carpe', 'published', '{"water":12,"dp":0,"wind":10,"cloud":50}'),
+  (900002, '00000000-0000-4000-8000-0000000000b2', 'Brochet', 'published', '{"water":12,"dp":0,"wind":10,"cloud":50}');
 with t as (
   insert into public.tracks (user_id, group_id, started_at, ended_at, points)
   values ('00000000-0000-4000-8000-0000000000a1', 900001, now(), now() + interval '1 hour', '[ [46.5, 1.5], [46.6, 1.6] ]'::jsonb)
@@ -179,6 +179,13 @@ begin
     raise exception 'ÉCHEC le membre A voit l''abonnement Premium du membre B';
   end if;
   if public.is_premium() then raise exception 'ÉCHEC le membre A est vu Premium sans abonnement'; end if;
+  -- 0029 : les bilans « conditions proches » ne lisent que les groupes du membre
+  if not exists (select 1 from public.advice_history(12, 0, 10, 50) where species = 'carpe') then
+    raise exception 'ÉCHEC advice_history ne voit pas les prises du groupe du membre A';
+  end if;
+  if exists (select 1 from public.advice_history(12, 0, 10, 50) where species = 'brochet') then
+    raise exception 'ÉCHEC advice_history révèle les prises du groupe B au membre A';
+  end if;
 end $$;
 reset role;
 

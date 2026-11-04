@@ -37,6 +37,27 @@ function bigAvatar(name,url){
   else{ let h=0; for(const c of name) h=(h*31+c.charCodeAt(0))%360; a.style.background="hsl("+h+" 42% 42%)"; a.textContent=name.charAt(0); }
   return a;
 }
+// Historique d'un pêcheur : lu par pages de 1 000 (rien n'est tronqué), gardé
+// 5 minutes en mémoire pour ne pas tout relire à chaque ouverture du profil.
+const HIST=new Map();
+async function pages(make,max=20){
+  const out=[]; const N=1000;
+  for(let i=0;i<max;i++){
+    const {data,error}=await make().range(i*N,i*N+N-1);
+    if(error) throw error;
+    out.push(...(data||[])); if(!data||data.length<N) break;
+  }
+  return out;
+}
+async function history(uid){
+  const c=HIST.get(uid); if(c&&Date.now()-c.t<3e5) return c.v;
+  const [po,se,cs]=await Promise.all([
+    pages(()=>A.sb.from("posts").select("group_id,species,length_cm,weight_kg,created_at").eq("user_id",uid).eq("status","published").not("species","is",null).order("created_at",{ascending:false})).catch(()=>[]),
+    pages(()=>A.sb.from("sessions").select("group_id,species,caught,length_cm,created_at").eq("user_id",uid).order("created_at",{ascending:false})).catch(()=>[]),
+    pages(()=>A.sb.from("carp_sessions").select("id,group_id,started_at,carp_events(kind,at,weight_kg)").eq("user_id",uid).order("started_at",{ascending:false})).catch(()=>[]),
+  ]);
+  const v={po,se,cs}; HIST.set(uid,{t:Date.now(),v}); return v;
+}
 async function openProfile(username){
   if(!A.me||!username) return;
   close();
@@ -53,11 +74,7 @@ async function openProfile(username){
   if(!sheet||!sh.isConnected) return;
   sh.lastChild.remove();
   if(!p){ sh.append(el("p","note","Profil introuvable.")); return; }
-  const [{data:po},{data:se},{data:cs}]=await Promise.all([
-    A.sb.from("posts").select("group_id,species,length_cm,weight_kg,created_at").eq("user_id",p.id).eq("status","published").limit(2000),
-    A.sb.from("sessions").select("group_id,species,caught,length_cm,created_at").eq("user_id",p.id).limit(2000),
-    A.sb.from("carp_sessions").select("id,group_id,started_at,carp_events(kind,at,weight_kg)").eq("user_id",p.id).limit(500),
-  ]);
+  const {po,se,cs}=await history(p.id);
   if(!sh.isConnected) return;
   const D=A.dex;
   const rows=[...(po||[]).filter(x=>x.species).map(x=>({...x,kind:"post"})),...(se||[]).filter(x=>x.caught!==false&&x.species)];
