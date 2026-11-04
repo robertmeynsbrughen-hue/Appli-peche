@@ -496,6 +496,8 @@ body.chat-open{overflow:hidden}
 .regl-sources .linkbtn{white-space:normal;text-align:left}
 .regl-alert{display:flex;gap:12px;align-items:flex-start;background:var(--accent-soft);border-radius:12px;padding:12px 14px}
 .regl-alert.closed{background:var(--warn-soft)}
+.regl-alert.pending{background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent)}
+.chip.pending{background:var(--warn-soft);color:var(--fg);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent)}
 .regl-ico{font-size:1.4rem;line-height:1.2}
 .regl-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .regl-size{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0}
@@ -2009,6 +2011,9 @@ body.chat-open .sheet-back{z-index:2700}
 @media (prefers-reduced-motion:reduce){.live-dot{animation:none}}
 .carp-live-k{font-weight:600;margin-top:2px}
 .etang-pop p{margin:6px 0}
+.today-location-hint,.spot-prep,.etang-prep{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--warn);border-radius:12px;background:var(--warn-soft);margin:8px 0}
+.today-location-hint .note,.spot-prep .note,.etang-prep .note{margin:0}
+.etang-prep{font-size:.9rem}
 .etang-tags{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
 .etang-tags .chip{font-size:.7rem;padding:2px 8px}
 .etang-pin{border-radius:10px}

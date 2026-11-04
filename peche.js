@@ -52,30 +52,30 @@ function deptPicker(cur,localOk){
 function renderLocal(box,dep,D){
   const now=new Date(), today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   box.innerHTML="";
-  const h=el("div","g-sec-head"); const t=el("h2",null,"Réglementation"); t.id="regl-title"; h.append(t, el("span","note","règles locales · "+D.nom+" ("+dep+")"));
+  const h=el("div","g-sec-head"); const t=el("h2",null,"Réglementation"); t.id="regl-title"; h.append(t, el("span","note","résumé départemental · "+D.nom+" ("+dep+")"));
   box.append(h, deptPicker(dep,true));
   const src=el("div","regl-reserve");
   const maj=new Date(D.source.maj).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"}), vu=new Date(D.source.consulte).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});
   const a=el("a",null,D.source.titre); a.href=D.source.url; a.target="_blank"; a.rel="noopener";
-  src.append(el("b",null,"Résumé local "+D.annee+" : vérifie toujours sur place."),el("p","note","Source : "),el("p","note","Page mise à jour le "+maj+", consultée par Rivio le "+vu+". Ce résumé ne remplace pas l'arrêté préfectoral : réserves, parcours, plans d'eau et arrêtés temporaires peuvent avoir des règles différentes."));
+  src.append(el("b",null,"Résumé départemental "+D.annee+" — parcours non vérifié."),el("p","note","Source : "),el("p","note","Page mise à jour le "+maj+", consultée par Rivio le "+vu+". Ces périodes ne sont pas vérifiées pour ton parcours précis. Réserves, plans d'eau, parcours et arrêtés temporaires peuvent avoir des règles différentes : vérifie le panneau et l'arrêté en vigueur avant de pêcher."));
   src.children[1].append(a);
   if(D.contact) src.append(el("p","note",D.contact));
   box.append(src);
   const pike=D.especes.find(e=>e.sp==="Brochet");
   if(pike){
     const open=inPeriods(pike.c2,today), nx=nextChange(pike.c2,today,D.annee);
-    const al=el("div","regl-alert"+(open?"":" closed")); al.append(el("span","regl-ico",open?"✅":"⛔"));
-    const at=el("div"); at.append(el("b",null,"Brochet "+(open?"ouvert":"fermé")+" en 2e catégorie · "+D.nom),
+    const al=el("div","regl-alert pending"+(open?"":" closed")); al.append(el("span","regl-ico","⚠️"));
+    const at=el("div"); at.append(el("b",null,"Période départementale du brochet : "+(open?"ouverte":"fermée")+" · 2e catégorie"),
       el("div","note",nx&&nx.date?(nx.open?"Fermeture le "+dlong(nx.date)+".":"Réouverture le "+dlong(nx.date)+"."):nx&&nx.open?"Ouvert jusqu'au 31 décembre "+D.annee+". Les dates de "+(D.annee+1)+" ne sont pas encore publiées.":"Prochaine date pas encore publiée pour "+(D.annee+1)+"."));
     al.append(at); box.append(al);
   }
   const list=el("div","regl-list");
   D.especes.forEach(e=>{
     const o2=inPeriods(e.c2,today);
-    const state=e.c2==null?"Voir le détail":!e.c2.length?"Interdite":o2?"Ouvert · 2e cat.":"Fermé · 2e cat.";
+    const state=e.c2==null?"Détail":!e.c2.length?"Résumé dép. · interdite":o2?"Résumé dép. · période ouverte":"Résumé dép. · période fermée";
     const d=el("details","regl-item"); d.open=openRegl.has("L-"+e.sp);
     d.addEventListener("toggle",()=>{ d.open?openRegl.add("L-"+e.sp):openRegl.delete("L-"+e.sp); try{ localStorage.setItem("cdj-regl-open",JSON.stringify([...openRegl])); }catch(_){} });
-    const sm=el("summary"); const top=el("span","regl-top"); top.append(el("span","tag",e.sp), el("span","chip "+(e.c2==null?"":o2?"plus":"minus"),state));
+    const sm=el("summary"); const top=el("span","regl-top"); top.append(el("span","tag",e.sp), el("span","chip pending",state));
     const sz=el("span","regl-size"); sz.append(el("span","label","Taille mini"), el("span","rk-v",e.taille?e.taille+" cm":"—"));
     sm.append(top,sz,el("span","regl-chev","›"));
     const ul=el("ul","regl-lines");
@@ -96,7 +96,7 @@ function renderRegl(){
   if(D&&D.annee===now.getFullYear()) return renderLocal(box,dep,D);
   const st=pikeStatus(now), days=Math.round((st.next-today)/DAY);
   box.innerHTML="";
-  const h=el("div","g-sec-head"); const t=el("h2",null,"Réglementation"); t.id="regl-title"; h.append(t, el("span","note","repères nationaux · 2e catégorie"));
+  const h=el("div","g-sec-head"); const t=el("h2",null,"Réglementation"); t.id="regl-title"; h.append(t, el("span","note","socle national · 2e catégorie"));
   box.append(h, deptPicker(dep,false));
   if(D) box.append(el("p","warn","La fiche « "+D.nom+" » date de "+D.annee+" : les dates de "+now.getFullYear()+" ne sont pas encore dans Rivio. Voici les repères nationaux en attendant."));
   const reserve=el("div","regl-reserve");
@@ -104,30 +104,30 @@ function renderRegl(){
   const sources=el("div","regl-sources");
   [["Code de l’environnement · périodes (R. 436-6 à R. 436-8)","https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006074220/LEGISCTA000006159415/"],["Tailles minimales (R. 436-18 et R. 436-19)","https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006074220/LEGISCTA000006188898/"],["Quotas (R. 436-21)","https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000038416184/"],["Règles locales · fédérations départementales", "https://www.service-public.gouv.fr/particuliers/vosdroits/F2117"]].forEach(([label,url])=>{ const a=el("a","linkbtn",label); a.href=url; a.target="_blank"; a.rel="noopener noreferrer"; sources.append(a); });
   reserve.append(sources); box.append(reserve);
-  const alert=el("div","regl-alert"+(st.open?"":" closed"));
-  alert.append(el("span","regl-ico",st.open?"✅":"⛔"));
+  const alert=el("div","regl-alert pending"+(st.open?"":" closed"));
+  alert.append(el("span","regl-ico","⚠️"));
   const at=el("div");
   if(st.open){
-    at.append(el("b",null,"Brochet ouvert · règle nationale"), el("div","note","Fermeture le "+dlong(st.next)+(days<=45?" (dans "+pl(days,"jour")+")":"")+". Le sandre et le black-bass peuvent avoir des dates locales différentes."));
+    at.append(el("b",null,"Repère national : période du brochet ouverte en 2e catégorie"), el("div","note","Fermeture le "+dlong(st.next)+(days<=45?" (dans "+pl(days,"jour")+")":"")+". Ce n'est pas une confirmation d'ouverture pour ton lieu : catégorie et règles locales restent à vérifier."));
   }else{
-    at.append(el("b",null,"Brochet fermé · règle nationale"), el("div","note","Réouverture le "+dlong(st.next)+" : dans "+pl(days,"jour")+". Pendant cette fermeture, les leurres, vifs et poissons morts susceptibles de capturer le brochet sont interdits en 2e catégorie."));
+    at.append(el("b",null,"Repère national : période du brochet fermée en 2e catégorie"), el("div","note","Réouverture le "+dlong(st.next)+" : dans "+pl(days,"jour")+". Vérifie la catégorie et les règles de ton lieu auprès de la fédération ou sur l'arrêté local."));
   }
   alert.append(at); box.append(alert);
   const rows=[
-    ["Brochet",st.open?"Ouvert · national":"Fermé · national","50 cm",st.open,["En 2e catégorie : ouvert du 1er janvier au dernier dimanche de janvier, puis du dernier samedi d'avril au 31 décembre.","Taille minimale nationale : 50 cm. Le préfet peut la relever, par exemple à 60 cm.","2 brochets maximum par jour, compris dans les 3 carnassiers.","Pendant la fermeture, les leurres, vifs et poissons morts susceptibles de le capturer sont interdits en 2e catégorie."]],
-    ["Sandre","Ouvert · national","40 cm",true,["Le socle national ne prévoit pas de fermeture spécifique en 2e catégorie ; un arrêté local peut en fixer une.","Taille minimale nationale : 40 cm. Le préfet peut la relever, par exemple à 50 cm.","Compte dans les 3 carnassiers par jour."]],
-    ["Black-bass","Ouvert · national","30 cm",true,["Le socle national ne prévoit pas de fermeture spécifique en 2e catégorie ; un arrêté local peut en fixer une.","Taille minimale nationale : 30 cm. Le préfet peut la relever, par exemple à 40 cm.","Compte dans les 3 carnassiers par jour."]],
-    ["Perche","Toute l'année","—",true,["Ouverte toute l'année en 2e catégorie.","Pas de taille nationale, certains départements en fixent une."]],
-    ["Silure","Toute l'année","—",true,["Ouvert toute l'année, sans taille ni quota national.","Matériel costaud obligatoire, manipule-le avec précaution."]],
-    ["Chevesne","Toute l'année","—",true,["Ouvert toute l'année, sans taille nationale."]],
-    ["Carpe","Toute l'année","—",true,["Ouverte toute l'année.","La nuit, seulement sur les parcours autorisés par l'arrêté, et toute carpe prise de nuit doit être remise à l'eau."]],
+    ["Brochet",st.open?"Période nationale ouverte":"Période nationale fermée","50 cm",null,["En 2e catégorie : ouvert du 1er janvier au dernier dimanche de janvier, puis du dernier samedi d'avril au 31 décembre.","Taille minimale nationale : 50 cm. Le préfet peut la relever, par exemple à 60 cm.","2 brochets maximum par jour, compris dans les 3 carnassiers.","Pendant la fermeture, les leurres, vifs et poissons morts susceptibles de le capturer sont interdits en 2e catégorie."]],
+    ["Sandre","Socle national · 2e cat.","40 cm",null,["Le socle national ne prévoit pas de fermeture spécifique en 2e catégorie ; un arrêté local peut en fixer une.","Taille minimale nationale : 40 cm. Le préfet peut la relever, par exemple à 50 cm.","Compte dans les 3 carnassiers par jour."]],
+    ["Black-bass","Socle national · 2e cat.","30 cm",null,["Le socle national ne prévoit pas de fermeture spécifique en 2e catégorie ; un arrêté local peut en fixer une.","Taille minimale nationale : 30 cm. Le préfet peut la relever, par exemple à 40 cm.","Compte dans les 3 carnassiers par jour."]],
+    ["Perche","Repère national · 2e cat.","—",null,["Ouverte toute l'année en 2e catégorie.","Pas de taille nationale, certains départements en fixent une."]],
+    ["Silure","Repère national · 2e cat.","—",null,["Ouvert toute l'année, sans taille ni quota national.","Matériel costaud obligatoire, manipule-le avec précaution."]],
+    ["Chevesne","Repère national · 2e cat.","—",null,["Ouvert toute l'année, sans taille nationale."]],
+    ["Carpe","Repère national · 2e cat.","—",null,["Ouverte toute l'année.","La nuit, seulement sur les parcours autorisés par l'arrêté, et toute carpe prise de nuit doit être remise à l'eau."]],
   ];
   const list=el("div","regl-list");
   rows.forEach(([sp,state,size,ok,lines])=>{
     const d=el("details","regl-item"); d.open=openRegl.has(sp);
     d.addEventListener("toggle",()=>{ d.open?openRegl.add(sp):openRegl.delete(sp); try{ localStorage.setItem("cdj-regl-open",JSON.stringify([...openRegl])); }catch(e){} });
     const sm=el("summary");
-    const top=el("span","regl-top"); top.append(el("span","tag",sp), el("span","chip "+(ok?"plus":"minus"),state));
+    const top=el("span","regl-top"); top.append(el("span","tag",sp), el("span","chip "+(ok===null?"pending":ok?"plus":"minus"),state));
     const sz=el("span","regl-size"); sz.append(el("span","label","Taille mini"), el("span","rk-v",size));
     sm.append(top,sz,el("span","regl-chev","›"));
     const ul=el("ul","regl-lines"); lines.forEach(t=>ul.append(el("li",null,t)));
@@ -374,6 +374,19 @@ async function spotSheet(s,editing){
   tools.append(btn("🌤️ Conditions ici","btn small",()=>{ closeSheet(); location.hash="#conseils"; window.CDJ_ADVICE?.loadAt(s.lat,s.lon,s.name).catch(()=>toast("Météo indisponible pour ce spot")); }));
   const it=el("a","btn small","🧭 Itinéraire"); it.href="https://www.google.com/maps/dir/?api=1&destination="+s.lat+","+s.lon; it.target="_blank"; it.rel="noopener"; tools.append(it);
   sh.append(tools);
+
+  if(!editing){
+    const prep=el("section","spot-prep");
+    prep.append(el("h3",null,"🧭 Préparer ce lieu"));
+    prep.append(el("p","note",s.depth_m||s.bottom
+      ?"Fond du poste renseigné par le groupe"+(s.sheet_updated_at?" · mise à jour "+ago(s.sheet_updated_at):"")+". Ce relevé n'est pas une carte bathymétrique officielle."
+      :"Aucune profondeur renseignée dans cette fiche. Les relevés de sondeur du groupe sont consultables dans Carte → Fond ; sans relevé, la profondeur reste inconnue."));
+    prep.append(el("p","note","Réglementation locale non vérifiée pour ce parcours. Le résumé national ou départemental ne confirme pas qu'on peut pêcher à ce poste."));
+    const acts=el("div","actions");
+    acts.append(btn("🌊 Voir les relevés du groupe","btn small",()=>{ closeSheet(); window.CDJ_MAP_LAYERS?.showDepthAt(s.lat,s.lon,s.group_id); }));
+    acts.append(btn("📋 Vérifier les règles","btn small",()=>{ closeSheet(); location.hash="#conseils"; setTimeout(()=>document.querySelector("#regl")?.scrollIntoView({behavior:"smooth",block:"start"}),250); }));
+    prep.append(acts); sh.append(prep);
+  }
 
   // fiche technique
   const card=el("div","spot-facts");

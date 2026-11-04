@@ -319,7 +319,7 @@ function render(){
   // résumé pour l'écran « Aujourd'hui »
   try{
     const hr=k=>new Date(start.getTime()+k*36e5).getHours()+"h";
-    window.CDJ_TODAY={live:mode==="live",place:meta.place,when:meta.when,water:now.water,water_measured:tm!=null,air:now.air,sky,wind:now.wind,trend,
+    window.CDJ_TODAY={live:mode==="live",locationFallback:mode!=="live",place:meta.place,when:meta.when,water:now.water,water_measured:tm!=null,air:now.air,sky,wind:now.wind,trend,
       h0:start.getHours(),moon:meta.moon||null,pressure:meta.pressure||null,clarity:(()=>{ try{ return CLARITY_TXT[getClarity(now,meta)]; }catch(_){ return null; } })(),
       top:results.filter(r=>!(r.sp.closed&&r.sp.closed(m))).slice(0,3).map(r=>({name:r.sp.name,pct:Math.round(r.peak*100),from:r.a>=0?hr(r.a):null,to:r.a>=0?hr(r.b+1):null,s:r.series.map(v=>+v.toFixed(2)),b:r.best.map(Boolean)})),
       fav:results.filter(isFav).map(r=>({name:r.sp.name,pct:Math.round(r.peak*100),from:r.a>=0?hr(r.a):null,to:r.a>=0?hr(r.b+1):null,closed:!!(r.sp.closed&&r.sp.closed(m)),s:r.series.map(v=>+v.toFixed(2)),b:r.best.map(Boolean)}))};

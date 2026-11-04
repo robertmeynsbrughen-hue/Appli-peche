@@ -430,8 +430,8 @@ function fondPanel(){
   const leg=el("div","depth-legend"); leg.append(el("span",null,"Peu profond"),el("i"),el("span",null,"Profond"));
   box.append(leg);
   const bl=el("div","chips"); BOTTOMS.forEach(([n,c])=>{ const x=el("span","chip"); const d=el("i","bdot"); d.style.background=c; x.append(d,n); bl.append(x); }); box.append(bl);
-  box.append(el("p","note",depth.pts.length?depth.pts.length+" relevé"+(depth.pts.length>1?"s":"")+" (membres et fiches de poste). Touche la carte pour ajouter une profondeur ou un type de fond.":"Aucun relevé pour l'instant. Touche la carte à l'endroit sondé pour ajouter une profondeur (sondeur, plomb sondeur) et/ou la nature du fond."));
-  box.append(el("p","note","Il n'existe pas de carte publique gratuite des profondeurs pour les lacs et rivières : celle-ci se construit avec les relevés du groupe. Plus il y en a, plus elle est précise."));
+  box.append(el("p","note",depth.pts.length?depth.pts.length+" relevé"+(depth.pts.length>1?"s":"")+" visibles dans ce groupe (imports de sondeur et fiches de poste). Les relevés manuels et importés restent identifiables avec leur source et leur date.":"Aucun relevé de profondeur dans ce groupe. La profondeur de ce lieu est inconnue tant qu'aucun relevé vérifiable n'est disponible."));
+  box.append(el("p","note","Rivio n'affiche pas de bathymétrie publique vérifiée pour ce plan d'eau. Les référentiels consultés répertorient des plans d'eau ou des levés ponctuels, sans couverture continue garantie des lacs et rivières. Les zones sans relevés restent donc sans profondeur estimée."));
   if(typeof A.cur!=="number") box.append(el("p","warn","Choisis un groupe précis pour ajouter des relevés."));
   else{
     const inp=el("input"); inp.type="file"; inp.accept=".gpx,.csv,.tsv,.txt"; inp.hidden=true;
@@ -464,15 +464,22 @@ function addDepthAt(ll){
   L.popup().setLatLng(ll).setContent(f).openOn(map);
   setTimeout(()=>di.focus(),100);
 }
-function setMode(m){
+function setMode(m,quiet=false){
   mode=m;
   window.CDJ_MAPMODE=m;
   document.querySelectorAll("#carte-sub [data-s]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.s===m)));
   $("#map-bar")?.classList.toggle("dim",m==="fond"); bar();
   fondPanel();
-  if(m==="fond") toast("Mode Fond : touche la carte pour ajouter une profondeur. Repasse sur Surface pour créer un spot.");
+  if(m==="fond"&&!quiet) toast("Mode Fond : touche la carte pour ajouter une profondeur. Repasse sur Surface pour créer un spot.");
   if(m==="fond") loadDepth().then(()=>{ drawDepth(); fondPanel(); }); else drawDepth();
 }
+window.CDJ_MAP_LAYERS={showDepthAt(lat,lon,groupId){
+  if(typeof groupId==="number"&&A.cur!==groupId) A.setGroup(groupId);
+  location.hash="#carte";
+  const end=Date.now()+6000;
+  const focus=()=>{ if(!map){ if(Date.now()<end) setTimeout(focus,120); return; } map.setView([lat,lon],16); setMode("fond",true); };
+  setTimeout(focus,120);
+}};
 document.querySelectorAll("#carte-sub [data-s]").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.s)));
 
 

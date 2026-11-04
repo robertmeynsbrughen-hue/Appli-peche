@@ -8,6 +8,20 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.78 · 4 novembre 2026 · majeure
+--------------------------------
+- Préparation d'un lieu : la fiche d'un spot rassemble météo locale, profondeur
+  connue, accès aux relevés du groupe, état explicite de la réglementation et
+  réservations du poste. Les fiches d'étangs ouvrent les conditions sur place
+  et affichent leurs sources et limites.
+- Position par défaut : l'accueil signale que les scores sont indicatifs et
+  propose clairement d'utiliser le GPS.
+- Réglementation : les périodes nationales et départementales sont présentées
+  comme des repères, jamais comme une confirmation d'ouverture sur un parcours
+  non vérifié.
+- Profondeurs : aucune couverture bathymétrique publique n'est inventée ; la
+  carte indique les relevés réellement disponibles dans le groupe.
+
 0.77 · 4 novembre 2026 · majeure
 --------------------------------
 - Import du sondeur (maplayers.js) : Carte › Fond › « Importer un fichier de
