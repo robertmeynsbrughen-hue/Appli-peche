@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.rivio",
+      "sha256_cert_fingerprints": [
+        "B9:5E:0E:73:68:5C:18:D8:83:BC:6B:F1:E8:60:94:1E:DC:94:AD:2B:8E:40:86:ED:CD:A8:50:33:9A:A3:9D:E0"
+      ]
+    }
+  }
+]
