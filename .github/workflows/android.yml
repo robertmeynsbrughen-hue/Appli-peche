@@ -124,7 +124,12 @@ jobs:
         run: |
           rm -f rivio-upload.keystore
           mkdir -p ../out
-          for f in *.aab *.apk app/build/outputs/bundle/release/*.aab; do [ -f "$f" ] && cp -v "$f" ../out/; done
+          if [ "$SIGNED" = "true" ]; then
+            # Signé : seulement ce qui va à Google (AAB) et l'APK pour essayer sur un téléphone.
+            for f in app-release-bundle.aab app-release-signed.apk; do [ -f "$f" ] && cp -v "$f" "../out/rivio-$(sed -n 's/.*"appVersion": "\(.*\)".*/\1/p' twa-manifest.json)-${f#app-release-}"; done
+          else
+            for f in *.aab *.apk app/build/outputs/bundle/release/*.aab; do [ -f "$f" ] && cp -v "$f" ../out/; done
+          fi
           ls ../out/*.aab > /dev/null
           cp twa-manifest.json ../out/
           ls -la ../out
