@@ -11,9 +11,13 @@ function btn(label,cls,fn){ const b=el("button",cls||"btn",label); b.type="butto
 /* ---------- Écran de démarrage ---------- */
 (function(){
   const sp=$("#splash"); if(!sp) return;
-  const hide=()=>{ sp.classList.add("out"); setTimeout(()=>sp.remove(),500); };
-  // on cache l'écran de démarrage dès le premier affichage (au plus tard 450 ms)
-  requestAnimationFrame(()=>setTimeout(hide,250)); setTimeout(hide,450);
+  let done=false; const hide=()=>{ if(done) return; done=true; sp.classList.add("out"); setTimeout(()=>sp.remove(),500); };
+  // « Rivio by Octane Code » : environ 1,5 s au lancement de l'appli, puis 0,4 s
+  // seulement si on recharge pendant la même visite. Un toucher le passe.
+  let seen=false; try{ seen=sessionStorage.getItem("cdj-splash")==="1"; sessionStorage.setItem("cdj-splash","1"); }catch(e){}
+  const shared=/[?&]shared=1/.test(location.search);
+  setTimeout(hide,seen||shared?400:1500);
+  sp.addEventListener("click",hide);
 })();
 
 /* ---------- Bouton « + » dans la barre du bas ---------- */
