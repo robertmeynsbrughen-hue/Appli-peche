@@ -111,7 +111,8 @@ jobs:
         run: |
           rm -f rivio-upload.keystore
           mkdir -p ../out
-          cp -v *.aab *.apk ../out/ 2>/dev/null || true
+          for f in *.aab *.apk app/build/outputs/bundle/release/*.aab; do [ -f "$f" ] && cp -v "$f" ../out/; done
+          ls ../out/*.aab > /dev/null
           cp twa-manifest.json ../out/
           ls -la ../out
 
