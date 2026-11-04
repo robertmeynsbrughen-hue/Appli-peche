@@ -86,11 +86,20 @@ jobs:
         working-directory: android/build
         env:
           KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           if [ -z "$KS" ]; then echo "::error::Secret ANDROID_KEYSTORE_BASE64 absent : voir android/LISEZMOI.md"; exit 1; fi
-          echo "$KS" | base64 -d > rivio-upload.keystore
+          printf '%s' "$KS" | tr -d ' \r\n\t' | sed 's/^\xEF\xBB\xBF//' | base64 -d > rivio-upload.keystore
+          echo "Fichier de clé : $(stat -c %s rivio-upload.keystore) octets ($(file -b rivio-upload.keystore | cut -c1-40))"
+          if [ -z "$PW" ]; then echo "::error::Secret ANDROID_KEYSTORE_PASSWORD absent ou vide"; exit 1; fi
+          echo "Mot de passe : ${#PW} caractères"
+          if ! out=$(keytool -list -v -keystore rivio-upload.keystore -storepass "$PW" 2>&1); then
+            echo "::error::keytool refuse la clé : $(echo "$out" | grep -i "error\|exception" | head -3)"
+            exit 1
+          fi
+          echo "Alias présents : $(echo "$out" | grep -i '^Alias name' | tr '\n' ' ')"
           echo "Empreinte SHA-256 de la clé d'envoi (pour assetlinks.json) :"
-          keytool -list -v -keystore rivio-upload.keystore -alias rivio -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" | grep "SHA256:"
+          echo "$out" | grep "SHA256:"
 
       - name: Construire (signé)
         if: env.SIGNED == 'true'
