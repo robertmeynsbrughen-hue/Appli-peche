@@ -8,6 +8,27 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.77 · 4 novembre 2026 · majeure
+--------------------------------
+- Import du sondeur (maplayers.js) : Carte › Fond › « Importer un fichier de
+  sondeur ». CSV (séparateur détecté, colonnes lat/lon/profondeur, pieds
+  convertis) ou GPX (balises de profondeur, altitude négative, nom « x m »).
+  Aperçu, allègement sur une grille (2 500 points au plus), envoi par lots,
+  suppression d'un import entier. Lignes de niveau (isobathes) calculées sur
+  la grille. Points importés dessinés en petits ronds, épingles pour les
+  relevés à la main.
+- Planning des postes (postes.js, table spot_bookings, migration 0030) : sur
+  la fiche d'un poste, « J'y vais » (arrivée, départ, cannes, mot), alerte si
+  un autre membre est déjà prévu sur le même créneau. Dans le groupe, « Postes
+  réservés » sur 8 jours. Lecture par les membres du groupe, chacun réserve
+  pour lui-même, annulation par l'auteur ou un modérateur.
+- Session en direct (direct.js) : sessions carpe en cours des autres membres
+  sur Aujourd'hui et le Fil, mises à jour en temps réel (Supabase Realtime,
+  règles d'accès appliquées), avec une alerte à chaque départ ou prise.
+- Étangs et carpodromes (etangs.js) : calque « Étangs » avec 7 plans d'eau
+  du Lot-et-Garonne relevés le 4 novembre 2026 (source et lien sur chaque
+  fiche, position approximative signalée).
+
 0.76.1 · 4 novembre 2026 · mineure
 ----------------------------------
 - Écran de démarrage « Rivio by Octane Code » : environ 1,5 s au lancement,

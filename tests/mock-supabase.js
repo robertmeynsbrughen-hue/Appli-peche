@@ -38,6 +38,7 @@ const T={
  spots:[{id:5,group_id:2,user_id:"u4",name:"La fosse du pont",note:"Accès par le chemin de halage",lat:44.2,lon:0.6,created_at:iso(400*H),depth_m:4.5,distance_tours:22,bottom:"Vase",details:"Cassure à 22 tours face au saule.\nAmorcer en ligne.",sheet_updated_at:iso(30*H),facing:225},{id:6,group_id:2,user_id:"u3",name:"Plan d'eau des Iles",note:null,lat:44.215,lon:0.62,created_at:iso(300*H),facing:null},{id:7,group_id:2,user_id:"u2",name:"Bras mort",note:null,lat:44.18,lon:0.57,created_at:iso(200*H),facing:90}],
  carp_sessions:[{id:9,group_id:2,user_id:"u4",spot_id:5,rods:2,bait:"Scopex 20 mm",groundbait:"2 kg bouillettes",started_at:iso(2*H),ended_at:null,created_at:iso(2*H),bait_every_min:null,next_bait_at:null},{id:1,group_id:2,user_id:"u4",spot_id:5,rods:3,bait:"Scopex 20 mm",groundbait:"3 kg de bouillettes",started_at:iso(60*H),ended_at:iso(36*H),created_at:iso(60*H)},
    {id:2,group_id:2,user_id:"u2",spot_id:5,rods:2,bait:"Maïs",groundbait:null,started_at:iso(130*H),ended_at:iso(118*H),created_at:iso(130*H)}],
+ spot_bookings:[{id:1,group_id:2,spot_id:5,user_id:"u4",starts_at:iso(-20*H),ends_at:iso(-44*H),rods:3,note:"Session carpe, bord gauche",created_at:iso(5*H)}],
  carp_events:[{id:1,session_id:1,kind:"depart",at:iso(55*H),rod:2},{id:2,session_id:1,kind:"prise",at:iso(54.8*H),rod:2,weight_kg:14.2},{id:3,session_id:1,kind:"depart",at:iso(42*H),rod:1},{id:4,session_id:1,kind:"touche",at:iso(41*H),rod:3},{id:5,session_id:2,kind:"prise",at:iso(126*H),rod:1,weight_kg:9.6},{id:6,session_id:2,kind:"depart",at:iso(122*H),rod:2}],
  gear_items:[{id:1,user_id:"u3",kit:"Carpe",name:"Bouillettes",checked:true,created_at:iso(9*H)},{id:2,user_id:"u3",kit:"Carpe",name:"Épuisette",checked:false,created_at:iso(8*H)}],
  alert_prefs:[], reports:[{id:1,group_id:2,user_id:"u2",kind:"comment",target_id:3,excerpt:"Je te montre samedi 😉",author_id:"u4",reason:"Spot privé dévoilé sans accord",status:"open",created_at:iso(2*H)}],
@@ -83,6 +84,7 @@ function q(table){
   function run(){
     const rows=T[table]||[];
     if(op==="insert"&&/offline_ins/.test(location.search)&&!["notifications","push_subs"].includes(table)) return {data:null,error:{message:"TypeError: Failed to fetch"}};
+    if(op==="insert"&&Array.isArray(payload)){ const rs=payload.map(x=>({id:nextId++,created_at:new Date().toISOString(),...x})); rows.unshift(...rs); if(!T[table]) T[table]=rows; return {data:rs,error:null}; }
     if(op==="insert"){ const r={id:nextId++,token:'11111111-2222-3333-4444-555555555555',created_at:new Date().toISOString(),started_at:new Date().toISOString(),at:new Date().toISOString(),...payload};
       if(upsert){ const i=rows.findIndex(x=>x.poll_id===r.poll_id&&x.outing_id===r.outing_id&&x.user_id===r.user_id); if(i>=0){ rows[i]={...rows[i],...payload}; return {data:rows[i],error:null}; } }
       if(table==="posts"){ const g=T.groups.find(g=>g.id===r.group_id); const role=T.memberships.find(m=>m.group_id===r.group_id&&m.user_id===ME.id)?.role; r.status=g.post_approval&&role==="member"?"pending":"published"; }
@@ -95,6 +97,7 @@ function q(table){
     if(lim) out=out.slice(0,lim);
     if(head) return {count:out.length,error:null};
     out=out.map(withProfiles);
+    if(table==="spot_bookings") out=out.map(r=>({...r,spots:T.spots.find(x=>x.id===r.spot_id)||null}));
     if(table==="carp_sessions") out=out.map(r=>({...r,carp_events:T.carp_events.filter(e=>e.session_id===r.id),spots:T.spots.find(x=>x.id===r.spot_id)||null}));
     if(table==="profiles") out=(f.length?Object.values(P).filter(p=>f.every(fn=>fn(p))):[ME]);
     if(single||maybe) return {data:out[0]||null,error:null};

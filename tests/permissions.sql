@@ -44,6 +44,11 @@ insert into public.sessions (group_id, user_id, species, caught, rating, track_i
 select 900002, '00000000-0000-4000-8000-0000000000b2', 'Brochet', true, 3, id from t;
 insert into public.subscriptions (purchase_token, user_id, product_id, status, expires_at) values
   ('test-token-b', '00000000-0000-4000-8000-0000000000b2', 'rivio_premium', 'active', now() + interval '30 days');
+insert into public.spots (id, group_id, user_id, name, lat, lon) overriding system value values
+  (900011, 900001, '00000000-0000-4000-8000-0000000000a1', 'Poste test A', 44.2, 0.6),
+  (900012, 900002, '00000000-0000-4000-8000-0000000000b2', 'Poste test B', 44.3, 0.7);
+insert into public.spot_bookings (group_id, spot_id, user_id, starts_at, ends_at) values
+  (900002, 900012, '00000000-0000-4000-8000-0000000000b2', now() + interval '1 day', now() + interval '2 days');
 set local session_replication_role = origin;
 
 -- ---------- 1. Droits déclarés (vus par postgres) ----------
@@ -120,6 +125,27 @@ begin
   end if;
   select count(*) into n from public.heatmap_track_starts(900002);
   if n <> 0 then raise exception 'ÉCHEC le membre A voit les points de départ des traces du groupe B'; end if;
+
+  -- 0030 : planning des postes, cloisonné par groupe
+  select count(*) into n from public.spot_bookings where group_id = 900002;
+  if n <> 0 then raise exception 'ÉCHEC le membre A voit les postes réservés du groupe B'; end if;
+  insert into public.spot_bookings (group_id, spot_id, user_id, starts_at, ends_at)
+  values (900001, 900011, '00000000-0000-4000-8000-0000000000a1', now() + interval '1 day', now() + interval '30 hours');
+  begin
+    insert into public.spot_bookings (group_id, spot_id, user_id, starts_at, ends_at)
+    values (900002, 900012, '00000000-0000-4000-8000-0000000000a1', now() + interval '1 day', now() + interval '30 hours');
+    raise exception 'ÉCHEC le membre A peut réserver un poste du groupe B';
+  exception when insufficient_privilege or check_violation then null;
+  end;
+  begin
+    insert into public.spot_bookings (group_id, spot_id, user_id, starts_at, ends_at)
+    values (900001, 900012, '00000000-0000-4000-8000-0000000000a1', now() + interval '1 day', now() + interval '30 hours');
+    raise exception 'ÉCHEC le membre A peut réserver dans son groupe un poste du groupe B';
+  exception when insufficient_privilege or check_violation then null;
+  end;
+  delete from public.spot_bookings where group_id = 900002;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'ÉCHEC le membre A peut annuler une réservation du groupe B'; end if;
 
   update public.profiles set bio = 'piraté' where id = '00000000-0000-4000-8000-0000000000b2';
   get diagnostics n = row_count;

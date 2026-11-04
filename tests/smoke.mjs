@@ -119,6 +119,28 @@ await test("lien d'invitation sans compte", async (p) => {
   await must(p, "#invite-note", "le message d'invitation");
 });
 
+await test("0.77 : session en direct, planning des postes, étangs", async (p) => {
+  await go(p, "?as=bob", "#conseils", 2800);
+  await must(p, "#carp-live-conseils .carp-live", "la carte « En direct » de la session carpe de marco_47");
+  await p.evaluate(() => { window.CDJ.hooks.spotSheet(window.CDJ.spots.find((s) => s.id === 5)); }); await p.waitForTimeout(800);
+  await must(p, "#spot-sheet .postes .postes-list li", "la réservation de poste sur la fiche");
+  await p.evaluate(() => { document.querySelector("#spot-sheet .icon-btn")?.click(); location.hash = "#groupe"; }); await p.waitForTimeout(1500);
+  await must(p, ".g-postes .postes-list li", "les postes réservés du groupe");
+  await p.evaluate(() => { location.hash = "#carte"; }); await p.waitForTimeout(1200);
+  const has = await p.evaluate(() => [...document.querySelectorAll("#map-layers button")].some((b) => /Étangs/.test(b.textContent)));
+  if (!has) throw new Error("le bouton Étangs introuvable");
+});
+
+await test("0.77 : import d'un fichier de sondeur", async (p) => {
+  await go(p, "?as=bob", "#carte", 2600);
+  await p.evaluate(() => document.querySelector('#carte-sub [data-s="fond"]')?.click()); await p.waitForTimeout(900);
+  const rows = ["latitude;longitude;depth (m)"]; for (let i = 0; i < 400; i++) rows.push((44.2 + (i % 20) * 0.0002).toFixed(6) + ";" + (0.6 + Math.floor(i / 20) * 0.0002).toFixed(6) + ";" + (1 + (i % 20) * 0.3).toFixed(1).replace(".", ","));
+  await p.setInputFiles('#fond-panel input[type=file]', { name: "deeper.csv", mimeType: "text/csv", buffer: Buffer.from(rows.join("\n")) });
+  await p.waitForTimeout(600); await must(p, ".sonar-import", "l'aperçu de l'import");
+  await p.click(".sonar-import .btn.primary"); await p.waitForTimeout(1200);
+  await must(p, "#fond-panel ul.imports li", "l'import dans « Mes imports »");
+});
+
 await browser.close(); server.close();
 console.log("\n" + passed + " test(s) réussi(s), " + failures.length + " échec(s)");
 process.exit(failures.length ? 1 : 0);
