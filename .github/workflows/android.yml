@@ -19,11 +19,11 @@ on:
       host:
         description: "Adresse du site (sans https), ex. rivio.fr"
         required: true
-        default: "robertmeynsbrughen-hue.github.io"
+        default: "rivioapp.fr"
       base:
         description: "Chemin de l'appli sur ce site, ex. / ou /Appli-peche/"
         required: true
-        default: "/Appli-peche/"
+        default: "/"
   pull_request:
     paths:
       - "android/**"
@@ -66,8 +66,8 @@ jobs:
 
       - name: Configuration Android de Rivio
         run: |
-          HOST="${{ github.event.inputs.host || 'robertmeynsbrughen-hue.github.io' }}"
-          BASE="${{ github.event.inputs.base || '/Appli-peche/' }}"
+          HOST="${{ github.event.inputs.host || 'rivioapp.fr' }}"
+          BASE="${{ github.event.inputs.base || '/' }}"
           node android/twa-manifest.mjs "$HOST" "$BASE"
           mkdir -p android/build
           cp android/twa-manifest.json android/build/
