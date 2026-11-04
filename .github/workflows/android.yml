@@ -66,8 +66,8 @@ jobs:
 
       - name: Configuration Android de Rivio
         run: |
-          HOST="${{ github.event.inputs.host || 'rivioapp.fr' }}"
-          BASE="${{ github.event.inputs.base || '/' }}"
+          HOST="${{ github.event.inputs.host || 'robertmeynsbrughen-hue.github.io' }}"
+          BASE="${{ github.event.inputs.base || '/Appli-peche/' }}"
           node android/twa-manifest.mjs "$HOST" "$BASE"
           mkdir -p android/build
           cp android/twa-manifest.json android/build/
