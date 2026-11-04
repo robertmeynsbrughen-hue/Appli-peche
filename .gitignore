@@ -2,3 +2,10 @@
 query_*.json
 migrations/_0004_body.json
 node_modules/
+# Android (Bubblewrap) : projet généré par le workflow, clés jamais dans le dépôt
+android/build/
+android/twa-manifest.json
+*.keystore
+*.jks
+*.aab
+*.apk
