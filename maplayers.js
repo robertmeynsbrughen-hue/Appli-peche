@@ -258,7 +258,7 @@ let mode="carte", depth={layer:null,overlay:null,pts:[],adding:null};
 function depthColor(d,max){ const t=Math.min(1,d/Math.max(3,max)); const a=[178,235,242], b=[8,48,107]; return "rgb("+a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(",")+")"; }
 async function loadDepth(){
   if(!A.me) return;
-  let q=A.sb.from("depth_points").select("id,group_id,user_id,lat,lon,depth_m,bottom,note,created_at,profiles(username)").limit(5000);
+  let q=A.sb.from("depth_points").select("id,group_id,user_id,lat,lon,depth_m,bottom,note,created_at,import_name,profiles(username)").order("created_at",{ascending:false}).limit(12000);
   if(typeof A.cur==="number") q=q.eq("group_id",A.cur);
   const {data,error}=await q;
   if(error){ depth.pts=[]; return; }
@@ -281,6 +281,7 @@ function drawDepth(){
     let s=Math.min(...pts.map(p=>p.lat))-pad/my, n=Math.max(...pts.map(p=>p.lat))+pad/my, w=Math.min(...pts.map(p=>p.lon))-pad/mx, e=Math.max(...pts.map(p=>p.lon))+pad/mx;
     const W=Math.min(240,Math.max(40,Math.round((e-w)*mx/8))), H=Math.min(240,Math.max(40,Math.round((n-s)*my/8)));
     const c=document.createElement("canvas"); c.width=W; c.height=H; const g=c.getContext("2d"); const img=g.createImageData(W,H);
+    const grid=new Float32Array(W*H).fill(NaN);
     const P=pts.map(p=>[(Number(p.lon)-w)*mx,(n-Number(p.lat))*my,Number(p.depth_m)]);
     const sx=(e-w)*mx/W, sy=(n-s)*my/H;
     // Index spatial : sans lui, chaque pixel parcourait les 5000 relevés
@@ -308,13 +309,21 @@ function drawDepth(){
       }
       const k=(j*W+i)*4;
       if(near>120*120||!den){ img.data[k+3]=0; continue; }
+      grid[j*W+i]=num/den;
       const col=depthColor(num/den,max).match(/\d+/g).map(Number);
       img.data[k]=col[0]; img.data[k+1]=col[1]; img.data[k+2]=col[2]; img.data[k+3]=Math.round(170*(1-Math.sqrt(near)/120)+40);
     }
     g.putImageData(img,0,0);
     depth.overlay=L.imageOverlay(c.toDataURL(),[[s,w],[n,e]],{opacity:.75,interactive:false}).addTo(map);
+    // lignes de profondeur (isobathes) tracées sur la grille interpolée
+    try{ isobaths(grid,W,H,max,(x,y)=>[n-y*(n-s)/H,w+x*(e-w)/W]).forEach(l=>l.addTo(depth.layer)); }catch(_){}
   }
-  depth.pts.forEach(p=>{
+  const imported=depth.pts.filter(p=>p.import_name);
+  if(imported.length){
+    const r=L.canvas?L.canvas({padding:.3}):undefined;
+    imported.forEach(p=>{ if(!p.depth_m) return; L.circleMarker([p.lat,p.lon],{renderer:r,radius:2,stroke:false,fillOpacity:.85,fillColor:depthColor(Number(p.depth_m),max),interactive:false}).addTo(depth.layer); });
+  }
+  depth.pts.filter(p=>!p.import_name).forEach(p=>{
     const col=p.bottom&&BCOL[p.bottom]?BCOL[p.bottom]:"#fff";
     const label=p.depth_m?String(Number(p.depth_m)).replace(".",","):"·";
     const m=L.marker([p.lat,p.lon],{icon:L.divIcon({className:"",html:'<div class="depth-pin" style="--b:'+col+'">'+label+'</div>',iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-12]})});
@@ -325,6 +334,94 @@ function drawDepth(){
     m.bindPopup(pop); m.addTo(depth.layer);
   });
 }
+
+/* ---------- Isobathes : « marching squares » sur la grille interpolée ---------- */
+function isobaths(grid,W,H,max,toLL){
+  const step=max<=4?.5:max<=12?1:max<=30?2:5, out=[];
+  for(let lev=step;lev<max;lev+=step){
+    const segs=[];
+    for(let j=0;j<H-1;j++) for(let i=0;i<W-1;i++){
+      const a=grid[j*W+i], b=grid[j*W+i+1], c=grid[(j+1)*W+i+1], d=grid[(j+1)*W+i];
+      if(isNaN(a)||isNaN(b)||isNaN(c)||isNaN(d)) continue;
+      const k=(a>=lev?8:0)|(b>=lev?4:0)|(c>=lev?2:0)|(d>=lev?1:0); if(k===0||k===15) continue;
+      const t=(p,q)=>(lev-p)/((q-p)||1e-9);
+      const T=[i+t(a,b),j], R=[i+1,j+t(b,c)], B=[i+t(d,c),j+1], Lf=[i,j+t(a,d)];
+      const C={1:[[Lf,B]],2:[[B,R]],3:[[Lf,R]],4:[[T,R]],5:[[Lf,T],[B,R]],6:[[T,B]],7:[[Lf,T]],8:[[Lf,T]],9:[[T,B]],10:[[T,R],[Lf,B]],11:[[T,R]],12:[[Lf,R]],13:[[B,R]],14:[[Lf,B]]}[k];
+      C.forEach(([p,q])=>segs.push([toLL(p[0]+.5,p[1]+.5),toLL(q[0]+.5,q[1]+.5)]));
+    }
+    if(segs.length){ const major=Math.abs(lev/(step*2)-Math.round(lev/(step*2)))<1e-6; out.push(L.polyline(segs,{color:"#08306b",weight:major?1.6:.8,opacity:major?.75:.45,interactive:false})); }
+  }
+  return out;
+}
+
+/* ---------- Import d'un fichier de sondeur (Deeper, Garmin, Lowrance…) ---------- */
+const num=v=>{ if(v==null) return NaN; const x=String(v).trim().replace(/\s/g,"").replace(",","."); return x===""?NaN:Number(x); };
+function parseGpx(text){
+  const doc=new DOMParser().parseFromString(text,"application/xml"); const out=[];
+  doc.querySelectorAll("wpt,trkpt,rtept").forEach(n=>{
+    const lat=num(n.getAttribute("lat")), lon=num(n.getAttribute("lon")); let d=NaN;
+    for(const el of n.getElementsByTagName("*")){ if(/^(.*:)?depth$/i.test(el.nodeName)){ d=num(el.textContent); break; } }
+    if(isNaN(d)){ const ele=n.querySelector("ele"); const v=ele?num(ele.textContent):NaN; if(v<0) d=-v; }
+    if(isNaN(d)){ const nm=n.querySelector("name")?.textContent||""; const m=nm.match(/(\d+(?:[.,]\d+)?)\s*m\b/i); if(m) d=num(m[1]); }
+    if(!isNaN(lat)&&!isNaN(lon)&&d>0) out.push([lat,lon,d]);
+  });
+  return out;
+}
+function parseCsv(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim()); if(lines.length<2) return [];
+  const sep=[";","\t",","].find(c=>lines[0].split(c).length>=3)||",";
+  const head=lines[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,"").toLowerCase());
+  const find=re=>head.findIndex(h=>re.test(h));
+  const iLat=find(/^(lat|latitude)\b/), iLon=find(/^(lon|lng|long|longitude)\b/), iD=find(/(depth|profondeur|prof)\b/);
+  if(iLat<0||iLon<0||iD<0) return null;
+  const feet=/\b(ft|feet|pieds)\b/.test(head[iD]);
+  const out=[];
+  for(const l of lines.slice(1)){ const c=l.split(sep).map(x=>x.trim().replace(/^"|"$/g,"")); const lat=num(c[iLat]), lon=num(c[iLon]); let d=Math.abs(num(c[iD])); if(feet) d*=0.3048;
+    if(!isNaN(lat)&&!isNaN(lon)&&d>0&&Math.abs(lat)<=90&&Math.abs(lon)<=180) out.push([lat,lon,d]); }
+  return out;
+}
+// un relevé moyen par case de « cell » mètres : garde la forme du fond sans des milliers de points
+function thin(pts,cell){
+  if(!pts.length) return pts;
+  const lat0=pts.reduce((a,p)=>a+p[0],0)/pts.length, mx=111320*Math.cos(lat0*Math.PI/180), my=110540;
+  const m=new Map();
+  for(const [la,lo,d] of pts){ const k=Math.round(la*my/cell)+","+Math.round(lo*mx/cell); const x=m.get(k); if(x){ x[0]+=la; x[1]+=lo; x[2]+=d; x[3]++; } else m.set(k,[la,lo,d,1]); }
+  return [...m.values()].map(([a,b,d,n])=>[a/n,b/n,Math.round(d/n*10)/10]);
+}
+async function importSonar(file){
+  if(typeof A.cur!=="number") return toast("Choisis un groupe précis pour importer des relevés");
+  if(file.size>15e6) return toast("Fichier trop gros (15 Mo maximum)");
+  const text=await file.text();
+  let pts=/\.gpx$/i.test(file.name)||/<gpx[\s>]/i.test(text.slice(0,500))?parseGpx(text):parseCsv(text);
+  if(pts===null) return toast("Colonnes introuvables : il faut une latitude, une longitude et une profondeur");
+  if(!pts.length) return toast("Aucun point avec une profondeur dans ce fichier");
+  let cell=3, kept=thin(pts,cell); while(kept.length>2500&&cell<40){ cell*=1.5; kept=thin(pts,cell); }
+  const ds=kept.map(p=>p[2]), name=file.name.replace(/\.[^.]+$/,"").slice(0,60)+" · "+new Date().toLocaleDateString("fr-FR");
+  const sh=el("div","sonar-import");
+  sh.append(el("b",null,"📡 "+file.name),
+    el("p","note",pts.length.toLocaleString("fr-FR")+" points lus, de "+String(Math.min(...ds)).replace(".",",")+" à "+String(Math.max(...ds)).replace(".",",")+" m."),
+    el("p","note",kept.length.toLocaleString("fr-FR")+" relevés gardés (un par case de "+Math.round(cell)+" m) pour une carte légère."));
+  const go=btn("Importer dans le groupe","btn primary small",async()=>{
+    go.disabled=true; let n=0;
+    try{
+      for(let i=0;i<kept.length;i+=500){
+        const rows=kept.slice(i,i+500).map(([la,lo,d])=>({group_id:A.cur,user_id:A.me.id,lat:+la.toFixed(6),lon:+lo.toFixed(6),depth_m:d,import_name:name}));
+        const {error}=await A.sb.from("depth_points").insert(rows); if(error) throw error; n+=rows.length; go.textContent="Import… "+Math.round(100*n/kept.length)+" %";
+      }
+      toast("📡 "+n+" relevés importés"); sh.remove(); await loadDepth(); drawDepth(); fondPanel();
+      const pb=kept.map(p=>[p[0],p[1]]); if(pb.length) map.fitBounds(L.latLngBounds(pb).pad(.1));
+    }catch(e){ go.disabled=false; go.textContent="Importer dans le groupe"; toast(frError(e)+(n?" ("+n+" relevés déjà importés)":"")); }
+  });
+  sh.append(go,btn("Annuler","btn small",()=>sh.remove()));
+  $("#fond-panel")?.prepend(sh);
+}
+async function deleteImport(name){
+  if(!confirm("Supprimer tous les relevés de l'import « "+name+" » ?")) return;
+  const {error}=await A.sb.from("depth_points").delete().eq("group_id",A.cur).eq("import_name",name).eq("user_id",A.me.id);
+  if(error) return toast(frError(error));
+  toast("Import supprimé"); await loadDepth(); drawDepth(); fondPanel();
+}
+
 function fondPanel(){
   const box=$("#fond-panel"); if(!box) return;
   box.hidden=mode!=="fond"||!A.me;
@@ -336,6 +433,14 @@ function fondPanel(){
   box.append(el("p","note",depth.pts.length?depth.pts.length+" relevé"+(depth.pts.length>1?"s":"")+" (membres et fiches de poste). Touche la carte pour ajouter une profondeur ou un type de fond.":"Aucun relevé pour l'instant. Touche la carte à l'endroit sondé pour ajouter une profondeur (sondeur, plomb sondeur) et/ou la nature du fond."));
   box.append(el("p","note","Il n'existe pas de carte publique gratuite des profondeurs pour les lacs et rivières : celle-ci se construit avec les relevés du groupe. Plus il y en a, plus elle est précise."));
   if(typeof A.cur!=="number") box.append(el("p","warn","Choisis un groupe précis pour ajouter des relevés."));
+  else{
+    const inp=el("input"); inp.type="file"; inp.accept=".gpx,.csv,.tsv,.txt"; inp.hidden=true;
+    inp.addEventListener("change",()=>{ const f=inp.files&&inp.files[0]; inp.value=""; if(f) importSonar(f).catch(e=>toast(frError(e))); });
+    box.append(inp,btn("📡 Importer un fichier de sondeur","btn small",()=>inp.click()),
+      el("p","note","Deeper (export CSV de Lakebook), Garmin ou Lowrance (GPX), ou tout tableau avec latitude, longitude et profondeur. Les lignes de profondeur se tracent toutes seules."));
+    const mine=new Map(); depth.pts.filter(p=>p.import_name&&p.user_id===A.me.id).forEach(p=>mine.set(p.import_name,(mine.get(p.import_name)||0)+1));
+    if(mine.size){ const ul=el("ul","imports"); mine.forEach((n,k)=>{ const li=el("li"); li.append(el("span",null,"📡 "+k+" · "+n+" relevés"),btn("Supprimer","linkbtn danger",()=>deleteImport(k))); ul.append(li); }); box.append(el("h4","g-sub","Mes imports"),ul); }
+  }
 }
 function addDepthAt(ll){
   if(typeof A.cur!=="number"){ toast("Choisis un groupe précis pour ajouter un relevé"); return; }
