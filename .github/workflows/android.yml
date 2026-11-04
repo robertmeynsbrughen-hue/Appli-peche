@@ -89,7 +89,11 @@ jobs:
           PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           if [ -z "$KS" ]; then echo "::error::Secret ANDROID_KEYSTORE_BASE64 absent : voir android/LISEZMOI.md"; exit 1; fi
-          printf '%s' "$KS" | tr -d ' \r\n\t' | sed 's/^\xEF\xBB\xBF//' | base64 -d > rivio-upload.keystore
+          CLEAN=$(printf '%s' "$KS" | tr -d ' \r\n\t' | sed 's/^\xEF\xBB\xBF//')
+          BAD=$(printf '%s' "$CLEAN" | tr -d 'A-Za-z0-9+/=' | wc -c)
+          echo "Secret ANDROID_KEYSTORE_BASE64 : ${#CLEAN} caractères, $BAD hors base64"
+          if [ "$BAD" -ne 0 ] || [ "${#CLEAN}" -lt 1000 ]; then echo "::error::ANDROID_KEYSTORE_BASE64 ne contient pas le contenu de cle-pour-github.txt"; exit 1; fi
+          printf '%s' "$CLEAN" | base64 -d > rivio-upload.keystore
           echo "Fichier de clé : $(stat -c %s rivio-upload.keystore) octets ($(file -b rivio-upload.keystore | cut -c1-40))"
           if [ -z "$PW" ]; then echo "::error::Secret ANDROID_KEYSTORE_PASSWORD absent ou vide"; exit 1; fi
           echo "Mot de passe : ${#PW} caractères"
