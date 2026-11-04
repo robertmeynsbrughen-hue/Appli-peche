@@ -19,11 +19,11 @@ on:
       host:
         description: "Adresse du site (sans https), ex. rivio.fr"
         required: true
-        default: "robertmeynsbrughen-hue.github.io"
+        default: "rivioapp.fr"
       base:
         description: "Chemin de l'appli sur ce site, ex. / ou /Appli-peche/"
         required: true
-        default: "/Appli-peche/"
+        default: "/"
   pull_request:
     paths:
       - "android/**"
