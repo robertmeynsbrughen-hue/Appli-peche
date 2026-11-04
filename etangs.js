@@ -51,6 +51,19 @@ function card(e){
   const tg=el("div","etang-tags"); e.tags.forEach(t=>tg.append(el("span","chip",t))); d.append(tg);
   d.append(el("p",null,e.infos), el("div","note","🎫 "+e.acces));
   if(e.approx) d.append(el("div","note","📍 Position approximative (commune) : vérifie l'accès exact sur la fiche."));
+  const prep=el("div","etang-prep");
+  prep.append(el("b",null,"🧭 Préparer ce lieu"),el("span","note","Profondeurs : Rivio ne référence pas de bathymétrie vérifiée pour cette fiche. Règles locales : résumé du département seulement, parcours à confirmer."));
+  d.append(prep);
+  const prepare=el("button","btn primary small","🌤️ Préparer ma sortie ici"); prepare.type="button";
+  prepare.addEventListener("click",()=>{
+    if(window.CDJ_REGL?.[e.dep]){
+      try{ localStorage.setItem("cdj-regl-dep",e.dep); }catch(_){}
+      const sel=document.querySelector("#regl .regl-dep select"); if(sel){ sel.value=e.dep; sel.dispatchEvent(new Event("change")); }
+    }
+    map?.closePopup(); location.hash="#conseils";
+    window.CDJ_ADVICE?.loadAt(e.lat,e.lon,e.nom+(e.approx?" · position approximative":"")).catch(()=>toast("Conditions météo indisponibles pour ce lieu"));
+  });
+  d.append(prepare);
   const a=el("a",null,"Voir la fiche ↗"); a.href=e.url; a.target="_blank"; a.rel="noopener";
   d.append(a, el("div","note","Source : "+e.src+" · relevé le "+new Date(VU).toLocaleDateString("fr-FR")+". Vérifie les règles et les arrêtés avant de partir."));
   return d;
