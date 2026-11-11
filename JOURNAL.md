@@ -8,6 +8,17 @@ Convention du projet : 0.xx pour une version majeure, 0.xx.x pour une version
 mineure ou corrective. Les dates sont celles des changements dans le dépôt ;
 elles ne garantissent pas à elles seules la date de propagation du cache web.
 
+0.79 · 11 novembre 2026 · majeure
+--------------------------------
+- Aujourd'hui : un questionnaire ouvre l'écran. Le pêcheur choisit son coin
+  (GPS ou spot du groupe) et le type d'eau, puis l'espèce qu'il vise parmi
+  celles classées pour ce coin. Réponse : score, meilleur créneau, frise 24 h,
+  avis sur la journée, espèce plus facile proposée si besoin, et accès direct
+  aux conseils de l'espèce. Les réponses sont gardées sur le téléphone.
+- Pression réelle : valeur en hPa (niveau de la mer, comme les bulletins
+  météo), tendance sur 3 h, courbe des 24 prochaines heures, écart prévu,
+  minimum et maximum, et ce que la prévision annonce pour la pêche.
+
 0.78 · 4 novembre 2026 · majeure
 --------------------------------
 - Préparation d'un lieu : la fiche d'un spot rassemble météo locale, profondeur

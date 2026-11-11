@@ -320,7 +320,8 @@ function render(){
   try{
     const hr=k=>new Date(start.getTime()+k*36e5).getHours()+"h";
     window.CDJ_TODAY={live:mode==="live",locationFallback:mode!=="live",place:meta.place,when:meta.when,water:now.water,water_measured:tm!=null,air:now.air,sky,wind:now.wind,trend,
-      h0:start.getHours(),moon:meta.moon||null,pressure:meta.pressure||null,clarity:(()=>{ try{ return CLARITY_TXT[getClarity(now,meta)]; }catch(_){ return null; } })(),
+      h0:start.getHours(),moon:meta.moon||null,pressure:meta.pressure||null,pressMsl:!!meta.pressMsl,press24:meta.press24||null,dp:now.dp,waterType,
+      all:results.map(r=>({id:r.sp.id,name:r.sp.name,pct:Math.round(r.peak*100),from:r.a>=0?hr(r.a):null,to:r.a>=0?hr(r.b+1):null,closed:!!(r.sp.closed&&r.sp.closed(m)),fav:isFav(r),s:r.series.map(v=>+v.toFixed(2)),b:r.best.map(Boolean)})),clarity:(()=>{ try{ return CLARITY_TXT[getClarity(now,meta)]; }catch(_){ return null; } })(),
       top:results.filter(r=>!(r.sp.closed&&r.sp.closed(m))).slice(0,3).map(r=>({name:r.sp.name,pct:Math.round(r.peak*100),from:r.a>=0?hr(r.a):null,to:r.a>=0?hr(r.b+1):null,s:r.series.map(v=>+v.toFixed(2)),b:r.best.map(Boolean)})),
       fav:results.filter(isFav).map(r=>({name:r.sp.name,pct:Math.round(r.peak*100),from:r.a>=0?hr(r.a):null,to:r.a>=0?hr(r.b+1):null,closed:!!(r.sp.closed&&r.sp.closed(m)),s:r.series.map(v=>+v.toFixed(2)),b:r.best.map(Boolean)}))};
     window.dispatchEvent(new Event("cdj-today"));
@@ -328,7 +329,7 @@ function render(){
   const list=$("#list"); list.innerHTML="";
   ordered.forEach((r,i)=>{
     const fav=isFav(r), top=r===bestOther||(!favs.length&&i===0);
-    const card=mk("article","sp"+(top?" top":"")+(fav?" fav":""));
+    const card=mk("article","sp"+(top?" top":"")+(fav?" fav":"")); card.dataset.sp=r.sp.id;
     const pct=Math.round(r.peak*100);
     const closed=r.sp.closed&&r.sp.closed(m), maybe=!closed&&r.sp.maybe&&r.sp.maybe(m);
     // en-tête
@@ -541,7 +542,7 @@ function note(t){const n=$("#geo-note");n.textContent=t;n.hidden=!t;}
 
 async function fetchWeather(lat,lon){
   const url="https://api.open-meteo.com/v1/forecast?latitude="+lat.toFixed(3)+"&longitude="+lon.toFixed(3)+
-    "&hourly=temperature_2m,surface_pressure,cloud_cover,wind_speed_10m,precipitation&daily=sunrise,sunset&past_days=5&forecast_days=2&timezone=auto";
+    "&hourly=temperature_2m,surface_pressure,pressure_msl,cloud_cover,wind_speed_10m,precipitation&daily=sunrise,sunset&past_days=5&forecast_days=2&timezone=auto";
   try{
     const res=await fetch(url);
     if(!res.ok) throw new Error("meteo");
@@ -705,10 +706,14 @@ async function loadLive(lat,lon,name){
   if(flow&&hub?.hydro?.q?.r24){ const r=hub.hydro.q.r24; flow.trend=r>=1.25?"hausse":r<=0.8?"baisse":flow.trend; if(r>=2&&flow.status!=="crue") flow.status="haute"; }
   const today=sun[H.time[i0].slice(0,10)]||Object.values(sun)[0];
   const now=new Date();
+  // pression affichée : ramenée au niveau de la mer (comme les bulletins météo),
+  // sinon pression au sol pour un ancien cache sans pressure_msl
+  const PR=Array.isArray(H.pressure_msl)&&H.pressure_msl[i0]!=null?H.pressure_msl:H.surface_pressure;
+  const press24=[]; for(let k=0;k<=24;k++){ const v=PR[i0+k]; if(v==null||!H.time[i0+k]) break; press24.push({h:Number(H.time[i0+k].slice(11,13)),v:+v.toFixed(1)}); }
   current={hours,meta:{place:name?"📍 "+name:lat.toFixed(3)+", "+lon.toFixed(3),lat,lon,
     cached:ts||null,
     when:now.getDate()+" "+MONTHS[now.getMonth()]+" "+String(now.getHours()).padStart(2,"0")+"h",
-    rise:today.rise,set:today.set,moon:moon(now),month:now.getMonth()+1,pressure:H.surface_pressure[i0],rain48,flow,hub}};
+    rise:today.rise,set:today.set,moon:moon(now),month:now.getMonth()+1,pressure:PR[i0],pressMsl:PR===H.pressure_msl,press24,rain48,flow,hub}};
   mode="live";
   // reporter dans le formulaire pour ajuster ensuite
   const h0=hours[0];
